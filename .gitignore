@@ -1,0 +1,16 @@
+# Build outputs
+.next/
+out/
+build/
+
+# Dependencies
+node_modules/
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Tooling and local agent state
+.zcode/
+.claude/.cc-writes/

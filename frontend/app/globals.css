@@ -1,0 +1,218 @@
+@import 'tailwindcss';
+
+/* ============================================
+   DevLens 设计系统 - Dark Mode (OLED)
+   基于 ui-ux-pro-max skill 推荐：纯黑系背景 + 蓝色主色 + 琥珀强调
+   OKLCH 色彩空间，暗色感知更准，WCAG AAA 对比度
+   ============================================ */
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* 字体：Fira Code（标题/数值）+ Fira Sans（正文），dashboard 调性 */
+  /* 字体：Fira Code（标题/数值）+ Fira Sans（正文），dashboard 调性 */
+  --font-sans: var(--font-fira-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-fira-code), ui-monospace, monospace;
+
+  /* 圆角阶梯 */
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+
+  /* 颜色映射到 Tailwind 语义类 */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* ============================================
+   浅色主题（默认）
+   浅灰白背景 + 深色文字，蓝色主色保持一致
+   ============================================ */
+:root {
+  color-scheme: light;
+
+  /* 背景：浅灰白系，分层 */
+  --background: oklch(0.98 0.003 260);
+  --foreground: oklch(0.18 0.01 265);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.01 265);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.01 265);
+
+  /* 主色：蓝色系（与暗色一致，浅色下略微调亮饱和度保证可见性） */
+  --primary: oklch(0.50 0.20 265);
+  --primary-foreground: oklch(0.99 0.01 265);
+  --secondary: oklch(0.60 0.17 250);
+  --secondary-foreground: oklch(0.99 0.01 265);
+
+  /* 强调色：琥珀 */
+  --accent: oklch(0.68 0.17 65);
+  --accent-foreground: oklch(0.20 0.02 65);
+
+  /* 语义色（浅色下略加深保证对比度） */
+  --success: oklch(0.55 0.16 155);
+  --warning: oklch(0.70 0.16 75);
+  --destructive: oklch(0.55 0.22 25);
+
+  /* 中性层 */
+  --muted: oklch(0.96 0.005 260);
+  --muted-foreground: oklch(0.45 0.012 260);
+  --border: oklch(0.20 0.005 260 / 12%);
+  --input: oklch(0.20 0.005 260 / 16%);
+  --ring: oklch(0.50 0.20 265);
+
+  /* 图表 5 色（浅色下加深，保证在白底上可读） */
+  --chart-1: oklch(0.52 0.20 265);
+  --chart-2: oklch(0.58 0.14 195);
+  --chart-3: oklch(0.50 0.22 295);
+  --chart-4: oklch(0.55 0.17 155);
+  --chart-5: oklch(0.55 0.22 25);
+
+  /* 侧栏（浅色下用更白的底，与主区微弱区分） */
+  --sidebar: oklch(0.97 0.004 260);
+  --sidebar-foreground: oklch(0.20 0.01 265);
+  --sidebar-primary: oklch(0.50 0.20 265);
+  --sidebar-primary-foreground: oklch(0.99 0.01 265);
+  --sidebar-accent: oklch(0.94 0.008 260);
+  --sidebar-accent-foreground: oklch(0.18 0.01 265);
+  --sidebar-border: oklch(0.20 0.005 260 / 10%);
+  --sidebar-ring: oklch(0.50 0.20 265);
+
+  --radius: 0.625rem;
+}
+
+/* ============================================
+   暗色主题（OLED，可选切换）
+   纯黑系背景，WCAG AAA 对比度
+   ============================================ */
+.dark {
+  color-scheme: dark;
+
+  /* 背景：OLED 纯黑系，分层深灰 */
+  --background: oklch(0.10 0.005 260);
+  --foreground: oklch(0.97 0.003 260);
+  --card: oklch(0.14 0.006 260);
+  --card-foreground: oklch(0.97 0.003 260);
+  --popover: oklch(0.15 0.006 260);
+  --popover-foreground: oklch(0.97 0.003 260);
+
+  /* 主色：蓝色系 */
+  --primary: oklch(0.52 0.18 265);
+  --primary-foreground: oklch(0.98 0.01 265);
+  --secondary: oklch(0.62 0.16 250);
+  --secondary-foreground: oklch(0.15 0.02 250);
+
+  /* 强调色：琥珀 */
+  --accent: oklch(0.70 0.16 65);
+  --accent-foreground: oklch(0.20 0.02 65);
+
+  /* 语义色 */
+  --success: oklch(0.72 0.17 155);
+  --warning: oklch(0.78 0.15 85);
+  --destructive: oklch(0.63 0.22 25);
+
+  /* 中性层 */
+  --muted: oklch(0.18 0.006 260);
+  --muted-foreground: oklch(0.65 0.012 260);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.52 0.18 265);
+
+  /* 图表 5 色 */
+  --chart-1: oklch(0.62 0.18 250);
+  --chart-2: oklch(0.72 0.13 195);
+  --chart-3: oklch(0.62 0.20 295);
+  --chart-4: oklch(0.72 0.17 155);
+  --chart-5: oklch(0.63 0.22 25);
+
+  /* 侧栏 */
+  --sidebar: oklch(0.08 0.005 260);
+  --sidebar-foreground: oklch(0.95 0.004 260);
+  --sidebar-primary: oklch(0.62 0.18 250);
+  --sidebar-primary-foreground: oklch(0.98 0.01 265);
+  --sidebar-accent: oklch(0.16 0.008 260);
+  --sidebar-accent-foreground: oklch(0.95 0.004 260);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.52 0.18 265);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  /* 数值等宽对齐，dashboard 必备 */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* 自定义滚动条（跟随主题） */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--muted-foreground);
+  opacity: 0.3;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+  opacity: 0.5;
+}
+
+/* skeleton 骨架屏动画 */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 25%,
+    oklch(0.22 0.008 260) 50%,
+    var(--muted) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}

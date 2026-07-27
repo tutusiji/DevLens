@@ -1,0 +1,112 @@
+/**
+ * Git 仓库管理页
+ * 仓库列表表格 + 状态 Badge + 操作按钮
+ */
+'use client';
+
+import Link from 'next/link';
+import { Plus, RefreshCw, Trash2, Eye, GitBranch, Users, Clock } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { PageHeader } from '@/components/widgets';
+import { repoList, projects, teamSpaces } from '@/lib/mock-data';
+
+const STATUS_CONFIG: Record<string, { label: string; variant: 'success' | 'warning' | 'danger' }> = {
+  synced: { label: '已同步', variant: 'success' },
+  syncing: { label: '同步中', variant: 'warning' },
+  failed: { label: '失败', variant: 'danger' },
+};
+
+export default function ReposPage() {
+  const totalCommits = repoList.reduce((s, r) => s + r.commits, 0);
+  const syncedCount = repoList.filter((r) => r.status === 'synced').length;
+
+  return (
+    <>
+      <PageHeader
+        title="Git 仓库管理"
+        description="管理已接入的 Git 仓库，查看同步状态与基础统计"
+        actions={
+          <Link href="/onboard">
+            <Button variant="accent"><Plus className="h-4 w-4" />接入新仓库</Button>
+          </Link>
+        }
+      />
+
+      {/* 汇总统计 */}
+      <div className="mb-4 flex items-center gap-4 rounded-lg border border-border bg-muted/20 px-4 py-2 text-sm">
+        <span>共 <span className="font-mono tabular-nums font-medium">{repoList.length}</span> 个仓库</span>
+        <span className="text-muted-foreground">·</span>
+        <span>远程 <span className="font-mono tabular-nums font-medium text-primary">{repoList.filter((repo) => repo.sourceType === 'remote').length}</span></span>
+        <span className="text-muted-foreground">·</span>
+        <span>已同步 <span className="font-mono tabular-nums font-medium text-success">{syncedCount}</span></span>
+        <span className="text-muted-foreground">·</span>
+        <span>总 commits <span className="font-mono tabular-nums font-medium">{totalCommits.toLocaleString()}</span></span>
+      </div>
+
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>仓库名</TableHead>
+              <TableHead>来源 / 地址</TableHead>
+              <TableHead>分支</TableHead>
+              <TableHead>所属团队</TableHead>
+              <TableHead>关联项目</TableHead>
+              <TableHead>状态</TableHead>
+              <TableHead className="text-right">commits</TableHead>
+              <TableHead className="text-right">贡献者</TableHead>
+              <TableHead>最后同步</TableHead>
+              <TableHead className="text-right">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {repoList.map((repo) => {
+              const status = STATUS_CONFIG[repo.status];
+              const team = teamSpaces.find((space) => space.id === repo.teamId);
+              const project = projects.find((item) => item.id === repo.projectId);
+              return (
+                <TableRow key={repo.id}>
+                  <TableCell className="font-mono font-medium">{repo.name}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">{repo.sourceType === 'remote' ? repo.provider || '远程' : '本地'}</Badge>
+                      <span className="max-w-[280px] truncate font-mono text-xs text-muted-foreground" title={repo.sourceType === 'remote' ? repo.remoteUrl : repo.path}>{repo.sourceType === 'remote' ? repo.remoteUrl : repo.path}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="font-mono">
+                      <GitBranch className="h-3 w-3" />
+                      {repo.branch}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{team ? <Badge variant="secondary">{team.name}</Badge> : <span className="text-xs text-muted-foreground">未归属</span>}</TableCell>
+                  <TableCell>{project ? <Link href={`/projects/${project.id}`} className="text-xs font-medium text-primary hover:underline">{project.name}</Link> : <span className="text-xs text-muted-foreground">待关联</span>}</TableCell>
+                  <TableCell><Badge variant={status.variant}>{status.label}</Badge></TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">{repo.commits.toLocaleString()}</TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">{repo.contributors}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{repo.lastSync}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="重新同步">
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="查看详情">
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive" aria-label="删除">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </Card>
+    </>
+  );
+}
