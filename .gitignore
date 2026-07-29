@@ -13,4 +13,7 @@ node_modules/
 
 # Tooling and local agent state
 .zcode/
-.claude/.cc-writes/
+.claude/
+
+# TypeScript build cache
+*.tsbuildinfo
