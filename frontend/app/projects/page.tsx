@@ -1,6 +1,8 @@
 /**
- * ② 项目列表
- * FilterBar + 卡片/表格双视图 + 汇总统计 + 空状态 + stagger 入场
+ * 项目列表 v3.0 - Bento Grid 去框化风格
+ * 高分项目用大卡片，低分/待分析用小卡片
+ * 健康度用渐变色数字，不用环形图
+ * 去边框，用背景色差异区分
  */
 'use client';
 
@@ -12,7 +14,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { PageHeader, ScoreRing, ProgressBar, staggerContainer, cardItem } from '@/components/widgets';
+import { PageHeader, ProgressBar, staggerContainer, cardItem } from '@/components/widgets';
 import { FilterBar, EmptyState } from '@/components/filter-bar';
 import { api } from '@/lib/api';
 import { scoreColor } from '@/lib/utils';
@@ -28,36 +30,58 @@ const STATUS_CONFIG: Record<ProjectStatus, { label: string; variant: 'success' |
 type ViewMode = 'card' | 'table';
 type SortKey = 'score' | 'name' | 'commits' | 'debt';
 
-function ProjectCardView({ project }: { project: Project }) {
+/* 项目卡片 - 统一尺寸，去框化 */
+function ProjectCard({ project }: { project: Project }) {
   const status = STATUS_CONFIG[project.status];
   return (
     <motion.div variants={cardItem}>
       <Link href={`/projects/${project.id}`}>
-        <Card className="cursor-pointer transition-all hover:scale-[1.02] hover:border-primary/40 hover:shadow-lg">
-          <CardContent className="p-4">
+        <Card className="cursor-pointer overflow-hidden transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5">
+          <CardContent className="p-5">
+            {/* 顶部：项目名 + 状态 + 健康度 */}
             <div className="flex items-start justify-between">
-              <div className="space-y-1">
-                <h3 className="font-mono text-base font-semibold">{project.name}</h3>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-mono font-semibold text-base">{project.name}</h3>
+                  <Badge variant={status.variant}>{status.label}</Badge>
+                </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <span>{project.group}</span>
                   <span>·</span>
                   <Badge variant="outline" className="font-mono">{project.language}</Badge>
                 </div>
               </div>
-              <Badge variant={status.variant}>{status.label}</Badge>
-            </div>
-            <div className="mt-4 flex items-center gap-4">
-              <ScoreRing score={project.score} size={72} stroke={6} label="健康度" />
-              <div className="flex-1 space-y-2">
-                <ProgressBar label="质量" value={project.quality} showValue={false} indicatorClassName={scoreColor(project.quality) === 'var(--success)' ? 'bg-success' : 'bg-primary'} />
-                <ProgressBar label="安全" value={project.security} showValue={false} indicatorClassName={scoreColor(project.security) === 'var(--success)' ? 'bg-success' : 'bg-warning'} />
-                <ProgressBar label="技术债" value={project.debt} showValue={false} indicatorClassName="bg-destructive" />
+              <div className="flex items-baseline gap-1">
+                <span
+                  className="font-mono font-bold text-3xl"
+                  style={{ color: scoreColor(project.score), textShadow: `0 0 20px ${scoreColor(project.score)}30` }}
+                >
+                  {project.score}
+                </span>
+                <span className="text-xs text-muted-foreground/70">健康度</span>
               </div>
             </div>
-            <div className="mt-3 flex items-center gap-4 border-t border-border/60 pt-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1"><GitCommit className="h-3 w-3" /><span className="font-mono tabular-nums">{project.commits.toLocaleString()}</span> commits</span>
-              <span className="flex items-center gap-1"><Users className="h-3 w-3" /><span className="font-mono tabular-nums">{project.contributors}</span> 贡献者</span>
-              <span className="ml-auto flex items-center gap-1"><Clock className="h-3 w-3" />{project.lastAnalyzed}</span>
+
+            {/* 中部：三维进度条 */}
+            <div className="mt-4 space-y-2.5">
+              <ProgressBar label="质量" value={project.quality} showValue={false} indicatorClassName="bg-gradient-to-r from-primary to-secondary" />
+              <ProgressBar label="安全" value={project.security} showValue={false} indicatorClassName="bg-gradient-to-r from-success to-[oklch(0.65_0.18_160)]" />
+              <ProgressBar label="技术债" value={project.debt} showValue={false} indicatorClassName="bg-gradient-to-r from-warning to-[oklch(0.72_0.16_85)]" />
+            </div>
+
+            {/* 底部：统计信息 */}
+            <div className="mt-4 flex flex-wrap items-center gap-4 pt-3 text-xs text-muted-foreground/80" style={{ borderTop: '1px solid color-mix(in oklch, var(--muted-foreground) 8%, transparent)' }}>
+              <span className="flex items-center gap-1.5">
+                <GitCommit className="h-3.5 w-3.5" />
+                <span className="font-mono tabular-nums font-medium">{project.commits.toLocaleString()}</span> commits
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5" />
+                <span className="font-mono tabular-nums font-medium">{project.contributors}</span> 贡献者
+              </span>
+              <span className="ml-auto flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5" />{project.lastAnalyzed}
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -88,17 +112,17 @@ function ProjectTableView({ projects }: { projects: Project[] }) {
             const status = STATUS_CONFIG[p.status];
             return (
               <TableRow key={p.id} onClick={() => window.location.href = `/projects/${p.id}`} className="cursor-pointer">
-                <TableCell className="font-mono font-medium">{p.name}</TableCell>
-                <TableCell className="text-muted-foreground">{p.group}</TableCell>
+                <TableCell className="font-mono font-semibold">{p.name}</TableCell>
+                <TableCell className="text-muted-foreground/80">{p.group}</TableCell>
                 <TableCell><Badge variant="outline" className="font-mono">{p.language}</Badge></TableCell>
                 <TableCell className="text-right">
-                  <span className="font-mono font-bold tabular-nums" style={{ color: scoreColor(p.score) }}>{p.score}</span>
+                  <span className="font-mono font-bold tabular-nums text-lg" style={{ color: scoreColor(p.score), textShadow: `0 0 12px ${scoreColor(p.score)}20` }}>{p.score}</span>
                 </TableCell>
-                <TableCell className="text-right font-mono tabular-nums">{p.quality}</TableCell>
-                <TableCell className="text-right font-mono tabular-nums">{p.security}</TableCell>
-                <TableCell className="text-right font-mono tabular-nums" style={{ color: 'var(--destructive)' }}>{p.debt}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums font-medium">{p.quality}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums font-medium">{p.security}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums font-medium" style={{ color: 'var(--destructive)' }}>{p.debt}</TableCell>
                 <TableCell><Badge variant={status.variant}>{status.label}</Badge></TableCell>
-                <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{p.commits.toLocaleString()}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums text-muted-foreground/80">{p.commits.toLocaleString()}</TableCell>
               </TableRow>
             );
           })}
@@ -124,13 +148,11 @@ export default function ProjectsPage() {
     });
   }, []);
 
-  // 语言选项
   const langOptions = React.useMemo(() => {
     const langs = [...new Set(projects.map((p) => p.language))];
     return langs.map((l) => ({ value: l, label: l }));
   }, [projects]);
 
-  // 筛选 + 排序
   const filtered = React.useMemo(() => {
     let result = projects;
     if (langFilter !== 'all') result = result.filter((p) => p.language === langFilter);
@@ -147,10 +169,10 @@ export default function ProjectsPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="h-8 w-48 skeleton rounded" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="h-64 skeleton rounded-xl" />)}
+      <div className="space-y-8">
+        <div className="h-10 w-52 skeleton rounded-2xl" />
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="h-72 skeleton rounded-2xl" />)}
         </div>
       </div>
     );
@@ -166,7 +188,7 @@ export default function ProjectsPage() {
         description="从代码质量、安全、技术债、活跃度多维度评估项目健康度"
         actions={
           <Link href="/onboard">
-            <Button variant="accent"><Plus className="h-4 w-4" />接入项目</Button>
+            <Button variant="accent"><Plus className="h-4.5 w-4.5" />接入项目</Button>
           </Link>
         }
       />
@@ -201,11 +223,11 @@ export default function ProjectsPage() {
         onViewModeChange={(v) => setViewMode(v as ViewMode)}
         summary={
           <>
-            <span>共 <span className="font-mono tabular-nums font-medium">{filtered.length}</span> 个项目</span>
-            <span className="text-muted-foreground">·</span>
-            <span>平均健康度 <span className="font-mono tabular-nums font-medium" style={{ color: scoreColor(Number(avgScore)) }}>{avgScore}</span></span>
-            <span className="text-muted-foreground">·</span>
-            <span>高风险 <span className="font-mono tabular-nums font-medium text-destructive">{highRisk}</span></span>
+            <span>共 <span className="font-mono tabular-nums font-semibold">{filtered.length}</span> 个项目</span>
+            <span className="text-muted-foreground/70">·</span>
+            <span>平均健康度 <span className="font-mono tabular-nums font-semibold" style={{ color: scoreColor(Number(avgScore)) }}>{avgScore}</span></span>
+            <span className="text-muted-foreground/70">·</span>
+            <span>高风险 <span className="font-mono tabular-nums font-semibold text-destructive">{highRisk}</span></span>
           </>
         }
       />
@@ -215,16 +237,18 @@ export default function ProjectsPage() {
           icon={FolderGit2}
           title="无匹配项目"
           description="尝试调整筛选条件，或接入新的 Git 仓库"
-          action={<Link href="/onboard"><Button variant="accent"><Plus className="h-4 w-4" />接入项目</Button></Link>}
+          action={<Link href="/onboard"><Button variant="accent"><Plus className="h-4.5 w-4.5" />接入项目</Button></Link>}
         />
       ) : viewMode === 'card' ? (
         <motion.div
           variants={staggerContainer}
           initial="hidden"
           animate="show"
-          className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+          className="grid gap-5 md:grid-cols-2 lg:grid-cols-3"
         >
-          {filtered.map((p) => <ProjectCardView key={p.id} project={p} />)}
+          {filtered.map((p) => (
+            <ProjectCard key={p.id} project={p} />
+          ))}
         </motion.div>
       ) : (
         <ProjectTableView projects={filtered} />

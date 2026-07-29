@@ -1,18 +1,18 @@
 /**
  * ④ 团队分析
- * 团队对比雷达（多 series）+ 团队卡 + 能力缺口矩阵 + stagger
+ * 顶部全团队对比（雷达 + 柱状）+ 团队卡 + 能力缺口矩阵
+ * 默认所有团队亮起，点击切换显示/隐藏
  */
 'use client';
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
-import { Users, AlertTriangle, BusIcon, Network } from 'lucide-react';
+import { Users, AlertTriangle, BusIcon, Network, Eye, EyeOff } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { PageHeader, staggerContainer, cardItem } from '@/components/widgets';
-import { FilterBar, EmptyState } from '@/components/filter-bar';
-import { CapabilityRadar, LineTrend } from '@/components/charts';
+import { CapabilityRadar, GroupedBars } from '@/components/charts';
 import { api } from '@/lib/api';
 import { scoreColor } from '@/lib/utils';
 import type { Team, CapabilityGap } from '@/lib/types';
@@ -22,14 +22,25 @@ const CAPABILITY_LABELS: Record<string, string> = {
   efficiency: '交付效率', collaboration: '协作能力', security_aware: '安全意识', test_coverage: '测试覆盖',
 };
 
-const TEAM_COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)'];
+const DIM_KEYS = Object.keys(CAPABILITY_LABELS);
+
+// 6 个团队 6 种颜色
+const TEAM_COLORS = [
+  '#6366f1', // indigo
+  '#06b6d4', // cyan
+  '#f59e0b', // amber
+  '#ec4899', // pink
+  '#10b981', // emerald
+  '#8b5cf6', // violet
+];
 
 export default function TeamsPage() {
   const [teams, setTeams] = React.useState<Team[]>([]);
   const [gaps, setGaps] = React.useState<CapabilityGap[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [sortBy, setSortBy] = React.useState('avgScore');
-  const [selectedForCompare, setSelectedForCompare] = React.useState<string[]>([]); // 团队 id 列表
+  // 默认所有团队都亮
+  const [hiddenTeams, setHiddenTeams] = React.useState<Set<string>>(new Set());
 
   React.useEffect(() => {
     Promise.all([api.getTeams(), api.getCapabilityGaps()]).then(([t, g]) => {
@@ -47,38 +58,55 @@ export default function TeamsPage() {
     });
   }, [teams, sortBy]);
 
-  const toggleCompare = (id: string) => {
-    setSelectedForCompare((prev) => {
-      if (prev.includes(id)) return prev.filter((x) => x !== id);
-      if (prev.length >= 3) return [...prev.slice(1), id]; // 最多 3 个
-      return [...prev, id];
+  // 活跃团队 = 未被隐藏的
+  const activeTeams = React.useMemo(() => 
+    teams.filter((t) => !hiddenTeams.has(t.id)), 
+  [teams, hiddenTeams]);
+
+  const toggleTeam = (id: string) => {
+    setHiddenTeams((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
     });
   };
 
-  // 对比图的数据按选择顺序生成，保证团队卡片、雷达和折线使用同一颜色。
-  const compareTeams = React.useMemo(() => (
-    selectedForCompare
-      .map((id) => teams.find((team) => team.id === id))
-      .filter((team): team is Team => Boolean(team))
-  ), [teams, selectedForCompare]);
+  // 雷达图 series
+  const radarSeries = React.useMemo(() => {
+    return activeTeams.map((team, index) => {
+      const colorIdx = teams.findIndex((t) => t.id === team.id);
+      return {
+        name: team.name,
+        data: Object.fromEntries(
+          Object.entries(team.capability).map(([key, value]) => [CAPABILITY_LABELS[key], value])
+        ),
+        color: TEAM_COLORS[colorIdx % TEAM_COLORS.length],
+      };
+    });
+  }, [activeTeams, teams]);
 
-  const compareSeries = React.useMemo(() => {
-    return compareTeams.map((team, index) => ({
-      name: team.name,
-      data: Object.fromEntries(
-        Object.entries(team.capability).map(([key, value]) => [CAPABILITY_LABELS[key], value])
-      ),
-      color: TEAM_COLORS[index % TEAM_COLORS.length],
-    }));
-  }, [compareTeams]);
+  // 柱状图数据：每个能力维度一组柱子
+  const barData = React.useMemo(() => {
+    return DIM_KEYS.map((key) => {
+      const row: Record<string, string | number> = { dimension: CAPABILITY_LABELS[key] };
+      activeTeams.forEach((team) => {
+        row[team.name] = team.capability[key as keyof Team['capability']] as number;
+      });
+      return row;
+    });
+  }, [activeTeams]);
 
-  // 将 7 个能力维度作为横轴，每个团队映射为一条线，方便读取逐维分差。
-  const compareLineData = React.useMemo(() => (
-    Object.entries(CAPABILITY_LABELS).map(([key, dimension]) => ({
-      dimension,
-      ...Object.fromEntries(compareTeams.map((team) => [team.name, team.capability[key as keyof Team['capability']] as number])),
-    }))
-  ), [compareTeams]);
+  const barSeries = React.useMemo(() => {
+    return activeTeams.map((team) => {
+      const colorIdx = teams.findIndex((t) => t.id === team.id);
+      return {
+        key: team.name,
+        name: team.name,
+        color: TEAM_COLORS[colorIdx % TEAM_COLORS.length],
+      };
+    });
+  }, [activeTeams, teams]);
 
   if (loading) {
     return (
@@ -95,105 +123,102 @@ export default function TeamsPage() {
     <>
       <PageHeader title="团队分析" description="从个人能力聚合团队画像，识别 Bus Factor 与能力缺口" />
 
-      <FilterBar
-        sortOptions={[
-          { value: 'avgScore', label: '按均分' },
-          { value: 'busFactor', label: '按 Bus Factor' },
-          { value: 'riskCount', label: '按风险数' },
-          { value: 'members', label: '按人数' },
-        ]}
-        sortValue={sortBy}
-        onSortChange={setSortBy}
-        summary={
-          <>
-            <span>共 <span className="font-mono tabular-nums font-medium">{teams.length}</span> 个团队</span>
-            <span className="text-muted-foreground">·</span>
-            <span>总人数 <span className="font-mono tabular-nums font-medium">{teams.reduce((s, t) => s + t.members, 0)}</span></span>
-            <span className="text-muted-foreground">·</span>
-            <span>总风险 <span className="font-mono tabular-nums font-medium text-destructive">{teams.reduce((s, t) => s + t.riskCount, 0)}</span></span>
-          </>
-        }
-      />
-
-      {/* 团队对比雷达（选了 2+ 个才显示）*/}
-      {compareSeries.length >= 2 && (
-        <Card className="mb-6 border-primary/30">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Network className="h-4 w-4 text-primary" />
-                  团队能力对比
-                </CardTitle>
-                <CardDescription className="mt-1">
-                  已选 {compareSeries.length} 个团队叠加对比（最多 3 个）
-                </CardDescription>
-              </div>
-              <button
-                onClick={() => setSelectedForCompare([])}
-                className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-              >
-                清除选择
-              </button>
+      {/* ============ 顶部：全团队对比 ============ */}
+      <Card className="mb-6">
+        <CardHeader>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Network className="h-5 w-5 text-primary" />
+                全团队能力对比
+              </CardTitle>
+              <CardDescription className="mt-1">
+                点击下方标签切换团队显示 · 当前 {activeTeams.length}/{teams.length} 个团队参与对比
+              </CardDescription>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-5 flex flex-wrap gap-x-4 gap-y-2 text-xs">
-              {compareSeries.map((series) => (
-                <div key={series.name} className="flex items-center gap-1.5 text-muted-foreground">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: series.color }} />
-                  <span>{series.name}</span>
-                </div>
-              ))}
+          </div>
+          {/* 团队切换标签 */}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {teams.map((team, index) => {
+              const isActive = !hiddenTeams.has(team.id);
+              const color = TEAM_COLORS[index % TEAM_COLORS.length];
+              return (
+                <button
+                  key={team.id}
+                  onClick={() => toggleTeam(team.id)}
+                  className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-all cursor-pointer ${
+                    isActive 
+                      ? 'bg-muted/40 text-foreground' 
+                      : 'bg-transparent text-muted-foreground/50 hover:text-muted-foreground'
+                  }`}
+                  style={isActive ? { boxShadow: `inset 0 0 0 1px ${color}40` } : {}}
+                >
+                  <span
+                    className="h-3 w-3 rounded-full transition-all"
+                    style={{
+                      background: isActive ? color : 'transparent',
+                      boxShadow: isActive ? `0 0 8px ${color}80` : `inset 0 0 0 1px ${color}60`,
+                    }}
+                  />
+                  <span className="font-medium">{team.name}</span>
+                  <span className="font-mono text-xs tabular-nums text-muted-foreground">{team.avgScore}</span>
+                  {isActive ? <Eye className="h-3 w-3 text-muted-foreground/60" /> : <EyeOff className="h-3 w-3" />}
+                </button>
+              );
+            })}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {activeTeams.length === 0 ? (
+            <div className="flex h-64 items-center justify-center text-muted-foreground">
+              所有团队已隐藏，点击上方标签恢复显示
             </div>
+          ) : (
             <div className="grid gap-6 xl:grid-cols-2">
               <div className="min-w-0">
-                <div className="mb-2">
+                <div className="mb-3">
                   <h3 className="text-sm font-medium">能力轮廓</h3>
-                  <p className="text-xs text-muted-foreground">从整体形状识别团队能力结构</p>
+                  <p className="text-xs text-muted-foreground">多团队叠加，形状越饱满说明能力越均衡</p>
                 </div>
-                <CapabilityRadar series={compareSeries} height={320} />
+                <CapabilityRadar series={radarSeries} height={340} />
               </div>
               <div className="min-w-0">
-                <div className="mb-2">
-                  <h3 className="text-sm font-medium">逐维线性对比</h3>
-                  <p className="text-xs text-muted-foreground">横轴为能力维度，折线交叉表示各团队优势维度不同</p>
+                <div className="mb-3">
+                  <h3 className="text-sm font-medium">逐维对比</h3>
+                  <p className="text-xs text-muted-foreground">每个维度并排比较，直观看强弱项</p>
                 </div>
-                <LineTrend
-                  data={compareLineData}
-                  xKey="dimension"
-                  series={compareSeries.map((series) => ({ key: series.name, name: series.name, color: series.color }))}
-                  height={320}
-                />
+                <GroupedBars data={barData} xKey="dimension" series={barSeries} height={340} />
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
-      {/* 团队卡片墙 */}
+      {/* ============ 团队卡片墙 ============ */}
       <motion.div variants={staggerContainer} initial="hidden" animate="show" className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {sorted.map((team) => {
-          const isSelected = selectedForCompare.includes(team.id);
-          const colorIdx = selectedForCompare.indexOf(team.id);
+          const colorIdx = teams.findIndex((t) => t.id === team.id);
+          const color = TEAM_COLORS[colorIdx % TEAM_COLORS.length];
+          const isActive = !hiddenTeams.has(team.id);
           return (
             <motion.div key={team.id} variants={cardItem}>
               <Card
                 className={`cursor-pointer transition-all hover:shadow-lg ${
-                  isSelected ? 'border-primary ring-2 ring-primary/20' : 'hover:border-primary/40'
+                  isActive ? '' : 'opacity-50 grayscale'
                 }`}
-                onClick={() => toggleCompare(team.id)}
+                onClick={() => toggleTeam(team.id)}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle className="flex items-center gap-2">
-                        {isSelected && (
-                          <span
-                            className="h-3 w-3 rounded-full"
-                            style={{ background: TEAM_COLORS[colorIdx % TEAM_COLORS.length] }}
-                          />
-                        )}
+                        <span
+                          className="h-3 w-3 rounded-full transition-all"
+                          style={{
+                            background: isActive ? color : 'transparent',
+                            boxShadow: isActive ? `0 0 8px ${color}80` : `inset 0 0 0 1px ${color}60`,
+                          }}
+                        />
                         {team.name}
                       </CardTitle>
                       <CardDescription className="flex items-center gap-2 mt-1">
@@ -209,8 +234,8 @@ export default function TeamsPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {/* Bus Factor 醒目展示 */}
-                  <div className="mb-3 flex items-center justify-between rounded-lg bg-muted/40 p-3">
+                  {/* Bus Factor */}
+                  <div className="mb-3 flex items-center justify-between rounded-xl bg-muted/30 p-3">
                     <div className="flex items-center gap-2">
                       <BusIcon className="h-5 w-5 text-warning" />
                       <div>
@@ -225,19 +250,19 @@ export default function TeamsPage() {
                       {team.busFactor}
                     </span>
                   </div>
-                  {/* 7 维雷达 */}
+                  {/* 雷达图 */}
                   <CapabilityRadar
                     series={[{
                       name: team.name,
                       data: Object.fromEntries(
                         Object.entries(team.capability).map(([k, v]) => [CAPABILITY_LABELS[k], v])
                       ),
-                      color: isSelected ? TEAM_COLORS[colorIdx % TEAM_COLORS.length] : 'var(--chart-1)',
+                      color: color,
                     }]}
                     height={200}
                   />
                   <div className="mt-2 text-center text-[10px] text-muted-foreground">
-                    {isSelected ? '已加入对比' : '点击卡片加入对比'}
+                    {isActive ? '点击隐藏对比' : '点击恢复对比'}
                   </div>
                 </CardContent>
               </Card>
@@ -246,7 +271,7 @@ export default function TeamsPage() {
         })}
       </motion.div>
 
-      {/* 能力缺口矩阵表 */}
+      {/* ============ 能力缺口矩阵 ============ */}
       <Card className="mt-6">
         <CardHeader>
           <CardTitle>能力缺口矩阵</CardTitle>

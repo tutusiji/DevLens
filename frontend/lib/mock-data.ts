@@ -558,3 +558,36 @@ export const embeddingModels = [
   { name: 'text-embedding-3-large (OpenAI)', dimension: 3072, status: 'inactive' },
   { name: '自定义', dimension: 0, status: 'inactive' },
 ];
+
+// ============ 代码图谱 mock 数据 ============
+export const graphModules = [
+  { id: 'api-gateway', label: 'api-gateway', layer: 'edge', x: 50, y: 12, loc: '8.2k', health: 88 },
+  { id: 'auth', label: 'auth-service', layer: 'service', x: 22, y: 34, loc: '5.1k', health: 84 },
+  { id: 'order', label: 'order-service', layer: 'service', x: 50, y: 38, loc: '12.4k', health: 79 },
+  { id: 'payment', label: 'payment-core', layer: 'service', x: 78, y: 34, loc: '9.7k', health: 91 },
+  { id: 'user', label: 'user-repo', layer: 'data', x: 20, y: 66, loc: '3.4k', health: 82 },
+  { id: 'ledger', label: 'ledger-store', layer: 'data', x: 52, y: 72, loc: '6.8k', health: 74 },
+  { id: 'cache', label: 'cache-layer', layer: 'data', x: 80, y: 66, loc: '2.1k', health: 90 },
+  { id: 'mq', label: 'event-bus', layer: 'infra', x: 50, y: 90, loc: '4.3k', health: 86 },
+];
+
+export const graphEdges = [
+  { source: 'api-gateway', target: 'auth' },
+  { source: 'api-gateway', target: 'order' },
+  { source: 'api-gateway', target: 'payment' },
+  { source: 'auth', target: 'user' },
+  { source: 'order', target: 'ledger' },
+  { source: 'order', target: 'payment' },
+  { source: 'order', target: 'cache' },
+  { source: 'payment', target: 'ledger' },
+  { source: 'payment', target: 'cache' },
+  { source: 'ledger', target: 'mq' },
+  { source: 'order', target: 'mq' },
+];
+
+export const layerColors: Record<string, string> = {
+  edge: 'var(--chart-1)',
+  service: 'var(--chart-2)',
+  data: 'var(--chart-3)',
+  infra: 'var(--chart-4)',
+};

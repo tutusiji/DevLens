@@ -1,25 +1,27 @@
 @import 'tailwindcss';
+@import '@heroui/styles';
 
 /* ============================================
-   DevLens 设计系统 - Dark Mode (OLED)
-   基于 ui-ux-pro-max skill 推荐：纯黑系背景 + 蓝色主色 + 琥珀强调
-   OKLCH 色彩空间，暗色感知更准，WCAG AAA 对比度
+   DevLens 设计系统 v3.0 - OLED Dark Mode
+   深蓝灰基底 #0A0E27 / #121212
+   Apple 风格 Bento Grid + 去框化设计
+   高对比度文字 + 微光点缀
    ============================================ */
 
 @custom-variant dark (&:is(.dark *));
 
-@theme inline {
-  /* 字体：Fira Code（标题/数值）+ Fira Sans（正文），dashboard 调性 */
-  /* 字体：Fira Code（标题/数值）+ Fira Sans（正文），dashboard 调性 */
+@theme {
+  /* 字体：Fira Code（标题/数值） + Fira Sans（正文） */
   --font-sans: var(--font-fira-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-fira-code), ui-monospace, monospace;
 
-  /* 圆角阶梯 */
+  /* 圆角阶梯 - 适度圆角 */
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-xl: calc(var(--radius) * 1.25);
+  --radius-2xl: calc(var(--radius) * 1.5);
+  --radius-3xl: calc(var(--radius) * 1.75);
 
   /* 颜色映射到 Tailwind 语义类 */
   --color-background: var(--background);
@@ -32,8 +34,6 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
@@ -55,153 +55,330 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Glassmorphism 专用色 */
+  --glass-border: var(--glass-border);
+  --glass-shadow: var(--glass-shadow);
+
+  /* 渐变预设 */
+  --gradient-primary: linear-gradient(135deg, oklch(0.68 0.2 245), oklch(0.58 0.18 265));
+  --gradient-accent: linear-gradient(135deg, oklch(0.75 0.18 68), oklch(0.65 0.15 85));
+  --gradient-success: linear-gradient(135deg, oklch(0.72 0.18 155), oklch(0.62 0.16 170));
+  --gradient-warning: linear-gradient(135deg, oklch(0.78 0.16 78), oklch(0.70 0.14 95));
+  --gradient-destructive: linear-gradient(135deg, oklch(0.68 0.22 25), oklch(0.58 0.20 35));
 }
 
 /* ============================================
-   浅色主题（默认）
-   浅灰白背景 + 深色文字，蓝色主色保持一致
+   浅色主题（备用）
    ============================================ */
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
 
-  /* 背景：浅灰白系，分层 */
-  --background: oklch(0.98 0.003 260);
-  --foreground: oklch(0.18 0.01 265);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.01 265);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.01 265);
+  /* 背景：浅灰蓝基底 */
+  --background: oklch(0.96 0.008 250);
+  --foreground: oklch(0.20 0.015 255);
 
-  /* 主色：蓝色系（与暗色一致，浅色下略微调亮饱和度保证可见性） */
-  --primary: oklch(0.50 0.20 265);
-  --primary-foreground: oklch(0.99 0.01 265);
-  --secondary: oklch(0.60 0.17 250);
-  --secondary-foreground: oklch(0.99 0.01 265);
+  /* 卡片：极浅背景 + 软阴影 */
+  --card: oklch(1 0 0 / 0.8);
+  --card-foreground: oklch(0.20 0.015 255);
+  --popover: oklch(1 0 0 / 0.95);
+  --popover-foreground: oklch(0.20 0.015 255);
+
+  /* 主色：蓝紫色系 */
+  --primary: oklch(0.60 0.2 250);
+  --primary-foreground: oklch(0.98 0.01 255);
+  --secondary: oklch(0.64 0.18 275);
+  --secondary-foreground: oklch(0.98 0.01 255);
 
   /* 强调色：琥珀 */
-  --accent: oklch(0.68 0.17 65);
-  --accent-foreground: oklch(0.20 0.02 65);
+  --accent: oklch(0.75 0.18 68);
+  --accent-foreground: oklch(0.20 0.015 68);
 
-  /* 语义色（浅色下略加深保证对比度） */
-  --success: oklch(0.55 0.16 155);
-  --warning: oklch(0.70 0.16 75);
-  --destructive: oklch(0.55 0.22 25);
+  /* 语义色 */
+  --success: oklch(0.68 0.18 155);
+  --warning: oklch(0.75 0.16 78);
+  --destructive: oklch(0.63 0.21 25);
 
-  /* 中性层 */
-  --muted: oklch(0.96 0.005 260);
-  --muted-foreground: oklch(0.45 0.012 260);
-  --border: oklch(0.20 0.005 260 / 12%);
-  --input: oklch(0.20 0.005 260 / 16%);
-  --ring: oklch(0.50 0.20 265);
+  /* HeroUI 变量桥接 - 让 HeroUI 组件使用项目主题色 */
+  --danger: var(--destructive);
+  --danger-foreground: oklch(0.98 0.01 255);
 
-  /* 图表 5 色（浅色下加深，保证在白底上可读） */
-  --chart-1: oklch(0.52 0.20 265);
-  --chart-2: oklch(0.58 0.14 195);
-  --chart-3: oklch(0.50 0.22 295);
-  --chart-4: oklch(0.55 0.17 155);
-  --chart-5: oklch(0.55 0.22 25);
+  /* 中性层 - 几乎不可见边框（去框化核心） */
+  --muted: oklch(0.92 0.008 250);
+  --muted-foreground: oklch(0.55 0.015 250);
+  --border: oklch(0 0 0 / 0.04);
+  --input: oklch(0 0 0 / 0.05);
+  --ring: oklch(0.60 0.2 250);
 
-  /* 侧栏（浅色下用更白的底，与主区微弱区分） */
-  --sidebar: oklch(0.97 0.004 260);
-  --sidebar-foreground: oklch(0.20 0.01 265);
-  --sidebar-primary: oklch(0.50 0.20 265);
-  --sidebar-primary-foreground: oklch(0.99 0.01 265);
-  --sidebar-accent: oklch(0.94 0.008 260);
-  --sidebar-accent-foreground: oklch(0.18 0.01 265);
-  --sidebar-border: oklch(0.20 0.005 260 / 10%);
-  --sidebar-ring: oklch(0.50 0.20 265);
+  /* Glassmorphism 专用 */
+  --glass-border: oklch(0 0 0 / 0.06);
+  --glass-shadow: 0 4px 24px oklch(0.4 0.15 255 / 0.06);
 
-  --radius: 0.625rem;
+  /* 图表 5 色 */
+  --chart-1: oklch(0.60 0.2 250);
+  --chart-2: oklch(0.72 0.14 185);
+  --chart-3: oklch(0.57 0.2 295);
+  --chart-4: oklch(0.68 0.18 155);
+  --chart-5: oklch(0.63 0.21 25);
+
+  /* 侧栏 */
+  --sidebar: oklch(0.98 0.005 250);
+  --sidebar-foreground: oklch(0.25 0.015 255);
+  --sidebar-primary: oklch(0.60 0.2 250);
+  --sidebar-primary-foreground: oklch(0.98 0.01 255);
+  --sidebar-accent: oklch(0.94 0.008 250);
+  --sidebar-accent-foreground: oklch(0.20 0.015 255);
+  --sidebar-border: oklch(0 0 0 / 0.03);
+  --sidebar-ring: oklch(0.60 0.2 250);
+
+  --radius: 0.5rem;
 }
 
 /* ============================================
-   暗色主题（OLED，可选切换）
-   纯黑系背景，WCAG AAA 对比度
+   暗色主题 - OLED Dark Mode（默认启用）
+   深蓝灰基底 #0A0E27 风格
+   高对比度文字 + 微光光晕
    ============================================ */
 .dark {
   color-scheme: dark;
 
-  /* 背景：OLED 纯黑系，分层深灰 */
-  --background: oklch(0.10 0.005 260);
-  --foreground: oklch(0.97 0.003 260);
-  --card: oklch(0.14 0.006 260);
-  --card-foreground: oklch(0.97 0.003 260);
-  --popover: oklch(0.15 0.006 260);
-  --popover-foreground: oklch(0.97 0.003 260);
+  /* 背景：深蓝灰基底 */
+  --background: oklch(0.12 0.015 250);
+  --foreground: oklch(0.97 0.005 250);
 
-  /* 主色：蓝色系 */
-  --primary: oklch(0.52 0.18 265);
-  --primary-foreground: oklch(0.98 0.01 265);
-  --secondary: oklch(0.62 0.16 250);
-  --secondary-foreground: oklch(0.15 0.02 250);
+  /* 卡片：深色半透明背景（去框化核心：不依赖边框） */
+  --card: oklch(0.16 0.02 250 / 0.6);
+  --card-foreground: oklch(0.97 0.005 250);
+  --popover: oklch(0.18 0.02 250 / 0.95);
+  --popover-foreground: oklch(0.97 0.005 250);
 
-  /* 强调色：琥珀 */
-  --accent: oklch(0.70 0.16 65);
-  --accent-foreground: oklch(0.20 0.02 65);
+  /* 主色：高亮蓝紫色系 */
+  --primary: oklch(0.68 0.2 245);
+  --primary-foreground: oklch(0.98 0.01 255);
+  --secondary: oklch(0.72 0.18 275);
+  --secondary-foreground: oklch(0.98 0.01 255);
 
-  /* 语义色 */
-  --success: oklch(0.72 0.17 155);
-  --warning: oklch(0.78 0.15 85);
-  --destructive: oklch(0.63 0.22 25);
+  /* 强调色：琥珀色（CTA 专用） */
+  --accent: oklch(0.75 0.18 68);
+  --accent-foreground: oklch(0.20 0.015 68);
 
-  /* 中性层 */
-  --muted: oklch(0.18 0.006 260);
-  --muted-foreground: oklch(0.65 0.012 260);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.52 0.18 265);
+  /* 语义色（提亮确保可见） */
+  --success: oklch(0.72 0.18 155);
+  --warning: oklch(0.78 0.16 78);
+  --destructive: oklch(0.68 0.22 25);
 
-  /* 图表 5 色 */
-  --chart-1: oklch(0.62 0.18 250);
-  --chart-2: oklch(0.72 0.13 195);
-  --chart-3: oklch(0.62 0.20 295);
-  --chart-4: oklch(0.72 0.17 155);
-  --chart-5: oklch(0.63 0.22 25);
+  /* HeroUI 变量桥接 - 让 HeroUI 组件使用项目主题色 */
+  --danger: var(--destructive);
+  --danger-foreground: oklch(0.98 0.01 255);
+
+  /* 中性层 - 极淡/不可见边框 */
+  --muted: oklch(0.20 0.02 250);
+  --muted-foreground: oklch(0.60 0.015 250);
+  --border: oklch(1 0 0 / 0.03);
+  --input: oklch(1 0 0 / 0.05);
+  --ring: oklch(0.68 0.2 245);
+
+  /* Glassmorphism 专用 */
+  --glass-border: oklch(1 0 0 / 0.04);
+  --glass-shadow: 0 4px 24px oklch(0 0 0 / 0.15);
+
+  /* 图表 5 色（提亮） */
+  --chart-1: oklch(0.68 0.2 245);
+  --chart-2: oklch(0.72 0.14 185);
+  --chart-3: oklch(0.65 0.2 295);
+  --chart-4: oklch(0.72 0.18 155);
+  --chart-5: oklch(0.68 0.22 25);
 
   /* 侧栏 */
-  --sidebar: oklch(0.08 0.005 260);
-  --sidebar-foreground: oklch(0.95 0.004 260);
-  --sidebar-primary: oklch(0.62 0.18 250);
-  --sidebar-primary-foreground: oklch(0.98 0.01 265);
-  --sidebar-accent: oklch(0.16 0.008 260);
-  --sidebar-accent-foreground: oklch(0.95 0.004 260);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.52 0.18 265);
+  --sidebar: oklch(0.14 0.02 250 / 0.7);
+  --sidebar-foreground: oklch(0.95 0.005 250);
+  --sidebar-primary: oklch(0.68 0.2 245);
+  --sidebar-primary-foreground: oklch(0.98 0.01 255);
+  --sidebar-accent: oklch(0.22 0.03 250 / 0.4);
+  --sidebar-accent-foreground: oklch(0.97 0.005 250);
+  --sidebar-border: oklch(1 0 0 / 0.02);
+  --sidebar-ring: oklch(0.68 0.2 245);
 }
+
+/* ============================================
+   全局样式重置 + 背景微光效果
+   ============================================ */
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply outline-ring/50;
+    border-color: var(--border);
   }
+
+  html {
+    /* 默认启用深色主题 */
+    color-scheme: dark;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: 'cv11', 'ss01';
+    /* 背景微光效果 - 角落两个模糊光斑，极简风格 */
+    background-image:
+      radial-gradient(ellipse 60% 40% at 10% -10%, oklch(0.68 0.2 245 / 0.08), transparent),
+      radial-gradient(ellipse 50% 30% at 90% 110%, oklch(0.75 0.18 68 / 0.06), transparent);
+    background-attachment: fixed;
   }
+
   /* 数值等宽对齐，dashboard 必备 */
   .tabular-nums {
     font-variant-numeric: tabular-nums;
   }
 }
 
-/* 自定义滚动条（跟随主题） */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
-  background: var(--background);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--muted-foreground);
-  opacity: 0.3;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--muted-foreground);
-  opacity: 0.5;
+/* ============================================
+   Glassmorphism 工具类
+   ============================================ */
+
+.glass {
+  background: var(--card);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
 }
 
-/* skeleton 骨架屏动画 */
+.glass-light {
+  background: oklch(1 0 0 / 0.03);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid oklch(1 0 0 / 0.05);
+}
+
+.glass-strong {
+  background: var(--card);
+  backdrop-filter: blur(20px) saturate(200%);
+  -webkit-backdrop-filter: blur(20px) saturate(200%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+/* 渐变边框工具 - 仅用于重点强调 */
+.gradient-border {
+  position: relative;
+}
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, oklch(1 0 0 / 0.1), oklch(1 0 0 / 0.02));
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.gradient-border-primary::before {
+  background: linear-gradient(135deg, color-mix(in oklch, var(--primary) 30%, transparent), color-mix(in oklch, var(--secondary) 10%, transparent));
+}
+
+.gradient-border-accent::before {
+  background: linear-gradient(135deg, color-mix(in oklch, var(--accent) 30%, transparent), transparent);
+}
+
+/* ============================================
+   光晕发光效果工具类（仅用于重点数据）
+   ============================================ */
+
+.glow {
+  box-shadow: 0 0 16px oklch(0.68 0.2 245 / 0.2);
+}
+
+.glow-strong {
+  box-shadow:
+    0 0 24px oklch(0.68 0.2 245 / 0.3),
+    0 0 48px oklch(0.68 0.2 245 / 0.15);
+}
+
+.glow-text {
+  text-shadow: 0 0 16px oklch(0.68 0.2 245 / 0.3);
+}
+
+.glow-success {
+  box-shadow: 0 0 16px oklch(0.72 0.18 155 / 0.2);
+}
+
+.glow-warning {
+  box-shadow: 0 0 16px oklch(0.78 0.16 78 / 0.2);
+}
+
+.glow-destructive {
+  box-shadow: 0 0 16px oklch(0.68 0.22 25 / 0.25);
+}
+
+/* 卡片悬停效果 - 用阴影和透明度变化，不用 scale 位移 */
+.hover-lift {
+  transition: box-shadow 200ms ease, background-color 200ms ease;
+}
+.hover-lift:hover {
+  box-shadow: 0 8px 32px oklch(0 0 0 / 0.2);
+  background-color: color-mix(in oklch, var(--card), oklch(1 0 0 / 0.02));
+}
+
+/* ============================================
+   渐变文字工具类
+   ============================================ */
+
+.text-gradient-primary {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-accent {
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-success {
+  background: var(--gradient-success);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-warning {
+  background: var(--gradient-warning);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ============================================
+   自定义滚动条
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--muted-foreground) 20%, transparent);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklch, var(--muted-foreground) 35%, transparent);
+}
+
+/* ============================================
+   skeleton 骨架屏动画 - 适配深色主题
+   ============================================ */
+
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
@@ -210,9 +387,159 @@
   background: linear-gradient(
     90deg,
     var(--muted) 25%,
-    oklch(0.22 0.008 260) 50%,
+    oklch(0.25 0.025 250) 50%,
     var(--muted) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
+}
+
+/* ============================================
+   入场动画变体（配合 framer-motion 使用）
+   ============================================ */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ============================================
+   Bento Grid 专用工具类
+   ============================================ */
+
+/* Bento 基础卡片 - 无硬边框，用背景色差异 + 软阴影 */
+.bento-card {
+  border-radius: calc(var(--radius) * 1.75);
+  background: var(--card);
+  box-shadow: var(--glass-shadow);
+  transition: box-shadow 200ms ease, background-color 200ms ease, transform 200ms ease;
+}
+.bento-card:hover {
+  box-shadow: 0 8px 32px oklch(0 0 0 / 0.2);
+  background-color: color-mix(in oklch, var(--card), oklch(1 0 0 / 0.02));
+  transform: translateY(-2px);
+}
+
+/* Bento 大卡片 - 用于主角区域 */
+.bento-card-large {
+  border-radius: calc(var(--radius) * 1.75);
+  background: var(--card);
+  box-shadow: var(--glass-shadow);
+  transition: box-shadow 200ms ease, background-color 200ms ease, transform 200ms ease;
+}
+.bento-card-large:hover {
+  box-shadow: 0 12px 40px oklch(0 0 0 / 0.25);
+  background-color: color-mix(in oklch, var(--card), oklch(1 0 0 / 0.03));
+  transform: translateY(-2px);
+}
+
+/* Bento 强调卡片 - 带渐变边框光晕 */
+.bento-card-accent {
+  border-radius: calc(var(--radius) * 1.75);
+  background: var(--card);
+  box-shadow: var(--glass-shadow);
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 200ms ease, transform 200ms ease;
+}
+.bento-card-accent::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, color-mix(in oklch, var(--primary) 40%, transparent), color-mix(in oklch, var(--secondary) 15%, transparent));
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.bento-card-accent:hover {
+  box-shadow: 0 12px 40px oklch(0.68 0.2 245 / 0.15);
+  transform: translateY(-2px);
+}
+
+/* Bento Grid 跨度工具类 - 使用 CSS Grid */
+.bento-span-2 {
+  grid-column: span 2 / span 2;
+}
+
+.bento-span-3 {
+  grid-column: span 3 / span 3;
+}
+
+.bento-row-span-2 {
+  grid-row: span 2 / span 2;
+}
+
+/* ============================================
+   去框化表格 - 无边框，用行间距和 hover 区分
+   ============================================ */
+
+.borderless-table {
+  border-spacing: 0;
+}
+.borderless-table tr {
+  transition: background-color 150ms ease;
+}
+.borderless-table tr:hover {
+  background: color-mix(in oklch, var(--muted) 30%, transparent);
+}
+.borderless-table td,
+.borderless-table th {
+  border: none;
+  padding: 14px 16px;
+}
+
+/* ============================================
+   风险卡片左侧色条
+   ============================================ */
+
+.risk-bar-high {
+  border-left: 4px solid var(--destructive);
+  box-shadow: -4px 0 20px oklch(0.68 0.22 25 / 0.15);
+}
+
+.risk-bar-medium {
+  border-left: 4px solid var(--warning);
+}
+
+.risk-bar-low {
+  border-left: 4px solid var(--muted-foreground);
+}
+
+/* ============================================
+   热力图单元格样式
+   ============================================ */
+
+.heatmap-cell {
+  transition: all 150ms ease;
+}
+.heatmap-cell:hover {
+  transform: scale(1.05);
+  z-index: 10;
+}
+
+/* ============================================
+   Hero 大数字专用样式
+   ============================================ */
+
+.hero-number {
+  font-size: clamp(4rem, 8vw, 6rem);
+  line-height: 1;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: -0.02em;
 }

@@ -1,6 +1,6 @@
 /**
- * AppShell 应用骨架：侧边栏 + 顶栏 + 主内容区
- * 遵循 skill 规则：侧边栏双行导航、active 项高亮、移动端抽屉、毛玻璃顶栏
+ * AppShell v3.0 - Bento Grid 去框化风格
+ * 侧边栏毛玻璃效果 + 极简分隔线
  */
 'use client';
 
@@ -11,13 +11,16 @@ import {
   LayoutDashboard, FolderGit2, Users, Network, Rocket,
   Activity, ChevronRight, Menu, X, Search, Bell,
   GitBranch, Bot, Database, Ruler, Building2, ChevronDown,
+  Waypoints,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Popover } from '@heroui/react/popover';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { CommandPalette } from '@/components/command-palette';
 import { useTeamSpace } from '@/components/team-space-provider';
 import { riskAlerts } from '@/lib/mock-data';
+import { Badge } from './ui/badge';
 
 interface NavItem {
   href: string;
@@ -27,10 +30,11 @@ interface NavItem {
 }
 
 const ANALYSIS_NAV: NavItem[] = [
-  { href: '/', label: '决策总览', description: '结论 · 风险 · 行动', icon: LayoutDashboard },
+  { href: '/', label: '决策总览', description: '结论 · 风险 · 行动', icon: Activity },
   { href: '/projects', label: '项目评估', description: '代码质量 · 健康度', icon: FolderGit2 },
   { href: '/developers', label: '开发者画像', description: '能力 · 成长 · 协作', icon: Users },
   { href: '/teams', label: '团队分析', description: 'Bus Factor · 缺口', icon: Network },
+  { href: '/graph', label: '代码图谱', description: '模块依赖 · 架构可视化', icon: Waypoints },
 ];
 
 const SYSTEM_NAV: NavItem[] = [
@@ -48,21 +52,28 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
     <Link
       href={item.href}
       className={cn(
-        'group flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors',
+        'group flex items-center gap-3 rounded-2xl px-3.5 py-3 transition-all duration-200',
         active
-          ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-          : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+          ? 'bg-primary/12 text-primary shadow-lg shadow-primary/5'
+          : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
       )}
     >
-      <Icon
+      <div
         className={cn(
-          'h-5 w-5 shrink-0 transition-colors',
-          active ? 'text-primary' : 'text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80'
+          'flex h-9 w-9 items-center justify-center rounded-xl transition-all',
+          active ? 'bg-primary/15' : 'bg-muted/20 group-hover:bg-muted/30'
         )}
-      />
+      >
+        <Icon
+          className={cn(
+            'h-5 w-5 transition-colors',
+            active ? 'text-primary' : 'text-sidebar-foreground/50 group-hover:text-sidebar-foreground'
+          )}
+        />
+      </div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium">{item.label}</div>
-        <div className="truncate text-[11px] text-sidebar-foreground/40">{item.description}</div>
+        <div className="text-sm font-semibold">{item.label}</div>
+        <div className="truncate text-[11px] text-muted-foreground/70">{item.description}</div>
       </div>
       {active && <ChevronRight className="h-4 w-4 text-primary" />}
     </Link>
@@ -83,7 +94,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href);
 
-  // ⌘K / Ctrl+K 全局唤起搜索
+  /* ⌘K / Ctrl+K 全局唤起搜索 */
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -98,29 +109,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const highRiskCount = riskAlerts.filter((r) => r.level === 'high').length;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* ============ 桌面侧边栏 ============ */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
-        {/* Logo */}
-        <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <Activity className="h-5 w-5 text-primary-foreground" />
+    <div className="min-h-screen">
+      {/* ============ 桌面侧边栏 - 去框化毛玻璃 ============ */}
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r-0 bg-sidebar/60 backdrop-blur-xl lg:flex">
+        {/* Logo 区域 */}
+        <div className="flex h-20 items-center gap-3 border-b border-border/10 px-6">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-secondary shadow-lg shadow-primary/10">
+            <Activity className="h-6 w-6 text-white" />
           </div>
           <div>
-            <div className="font-mono text-sm font-bold tracking-tight">DevLens</div>
-            <div className="text-[10px] text-sidebar-foreground/50">研发棱镜 · v0.1</div>
+            <div className="font-mono text-lg font-bold tracking-tight text-gradient-primary">DevLens</div>
+            <div className="text-[11px] text-muted-foreground">研发棱镜 · v0.1</div>
           </div>
         </div>
 
-        {/* 导航 */}
-        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-          <div className="mb-2 px-3 text-[10px] font-medium uppercase tracking-wider text-sidebar-foreground/40">
+        {/* 导航区域 */}
+        <nav className="flex-1 space-y-1.5 overflow-y-auto p-4">
+          <div className="mb-3 px-3.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
             分析模块
           </div>
           {ANALYSIS_NAV.map((item) => (
             <NavLink key={item.href} item={item} active={isActive(item.href)} />
           ))}
-          <div className="mb-2 mt-6 px-3 text-[10px] font-medium uppercase tracking-wider text-sidebar-foreground/40">
+
+          {/* 极简分隔线 */}
+          <div className="my-4 mx-6 h-px bg-gradient-to-r from-transparent via-border/30 to-transparent" />
+
+          <div className="mb-3 px-3.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
             系统管理
           </div>
           {SYSTEM_NAV.map((item) => (
@@ -129,14 +144,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* 底部用户卡 */}
-        <div className="border-t border-sidebar-border p-3">
-          <div className="flex items-center gap-2 rounded-lg px-2 py-1.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent/20 text-xs font-mono text-accent">
+        <div className="border-t border-border/10 p-4">
+          <div className="flex items-center gap-3 rounded-2xl bg-muted/15 p-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-accent/20 to-accent/10 text-sm font-mono font-semibold text-accent">
               TL
             </div>
             <div className="flex-1 min-w-0">
-              <div className="truncate text-sm font-medium">技术负责人</div>
-              <div className="truncate text-[11px] text-sidebar-foreground/50">tech-lead@devlens.io</div>
+              <div className="truncate text-sm font-semibold">技术负责人</div>
+              <div className="truncate text-[11px] text-muted-foreground/70">tech-lead@devlens.io</div>
             </div>
           </div>
         </div>
@@ -146,22 +161,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="absolute inset-y-0 left-0 flex w-64 flex-col border-r border-sidebar-border bg-sidebar">
-            <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-5">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                  <Activity className="h-5 w-5 text-primary-foreground" />
+          <aside className="absolute inset-y-0 left-0 flex w-72 flex-col bg-sidebar/90 backdrop-blur-xl">
+            <div className="flex h-20 items-center justify-between border-b border-border/10 px-6">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-secondary shadow-lg shadow-primary/10">
+                  <Activity className="h-6 w-6 text-white" />
                 </div>
-                <span className="font-mono text-sm font-bold">DevLens</span>
+                <span className="font-mono text-lg font-bold text-gradient-primary">DevLens</span>
               </div>
               <Button variant="ghost" size="icon" onClick={() => setMobileOpen(false)}>
                 <X className="h-5 w-5" />
               </Button>
             </div>
-            <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+            <nav className="flex-1 space-y-1.5 overflow-y-auto p-4">
               {[...ANALYSIS_NAV, ...SYSTEM_NAV].map((item) => (
                 <div key={item.href} onClick={() => setMobileOpen(false)}>
                   <NavLink item={item} active={isActive(item.href)} />
@@ -173,9 +188,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       {/* ============ 主内容区 ============ */}
-      <div className="lg:pl-64">
-        {/* 顶栏 */}
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border bg-background/80 px-4 backdrop-blur-md md:px-6">
+      <div className="lg:pl-72">
+        {/* 顶栏 - 去框化风格 */}
+        <header className="sticky top-0 z-30 flex h-20 items-center gap-4 border-b-0 bg-background/50 px-4 backdrop-blur-xl md:px-8">
           <Button
             variant="ghost"
             size="icon"
@@ -185,109 +200,118 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <Menu className="h-5 w-5" />
           </Button>
+
           {/* 面包屑 */}
-          <div className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
-            <span>DevLens</span>
-            <ChevronRight className="h-3 w-3" />
-            <span className="text-foreground">
+          <div className="hidden items-center gap-2 font-mono text-sm text-muted-foreground/70 md:flex">
+            <span className="text-foreground">DevLens</span>
+            <ChevronRight className="h-4 w-4" />
+            <span className="text-foreground font-medium">
               {ANALYSIS_NAV.find((n) => isActive(n.href))?.label ||
                 SYSTEM_NAV.find((n) => isActive(n.href))?.label ||
                 '决策总览'}
             </span>
           </div>
-          <div className="relative hidden border-l border-border pl-3 md:block">
+
+          {/* 团队空间选择器 */}
+          <div className="hidden ml-auto md:block">
             {activeLargeTeam ? (
-              <button
-                onClick={() => setTeamMenuOpen((open) => !open)}
-                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted cursor-pointer"
-                aria-label="切换大团队"
-              >
-                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10"><Building2 className="h-3.5 w-3.5 text-primary" /></div>
-                <div className="max-w-32 min-w-0">
-                  <div className="truncate text-xs font-medium text-foreground">{activeLargeTeam.name}</div>
-                  <div className="text-[10px] text-muted-foreground">{spaces.filter((space) => space.largeTeamId === activeLargeTeam.id).length} 团队空间 · {spaces.filter((space) => space.largeTeamId === activeLargeTeam.id).reduce((count, space) => count + space.projectIds.length, 0)} 项目</div>
-                </div>
-                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-              </button>
+              <Popover isOpen={teamMenuOpen} onOpenChange={setTeamMenuOpen} placement="bottom end" offset={8}>
+                <Popover.Trigger
+                  className="flex items-center gap-3 rounded-2xl bg-muted/15 px-4 py-2.5 text-left transition-all hover:bg-muted/25 cursor-pointer"
+                  aria-label="切换大团队"
+                >
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/12">
+                    <Building2 className="h-4.5 w-4.5 text-primary" />
+                  </div>
+                  <div className="max-w-40 min-w-0">
+                    <div className="truncate text-sm font-semibold text-foreground">{activeLargeTeam.name}</div>
+                    <div className="text-[11px] text-muted-foreground/70">
+                      {spaces.filter((space) => space.largeTeamId === activeLargeTeam.id).length} 团队空间 · {spaces.filter((space) => space.largeTeamId === activeLargeTeam.id).reduce((count, space) => count + space.projectIds.length, 0)} 项目
+                    </div>
+                  </div>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground/70" />
+                </Popover.Trigger>
+                <Popover.Content className="w-72 overflow-hidden rounded-xl glass-strong shadow-2xl">
+                  <div className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70 border-b border-border/10">切换大团队</div>
+                  {largeTeams.map((lt) => (
+                    <button
+                      key={lt.id}
+                      onClick={() => { setActiveLargeTeamId(lt.id); setTeamMenuOpen(false); }}
+                      className={cn(
+                        'flex w-full items-center justify-between px-4 py-3 text-left text-sm transition-all hover:bg-muted/20',
+                        lt.id === activeLargeTeam.id && 'bg-primary/8 text-primary'
+                      )}
+                    >
+                      <span className="truncate font-medium">{lt.name}</span>
+                      <span className="font-mono text-[11px] text-muted-foreground/70">{spaces.filter((space) => space.largeTeamId === lt.id).length} 团队空间</span>
+                    </button>
+                  ))}
+                  <Link href="/team-spaces" onClick={() => setTeamMenuOpen(false)} className="flex items-center gap-2 border-t border-border/10 px-4 py-3 text-xs font-medium text-primary hover:bg-muted/15">
+                    <Building2 className="h-4 w-4" />管理团队空间
+                  </Link>
+                </Popover.Content>
+              </Popover>
             ) : (
-              <Link href="/team-spaces" className="text-xs font-medium text-primary hover:underline">创建团队空间</Link>
-            )}
-            {teamMenuOpen && activeLargeTeam && (
-              <div className="absolute left-3 top-10 z-50 w-64 overflow-hidden rounded-lg border border-border bg-popover p-1 shadow-2xl" style={{ animation: 'fadeIn 150ms ease-out' }}>
-                <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">切换大团队</div>
-                {largeTeams.map((lt) => (
-                  <button
-                    key={lt.id}
-                    onClick={() => { setActiveLargeTeamId(lt.id); setTeamMenuOpen(false); }}
-                    className={cn(
-                      'flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted cursor-pointer',
-                      lt.id === activeLargeTeam.id && 'bg-primary/10 text-primary'
-                    )}
-                  >
-                    <span className="truncate">{lt.name}</span>
-                    <span className="font-mono text-[10px] text-muted-foreground">{spaces.filter((space) => space.largeTeamId === lt.id).length} 团队空间</span>
-                  </button>
-                ))}
-                <Link href="/team-spaces" onClick={() => setTeamMenuOpen(false)} className="mt-1 flex items-center gap-2 border-t border-border px-3 py-2 text-xs font-medium text-primary hover:bg-muted"><Building2 className="h-3.5 w-3.5" />管理团队空间</Link>
-              </div>
+              <Link href="/team-spaces" className="text-sm font-medium text-primary hover:underline">创建团队空间</Link>
             )}
           </div>
-          <div className="ml-auto flex items-center gap-2">
+
+          <div className="flex items-center gap-2 ml-auto md:ml-4">
             <button
               onClick={() => setPaletteOpen(true)}
-              className="hidden items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-muted-foreground transition-colors hover:bg-muted md:flex cursor-pointer"
+              className="hidden items-center gap-3 rounded-2xl glass-light px-4 py-2.5 text-muted-foreground transition-all hover:bg-muted/20 md:flex cursor-pointer"
             >
-              <Search className="h-4 w-4" />
+              <Search className="h-4.5 w-4.5" />
               <span className="text-sm">搜索项目、人员...</span>
-              <kbd className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px]">
+              <kbd className="rounded-xl border border-border/30 px-2.5 py-1 font-mono text-[11px] bg-muted/20">
                 ⌘K
               </kbd>
             </button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setNotifOpen((v) => !v)}
-              aria-label="通知"
-              className="relative"
-            >
-              <Bell className="h-4 w-4" />
-              {highRiskCount > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 font-mono text-[9px] font-bold text-white">
-                  {highRiskCount}
-                </span>
-              )}
-            </Button>
-            {notifOpen && (
-              <div className="absolute right-4 top-14 z-50 w-80 overflow-hidden rounded-lg border border-border bg-popover shadow-2xl" style={{ animation: 'fadeIn 150ms ease-out' }}>
-                <div className="border-b border-border px-4 py-2.5">
-                  <div className="text-sm font-medium">风险预警</div>
-                  <div className="text-xs text-muted-foreground">{riskAlerts.length} 条 · {highRiskCount} 高危</div>
+
+            {/* 通知按钮带数量气泡 */}
+            <Popover isOpen={notifOpen} onOpenChange={setNotifOpen} placement="bottom end" offset={8}>
+              <Popover.Trigger
+                className="relative inline-flex h-10 w-10 items-center justify-center rounded-3xl text-foreground transition-colors hover:bg-muted/40 cursor-pointer"
+                aria-label="通知"
+              >
+                <Bell className="h-4.5 w-4.5" />
+                {highRiskCount > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-r from-destructive to-destructive/80 px-1.5 font-mono text-[10px] font-bold text-white shadow-lg shadow-destructive/15">
+                    {highRiskCount}
+                  </span>
+                )}
+              </Popover.Trigger>
+              <Popover.Content className="w-80 overflow-hidden rounded-xl glass-strong shadow-2xl">
+                <div className="border-b border-border/10 px-5 py-4">
+                  <div className="text-base font-semibold">风险预警</div>
+                  <div className="text-xs text-muted-foreground/70">{riskAlerts.length} 条 · {highRiskCount} 高危</div>
                 </div>
                 <div className="max-h-80 overflow-y-auto">
                   {riskAlerts.slice(0, 5).map((r) => (
-                    <div key={r.id} className="border-b border-border/60 px-4 py-2.5 last:border-0">
+                    <div key={r.id} className="border-b border-border/5 px-5 py-3 last:border-0 hover:bg-muted/10 transition-colors">
                       <div className="flex items-center gap-2">
-                        <span className={`h-1.5 w-1.5 rounded-full ${r.level === 'high' ? 'bg-destructive' : r.level === 'medium' ? 'bg-warning' : 'bg-muted-foreground'}`} />
+                        <span className={`h-2 w-2 rounded-full ${r.level === 'high' ? 'bg-destructive' : r.level === 'medium' ? 'bg-warning' : 'bg-muted-foreground'}`} />
                         <span className="text-xs font-medium">{r.title}</span>
                       </div>
-                      <div className="mt-0.5 pl-3.5 text-[11px] text-muted-foreground">{r.time}</div>
+                      <div className="mt-1 pl-4 text-[11px] text-muted-foreground/70">{r.time}</div>
                     </div>
                   ))}
                 </div>
                 <button
                   onClick={() => setNotifOpen(false)}
-                  className="w-full bg-muted/30 py-2 text-center text-xs text-muted-foreground hover:bg-muted/60 cursor-pointer"
+                  className="w-full bg-muted/10 py-3 text-center text-xs text-muted-foreground hover:bg-muted/15 cursor-pointer transition-colors"
                 >
                   查看全部
                 </button>
-              </div>
-            )}
+              </Popover.Content>
+            </Popover>
+
             <ThemeToggle />
           </div>
         </header>
 
         {/* 页面内容 */}
-        <main className="mx-auto max-w-[1400px] p-4 md:p-6">{children}</main>
+        <main className="mx-auto max-w-[1440px] p-4 md:p-8">{children}</main>
       </div>
 
       {/* 全局搜索 Command Palette */}

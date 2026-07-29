@@ -1,31 +1,42 @@
 import * as React from 'react';
-import { cva, type VariantProps } from 'class-variance-authority';
+import { Chip } from '@heroui/react/chip';
 import { cn } from '@/lib/utils';
 
-const badgeVariants = cva(
-  'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium transition-colors cursor-default',
-  {
-    variants: {
-      variant: {
-        default: 'bg-primary/15 text-primary',
-        secondary: 'bg-secondary/15 text-secondary',
-        accent: 'bg-accent/15 text-accent',
-        success: 'bg-success/15 text-success',
-        warning: 'bg-warning/15 text-warning',
-        danger: 'bg-destructive/15 text-destructive',
-        outline: 'border border-border text-muted-foreground',
-      },
-    },
-    defaultVariants: { variant: 'default' },
-  }
-);
+/* ============================================
+   Badge 组件 - 基于 HeroUI Chip
+   保持原有 API：variant + className + children
+   内部映射到 HeroUI Chip 的 color + variant
+   ============================================ */
 
-export interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof badgeVariants> {}
+type BadgeVariant = 'default' | 'secondary' | 'accent' | 'success' | 'warning' | 'danger' | 'outline';
 
-function Badge({ className, variant, ...props }: BadgeProps) {
-  return <div className={cn(badgeVariants({ variant }), className)} {...props} />;
+/** 旧 variant -> HeroUI Chip color + variant 映射 */
+const variantMap: Record<BadgeVariant, { color: 'default' | 'success' | 'danger' | 'accent' | 'warning'; variant: 'primary' | 'secondary' | 'tertiary' | 'soft' }> = {
+  default: { color: 'default', variant: 'soft' },
+  secondary: { color: 'default', variant: 'secondary' },
+  accent: { color: 'accent', variant: 'soft' },
+  success: { color: 'success', variant: 'soft' },
+  warning: { color: 'warning', variant: 'soft' },
+  danger: { color: 'danger', variant: 'soft' },
+  outline: { color: 'default', variant: 'tertiary' },
+};
+
+export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
+  variant?: BadgeVariant;
 }
 
-export { Badge, badgeVariants };
+function Badge({ className, variant = 'default', children, ...props }: BadgeProps) {
+  const mapping = variantMap[variant] ?? variantMap.default;
+  return (
+    <Chip
+      color={mapping.color}
+      variant={mapping.variant}
+      className={cn('rounded-full cursor-default', className)}
+      {...props}
+    >
+      {children}
+    </Chip>
+  );
+}
+
+export { Badge };

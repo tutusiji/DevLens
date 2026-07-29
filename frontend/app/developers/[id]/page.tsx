@@ -6,13 +6,13 @@
 
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { ArrowLeft, GitCommit, Eye, TrendingUp, Sparkles, Users2, Box, FileText } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PageHeader, ScoreRing, ProgressBar } from '@/components/widgets';
 import { CapabilityRadar, LineTrend } from '@/components/charts';
+import { CollaborationGraph } from '@/components/collaboration-graph';
 import { DiceBearAvatar } from '@/components/dicebear-avatar';
 import { api } from '@/lib/api';
 import { developers, roleConfigs, getRoleStandard, DIMENSION_LABELS } from '@/lib/mock-data';
@@ -293,36 +293,24 @@ export default function DeveloperDetailPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users2 className="h-4 w-4 text-primary" />
-              协作伙伴
+              协作网络
             </CardTitle>
-            <CardDescription>常共改文件 / 互评代码的开发者</CardDescription>
+            <CardDescription>共改文件 / 互评代码的协作关系图谱</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {detail.partners.map((p) => (
-              <Link
-                key={p.username}
-                href={`/developers/${developers.find((d) => d.username === p.username)?.id || ''}`}
-                className="flex items-center gap-3 rounded-lg border border-border/60 p-3 transition-colors hover:bg-muted/40"
-              >
-                <DiceBearAvatar seed={p.username} size={40} />
-                <div className="flex-1">
-                  <div className="text-sm font-medium">{p.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    共改 {p.sharedCommits} · 互评 {p.reviewCount}
-                  </div>
-                </div>
-                <div className="flex gap-4 text-xs">
-                  <div className="text-center">
-                    <div className="font-mono tabular-nums text-foreground">{p.sharedCommits}</div>
-                    <div className="text-muted-foreground">共改</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-mono tabular-nums text-foreground">{p.reviewCount}</div>
-                    <div className="text-muted-foreground">互评</div>
-                  </div>
-                </div>
-              </Link>
-            ))}
+          <CardContent>
+            <CollaborationGraph
+              center={{ name: detail.name, username: detail.username }}
+              partners={detail.partners.map((p) => ({
+                id: p.username,
+                name: p.name,
+                username: p.username,
+                sharedCommits: p.sharedCommits,
+                reviewCount: p.reviewCount,
+              }))}
+              developerIdMap={Object.fromEntries(
+                developers.map((d) => [d.username, d.id])
+              )}
+            />
           </CardContent>
         </Card>
       </div>
