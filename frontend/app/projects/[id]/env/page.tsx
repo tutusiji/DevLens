@@ -137,25 +137,25 @@ function ToolGroupTable({ entries, revealedSet, onToggleReveal }: { entries: Env
         </CardTitle>
       </CardHeader>
       <CardContent className="px-0 pb-0">
-        <Table className="min-w-[1120px]">
+        <Table className="min-w-[1240px]">
           <TableHeader>
             <TableRow>
-              <TableHead className="pl-6">配置键</TableHead>
-              <TableHead>值</TableHead>
-              <TableHead>地址</TableHead>
-              <TableHead>账号</TableHead>
-              <TableHead>库名</TableHead>
-              <TableHead>来源文件</TableHead>
-              <TableHead>状态</TableHead>
-              <TableHead className="pr-6 text-right">更新时间</TableHead>
+              <TableHead className="pl-6 w-[240px] min-w-[200px]">配置键</TableHead>
+              <TableHead className="w-[240px] min-w-[200px]">值</TableHead>
+              <TableHead className="w-[130px]">地址</TableHead>
+              <TableHead className="w-[90px]">账号</TableHead>
+              <TableHead className="w-[110px]">库名</TableHead>
+              <TableHead className="w-[200px]">来源文件</TableHead>
+              <TableHead className="w-[80px]">状态</TableHead>
+              <TableHead className="pr-6 text-right w-[110px]">更新时间</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {entries.map((e) => (
               <TableRow key={e.id} className={e.status === 'removed' ? 'opacity-50' : ''}>
                 <TableCell className="pl-6">
-                  <div className="font-mono text-xs">{e.key}</div>
-                  {e.toolName && <div className="text-[10px] text-muted-foreground">{e.toolName}</div>}
+                  <div className="font-mono text-xs break-all leading-snug">{e.key}</div>
+                  {e.toolName && <div className="mt-0.5 text-[10px] text-muted-foreground">{e.toolName}</div>}
                 </TableCell>
                 <TableCell>
                   <SecretValue entry={e} revealed={revealedSet.has(e.id)} onToggle={() => onToggleReveal(e.id)} />
@@ -163,17 +163,17 @@ function ToolGroupTable({ entries, revealedSet, onToggleReveal }: { entries: Env
                     <div className="mt-0.5 text-[10px] text-muted-foreground line-through">{e.previousValue}</div>
                   )}
                 </TableCell>
-                <TableCell className="font-mono text-xs text-muted-foreground">
+                <TableCell className="font-mono text-xs text-muted-foreground break-all">
                   {e.host && <span>{e.host}{e.port ? `:${e.port}` : ''}</span>}
                 </TableCell>
-                <TableCell className="font-mono text-xs text-muted-foreground">
+                <TableCell className="font-mono text-xs text-muted-foreground break-all">
                   {e.username && <span>{e.username}</span>}
                 </TableCell>
-                <TableCell className="font-mono text-xs text-muted-foreground">
+                <TableCell className="font-mono text-xs text-muted-foreground break-all">
                   {e.database && <span>{e.database}</span>}
                 </TableCell>
                 <TableCell>
-                  <div className="font-mono text-[11px] text-muted-foreground">{e.sourceFile}</div>
+                  <div className="font-mono text-[11px] text-muted-foreground break-all leading-snug">{e.sourceFile}</div>
                   <div className="text-[10px] text-muted-foreground">:{e.sourceLine}</div>
                 </TableCell>
                 <TableCell><Badge variant={STATUS_META[e.status].variant}>{STATUS_META[e.status].label}</Badge></TableCell>
