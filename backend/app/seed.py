@@ -392,5 +392,69 @@ def seed_skills() -> None:
     print("✓ seed_skills 完成")
 
 
+def seed_env_inventory() -> None:
+    """初始化环境配置盘点种子数据：为 p1 用户中心造结构化连接配置示例
+
+    仅当 env_inventory_entries 表为空时调用。造一份 dev/prod 双环境、
+    database/redis/nacos 三类工具的示例条目 + 1 条全量扫描记录。
+    """
+    Base.metadata.create_all(engine)
+    db = SessionLocal()
+    if db.query(models.EnvInventoryEntry).count() > 0:
+        db.close()
+        return
+    now = "2026-08-01T08:00:00+00:00"
+    scan_id = "einv-scan-seed-p1"
+    db.add(models.EnvInventoryScan(
+        id=scan_id, project_id="p1", scan_type="full", status="completed",
+        trigger="auto", started_at="2026-08-01T07:58:00+00:00", finished_at=now,
+        files_scanned=4, entries_found=5, added=0, changed=0, removed=0, unchanged=0,
+        message="首次全量扫描",
+    ))
+    db.commit()  # 先提交 scan，满足 entries.scan_id 外键
+
+    from .env_scanner import fingerprint
+
+    entries = [
+        # ---- prod 环境 ----
+        dict(env="prod", tool_type="database", tool_name="mysql", key="spring.datasource.url",
+             value="jdbc:mysql://10.0.1.20:3306/user_center?useSSL=true", is_secret=1,
+             host="10.0.1.20", port="3306", username="uc_app", database="user_center",
+             source_file="src/main/resources/application-prod.yml", source_line=12, detail={}),
+        dict(env="prod", tool_type="redis", tool_name="redis", key="spring.redis.host",
+             value="10.0.1.21:6379 · db=0 · password=r***d(len=9)", is_secret=1,
+             host="10.0.1.21", port="6379", username="", database="0",
+             source_file="src/main/resources/application-prod.yml", source_line=22, detail={}),
+        dict(env="prod", tool_type="nacos", tool_name="nacos", key="spring.cloud.nacos.server-addr",
+             value="nacos-prod:8848 · user=nacos", is_secret=0,
+             host="nacos-prod", port="8848", username="nacos", database="",
+             source_file="src/main/resources/application-prod.yml", source_line=31,
+             detail={"namespace": "prod", "group": "DEFAULT_GROUP"}),
+        # ---- dev 环境 ----
+        dict(env="dev", tool_type="database", tool_name="mysql", key="spring.datasource.url",
+             value="jdbc:mysql://127.0.0.1:3306/user_center_dev?useSSL=false", is_secret=1,
+             host="127.0.0.1", port="3306", username="dev_app", database="user_center_dev",
+             source_file="src/main/resources/application-dev.yml", source_line=12, detail={}),
+        dict(env="dev", tool_type="redis", tool_name="redis", key="spring.redis.host",
+             value="127.0.0.1:6379 · db=0", is_secret=0,
+             host="127.0.0.1", port="6379", username="", database="0",
+             source_file="src/main/resources/application-dev.yml", source_line=22, detail={}),
+    ]
+    for i, entry in enumerate(entries, start=1):
+        db.add(models.EnvInventoryEntry(
+            id=f"einv-seed-{i}", project_id="p1", scan_id=scan_id,
+            **entry,
+            fingerprint=fingerprint(
+                entry["tool_name"], entry["env"], entry["host"], entry["port"],
+                entry["database"], entry["source_file"],
+            ),
+            file_mtime=now,
+            first_seen_at=now, updated_at=now, status="active",
+        ))
+    db.commit()
+    db.close()
+    print("✓ seed_env_inventory 完成")
+
+
 if __name__ == "__main__":
     seed()

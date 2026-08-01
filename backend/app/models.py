@@ -325,3 +325,55 @@ class SkillGroupRun(Base):
     group_snapshot = Column(JSON)                  # {group_name, skill_ids:[...], rules:[{id,name,category,severity,rule_content}]} 快照
     trigger = Column(String, default="manual")     # manual|auto
     created_at = Column(String)
+
+
+# ============ 项目环境配置盘点（Env Inventory，2 张新表）============
+
+class EnvInventoryScan(Base):
+    """扫描记录：每次扫描一条，区分全量/增量"""
+    __tablename__ = "env_inventory_scans"
+    id = Column(String, primary_key=True)          # einv-scan-xxx
+    project_id = Column(String, ForeignKey("projects.id"))
+    scan_type = Column(String, default="full")     # full（全量）| incremental（按此历史更新）
+    status = Column(String, default="scanning")    # scanning|completed|failed
+    trigger = Column(String, default="manual")     # manual|auto
+    started_at = Column(String)
+    finished_at = Column(String)
+    files_scanned = Column(Integer, default=0)     # 本次扫描的配置文件数
+    entries_found = Column(Integer, default=0)     # 本次发现的条目数
+    added = Column(Integer, default=0)             # 增量：新增条目数
+    changed = Column(Integer, default=0)           # 增量：变更条目数
+    removed = Column(Integer, default=0)           # 增量：失效条目数
+    unchanged = Column(Integer, default=0)         # 增量：无变化条目数
+    message = Column(Text, default="")
+
+
+class EnvInventoryEntry(Base):
+    """配置条目：一条记录 = 一个配置项（含环境、工具类型、来源文件、更新时间）"""
+    __tablename__ = "env_inventory_entries"
+    id = Column(String, primary_key=True)          # einv-xxx
+    project_id = Column(String, ForeignKey("projects.id"))
+    scan_id = Column(String, ForeignKey("env_inventory_scans.id"), nullable=True)
+    # ---- 分类维度 ----
+    env = Column(String, default="common")         # dev|test|prod|gray|common（环境归属）
+    tool_type = Column(String, default="other")    # database|redis|nacos|mq|kafka|es|oss|gateway|third_party|other
+    tool_name = Column(String, default="")         # 工具/服务名，如 mysql / redis / nacos / user-center
+    # ---- 配置内容 ----
+    key = Column(String, default="")               # 配置键，如 spring.datasource.url / REDIS_HOST
+    value = Column(Text, default="")               # 配置值（密码类已脱敏存储）
+    is_secret = Column(Integer, default=0)         # 0|1 是否敏感字段（password/secret/token/key）
+    # ---- 结构化连接信息（由 YAML / Compose / URL 解析器提取）----
+    host = Column(String, default="")
+    port = Column(String, default="")
+    username = Column(String, default="")
+    database = Column(String, default="")
+    fingerprint = Column(String, default="")       # tool+env+host+port+db+source_file 的稳定去重指纹
+    detail = Column(JSON, default=dict)            # namespace/group/service 等补充信息
+    # ---- 溯源 ----
+    source_file = Column(String, default="")       # 来源文件路径（相对仓库根）
+    source_line = Column(Integer, default=0)       # 来源行号
+    file_mtime = Column(String, default="")        # 源文件最后修改时间（ISO）
+    first_seen_at = Column(String, default="")     # 首次发现时间
+    updated_at = Column(String, default="")        # 最近更新时间（本次扫描时间）
+    status = Column(String, default="active")      # active|added|changed|removed（增量对比用）
+    previous_value = Column(Text, default="")      # 增量扫描前的旧值（changed 时记录）

@@ -17,6 +17,7 @@ import type {
   ActiveProject, ActiveDeveloper, ActiveTeam, CapabilityGap, IdentityMatch, Repository, LargeTeam,
   SkillSource, Skill, SkillGroup, SkillGroupPreview, ExtractResult,
   SkillSourceCreateRequest, SkillCreateRequest, SkillGroupCreateRequest,
+  EnvInventoryEntry, EnvInventoryScan, EnvInventorySummary, EnvName, EnvToolType,
 } from './types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
@@ -77,6 +78,33 @@ let mockGroupSeq = 100;
 const mockGroupId = () => `skg-mock-${++mockGroupSeq}`;
 let mockSourceSeq = 100;
 const mockSourceId = () => `sk-src-mock-${++mockSourceSeq}`;
+
+// ============ Env Inventory mock 数据（可变，支持全链路 mock）============
+const mockEnvScans: EnvInventoryScan[] = [
+  {
+    id: 'einv-scan-seed-p1', projectId: 'p1', scanType: 'full', status: 'completed',
+    trigger: 'auto', startedAt: '2026-08-01T07:58:00Z', finishedAt: '2026-08-01T08:00:00Z',
+    filesScanned: 4, entriesFound: 5, added: 0, changed: 0, removed: 0, unchanged: 0,
+    message: '首次全量扫描',
+  },
+];
+const mockEnvEntries: EnvInventoryEntry[] = [
+  { id: 'einv-seed-1', projectId: 'p1', scanId: 'einv-scan-seed-p1', env: 'prod', toolType: 'database', toolName: 'mysql', key: 'spring.datasource.url', value: 'jdbc:mysql://10.0.1.20:3306/user_center?useSSL=true', isSecret: 1, host: '10.0.1.20', port: '3306', username: 'uc_app', database: 'user_center', fingerprint: 'einv-mock-mysql-prod', sourceFile: 'src/main/resources/application-prod.yml', sourceLine: 12, fileMtime: '2026-08-01T08:00:00Z', firstSeenAt: '2026-08-01T08:00:00Z', updatedAt: '2026-08-01T08:00:00Z', status: 'active' },
+  { id: 'einv-seed-4', projectId: 'p1', scanId: 'einv-scan-seed-p1', env: 'prod', toolType: 'redis', toolName: 'redis', key: 'spring.redis.host', value: '10.0.1.21:6379 · password=r***d(len=9)', isSecret: 1, host: '10.0.1.21', port: '6379', database: '0', fingerprint: 'einv-mock-redis-prod', sourceFile: 'src/main/resources/application-prod.yml', sourceLine: 22, updatedAt: '2026-08-01T08:00:00Z', status: 'active' },
+  { id: 'einv-seed-7', projectId: 'p1', scanId: 'einv-scan-seed-p1', env: 'prod', toolType: 'nacos', toolName: 'nacos', key: 'spring.cloud.nacos.server-addr', value: 'nacos-prod:8848 · user=nacos', isSecret: 0, host: 'nacos-prod', port: '8848', username: 'nacos', fingerprint: 'einv-mock-nacos-prod', detail: { namespace: 'prod', group: 'DEFAULT_GROUP' }, sourceFile: 'src/main/resources/application-prod.yml', sourceLine: 31, updatedAt: '2026-08-01T08:00:00Z', status: 'active' },
+  { id: 'einv-seed-8', projectId: 'p1', scanId: 'einv-scan-seed-p1', env: 'dev', toolType: 'database', toolName: 'mysql', key: 'spring.datasource.url', value: 'jdbc:mysql://127.0.0.1:3306/user_center_dev?useSSL=false', isSecret: 1, host: '127.0.0.1', port: '3306', username: 'dev_app', database: 'user_center_dev', fingerprint: 'einv-mock-mysql-dev', sourceFile: 'src/main/resources/application-dev.yml', sourceLine: 12, updatedAt: '2026-08-01T08:00:00Z', status: 'active' },
+  { id: 'einv-seed-10', projectId: 'p1', scanId: 'einv-scan-seed-p1', env: 'dev', toolType: 'redis', toolName: 'redis', key: 'spring.redis.host', value: '127.0.0.1:6379', isSecret: 0, host: '127.0.0.1', port: '6379', database: '0', fingerprint: 'einv-mock-redis-dev', sourceFile: 'src/main/resources/application-dev.yml', sourceLine: 22, updatedAt: '2026-08-01T08:00:00Z', status: 'active' },
+];
+let mockEnvScanSeq = 100;
+const mockEnvScanId = () => `einv-scan-mock-${++mockEnvScanSeq}`;
+function buildEnvSummary(entries: EnvInventoryEntry[], scans: EnvInventoryScan[]): EnvInventorySummary {
+  const active = entries.filter((e) => e.status !== 'removed');
+  const byEnv = { dev: 0, test: 0, prod: 0, gray: 0, common: 0 } as Record<EnvName, number>;
+  const byToolType = { database: 0, redis: 0, nacos: 0, mq: 0, kafka: 0, es: 0, oss: 0, gateway: 0, third_party: 0, other: 0 } as Record<EnvToolType, number>;
+  active.forEach((e) => { byEnv[e.env] = (byEnv[e.env] || 0) + 1; byToolType[e.toolType] = (byToolType[e.toolType] || 0) + 1; });
+  const last = scans.filter((s) => s.status === 'completed').sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
+  return { projectId: 'p1', total: active.length, byEnv, byToolType, lastScanAt: last?.finishedAt || last?.startedAt, lastScanType: last?.scanType };
+}
 
 export const api = {
   // 首页
@@ -267,6 +295,53 @@ export const api = {
   },
   bindGroup: (runId: string, groupId: string): Promise<any> =>
     USE_MOCK ? mockDelay({ ok: true, runId, groupId }) : fetchAPI<any>(`/analysis-runs/${runId}/bind-group`, { method: 'POST', body: JSON.stringify({ groupId }) }),
+
+  // ============ 项目环境配置盘点（Env Inventory）============
+  getEnvInventory: (projectId: string, params?: { env?: EnvName; toolType?: EnvToolType; status?: string; q?: string }): Promise<EnvInventoryEntry[]> => {
+    if (!USE_MOCK) {
+      const q = new URLSearchParams();
+      if (params?.env) q.set('env', params.env);
+      if (params?.toolType) q.set('toolType', params.toolType);
+      if (params?.status) q.set('status', params.status);
+      if (params?.q) q.set('q', params.q);
+      const qs = q.toString();
+      return fetchAPI<EnvInventoryEntry[]>(`/projects/${projectId}/env-inventory${qs ? `?${qs}` : ''}`);
+    }
+    let list = mockEnvEntries.filter((e) => e.projectId === projectId);
+    if (params?.env) list = list.filter((e) => e.env === params.env);
+    if (params?.toolType) list = list.filter((e) => e.toolType === params.toolType);
+    if (params?.status) list = list.filter((e) => e.status === params.status);
+    if (params?.q) {
+      const ql = params.q.toLowerCase();
+      list = list.filter((e) => [e.key, e.value, e.host, e.port, e.username, e.database, e.sourceFile, e.toolName].join(' ').toLowerCase().includes(ql));
+    }
+    return mockDelay(list);
+  },
+  getEnvInventorySummary: (projectId: string): Promise<EnvInventorySummary> =>
+    USE_MOCK ? mockDelay(buildEnvSummary(mockEnvEntries.filter((e) => e.projectId === projectId), mockEnvScans.filter((s) => s.projectId === projectId))) : fetchAPI<EnvInventorySummary>(`/projects/${projectId}/env-inventory/summary`),
+  scanEnvInventory: (projectId: string, scanType: 'full' | 'incremental'): Promise<EnvInventoryScan> => {
+    if (!USE_MOCK) return fetchAPI<EnvInventoryScan>(`/projects/${projectId}/env-inventory/scan`, { method: 'POST', body: JSON.stringify({ scanType }) });
+    // mock：模拟一次扫描，full 重建 / incremental 产生少量变化
+    const now = new Date().toISOString();
+    const scan: EnvInventoryScan = {
+      id: mockEnvScanId(), projectId, scanType, status: 'completed', trigger: 'manual',
+      startedAt: now, finishedAt: now, filesScanned: 4, entriesFound: mockEnvEntries.filter((e) => e.projectId === projectId).length,
+      added: 0, changed: scanType === 'incremental' ? 1 : 0,
+      removed: 0, unchanged: scanType === 'incremental' ? 4 : 0,
+      message: scanType === 'full' ? '全量扫描完成，已重建配置条目' : '增量扫描完成',
+    };
+    mockEnvScans.unshift(scan);
+    if (scanType === 'incremental') {
+      // 模拟：第一条密码变更
+      const first = mockEnvEntries.find((e) => e.projectId === projectId && e.isSecret);
+      if (first) { first.previousValue = first.value; first.value = 'x9***'; first.status = 'changed'; first.updatedAt = now; }
+    }
+    return mockDelay(scan);
+  },
+  getEnvInventoryScans: (projectId: string): Promise<EnvInventoryScan[]> =>
+    USE_MOCK ? mockDelay(mockEnvScans.filter((s) => s.projectId === projectId)) : fetchAPI<EnvInventoryScan[]>(`/projects/${projectId}/env-inventory/scans`),
+  getEnvInventoryScan: (projectId: string, scanId: string): Promise<{ scan: EnvInventoryScan; entries: EnvInventoryEntry[] }> =>
+    USE_MOCK ? mockDelay({ scan: mockEnvScans.find((s) => s.id === scanId)!, entries: mockEnvEntries.filter((e) => e.scanId === scanId) }) : fetchAPI<{ scan: EnvInventoryScan; entries: EnvInventoryEntry[] }>(`/projects/${projectId}/env-inventory/scans/${scanId}`),
 };
 
 export type Api = typeof api;

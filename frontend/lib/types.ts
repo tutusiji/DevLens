@@ -602,3 +602,66 @@ export interface SkillGroupCreateRequest {
   analysisType: SkillGroupAnalysisType;
   enabled?: number;
 }
+
+// ============ 项目环境配置盘点（Env Inventory）============
+
+export type EnvName = 'dev' | 'test' | 'prod' | 'gray' | 'common';
+export type EnvToolType =
+  | 'database' | 'redis' | 'nacos' | 'mq' | 'kafka' | 'es'
+  | 'oss' | 'gateway' | 'third_party' | 'other';
+export type EnvEntryStatus = 'active' | 'added' | 'changed' | 'removed';
+
+/** 配置条目：一条记录 = 一个配置项 */
+export interface EnvInventoryEntry {
+  id: string;
+  projectId: string;
+  scanId?: string;
+  env: EnvName;
+  toolType: EnvToolType;
+  toolName: string;
+  key: string;
+  value: string;
+  isSecret: number; // 0|1
+  /** 连接地址结构化字段；常规配置项可能为空。 */
+  host?: string;
+  port?: string;
+  username?: string;
+  database?: string;
+  fingerprint?: string;
+  detail?: Record<string, unknown>;
+  sourceFile: string;
+  sourceLine: number;
+  fileMtime?: string;
+  firstSeenAt?: string;
+  updatedAt: string;
+  status: EnvEntryStatus;
+  previousValue?: string;
+}
+
+/** 扫描记录 */
+export interface EnvInventoryScan {
+  id: string;
+  projectId: string;
+  scanType: 'full' | 'incremental';
+  status: 'scanning' | 'completed' | 'failed';
+  trigger: string;
+  startedAt: string;
+  finishedAt?: string;
+  filesScanned: number;
+  entriesFound: number;
+  added: number;
+  changed: number;
+  removed: number;
+  unchanged: number;
+  message?: string;
+}
+
+/** 概览：各环境×工具统计 + 最近扫描 */
+export interface EnvInventorySummary {
+  projectId: string;
+  total: number;
+  byEnv: Record<EnvName, number>;
+  byToolType: Record<EnvToolType, number>;
+  lastScanAt?: string;
+  lastScanType?: 'full' | 'incremental';
+}

@@ -530,3 +530,59 @@ class ExtractResult(CamelModel):
     status: str
     extracted: int = 0
     message: str = ""
+
+
+# ============ 项目环境配置盘点（Env Inventory）============
+class EnvInventoryEntryM(CamelModel):
+    id: str
+    project_id: str
+    scan_id: Optional[str] = None
+    env: str = "common"
+    tool_type: str = "other"
+    tool_name: str = ""
+    key: str = ""
+    value: str = ""
+    is_secret: int = 0
+    host: str = ""
+    port: str = ""
+    username: str = ""
+    database: str = ""
+    fingerprint: str = ""
+    detail: dict[str, Any] = {}
+    source_file: str = ""
+    source_line: int = 0
+    file_mtime: str = ""
+    first_seen_at: str = ""
+    updated_at: str = ""
+    status: str = "active"
+    previous_value: str = ""
+
+
+class EnvInventoryScanM(CamelModel):
+    id: str
+    project_id: str
+    scan_type: str = "full"
+    status: str = "scanning"
+    trigger: str = "manual"
+    started_at: str = ""
+    finished_at: str = ""
+    files_scanned: int = 0
+    entries_found: int = 0
+    added: int = 0
+    changed: int = 0
+    removed: int = 0
+    unchanged: int = 0
+    message: str = ""
+
+
+class EnvInventorySummaryM(CamelModel):
+    project_id: str
+    total: int = 0
+    by_env: dict[str, int] = {}
+    by_tool_type: dict[str, int] = {}
+    last_scan_at: str = ""
+    last_scan_type: str = ""
+
+
+class EnvInventoryScanRequest(CamelModel):
+    scan_type: str = "full"  # full | incremental
