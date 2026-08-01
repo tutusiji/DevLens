@@ -153,11 +153,11 @@ export const api = {
   getEmbeddingModels: () => (USE_MOCK ? mockDelay(embeddingModels) : fetchAPI<any[]>('/embedding-models')),
   getGraph: () => (USE_MOCK ? mockDelay({ nodes: graphModules, edges: graphEdges, stats: { moduleCount: graphModules.length, edgeCount: graphEdges.length, avgHealth: 84 } }) : fetchAPI<any>('/graph')),
 
-  // 治理闭环：洞察 / 修复状态变更
-  updateInsightStatus: (projectId: string, insightId: string, status: string) =>
-    USE_MOCK ? mockDelay({}) : fetchAPI<any>(`/projects/${projectId}/insights/${insightId}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
-  updateFixStatus: (projectId: string, fixId: string, status: string) =>
-    USE_MOCK ? mockDelay({}) : fetchAPI<any>(`/projects/${projectId}/fixes/${fixId}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  // 治理闭环：洞察 / 修复状态变更（支持 status + assignee 组合 PATCH）
+  updateInsightStatus: (projectId: string, insightId: string, patch: { status?: string; assignee?: string }) =>
+    USE_MOCK ? mockDelay({}) : fetchAPI<any>(`/projects/${projectId}/insights/${insightId}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  updateFixStatus: (projectId: string, fixId: string, patch: { status?: string; assignee?: string }) =>
+    USE_MOCK ? mockDelay({}) : fetchAPI<any>(`/projects/${projectId}/fixes/${fixId}`, { method: 'PATCH', body: JSON.stringify(patch) }),
 
   // 技术资产 + 身份匹配
   getProjectAssets: (projectId: string) => (USE_MOCK ? mockDelay({ frameworks: [], dependencies: [], configs: [], deployments: [] }) : fetchAPI<any>(`/projects/${projectId}/assets`)),

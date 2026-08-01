@@ -15,6 +15,7 @@ import {
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { Sheet } from '@/components/ui/sheet';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -51,6 +52,16 @@ const STATUS_META: Record<InsightStatus, { label: string; variant: 'danger' | 'w
   resolved: { label: '已解决', variant: 'success' },
   accepted_risk: { label: '接受风险', variant: 'secondary' },
   false_positive: { label: '误报', variant: 'outline' },
+};
+
+// 整改状态流转：open → acknowledged → in_progress → resolved（可分支接受风险/误报，终态可重新打开）
+const INSIGHT_TRANSITIONS: Record<InsightStatus, InsightStatus[]> = {
+  open: ['acknowledged', 'in_progress', 'accepted_risk', 'false_positive'],
+  acknowledged: ['in_progress', 'accepted_risk', 'false_positive'],
+  in_progress: ['resolved', 'accepted_risk', 'false_positive'],
+  resolved: ['open'],
+  accepted_risk: ['open'],
+  false_positive: ['open'],
 };
 
 const SEVERITY_META: Record<AIReviewInsight['severity'] | ModuleRisk['severity'], { label: string; variant: 'danger' | 'warning' | 'success' | 'secondary' }> = {
@@ -112,7 +123,9 @@ function InsightPreview({ insight, onSelect }: { insight: AIReviewInsight; onSel
   );
 }
 
-function InsightSheet({ insight, onClose }: { insight: AIReviewInsight | null; onClose: () => void }) {
+function InsightSheet({ insight, onClose, onUpdate }: { insight: AIReviewInsight | null; onClose: () => void; onUpdate: (insightId: string, patch: { status?: InsightStatus; assignee?: string }) => void }) {
+  const [assignee, setAssignee] = React.useState('');
+  React.useEffect(() => { setAssignee(insight?.assignee || ''); }, [insight?.id, insight?.assignee]);
   return (
     <Sheet open={Boolean(insight)} onClose={onClose} title={insight?.title} description={insight ? `${insight.source} · 最后发现于 ${insight.lastSeenAt}` : undefined} width="lg">
       {insight && (
@@ -149,6 +162,25 @@ function InsightSheet({ insight, onClose }: { insight: AIReviewInsight | null; o
             <h3 className="flex items-center gap-2 text-sm font-semibold text-success"><CheckCircle2 className="h-4 w-4" />建议修复</h3>
             <p className="mt-1 text-sm leading-6">{insight.action}</p>
             <p className="mt-3 border-t border-success/15 pt-3 text-xs text-muted-foreground">验证方式：{insight.verification}</p>
+          </section>
+          <section className="space-y-3 rounded-lg border border-border/60 p-4">
+            <h3 className="flex items-center gap-2 text-sm font-semibold"><Wrench className="h-4 w-4" />整改状态</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted-foreground">状态流转：</span>
+              {INSIGHT_TRANSITIONS[insight.status].map((next) => (
+                <Button key={next} size="sm" variant={next === 'resolved' ? 'default' : 'outline'} onClick={() => onUpdate(insight.id, { status: next })}>{STATUS_META[next].label}</Button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <Input
+                className="h-8 max-w-[220px]"
+                placeholder="指派责任人"
+                value={assignee}
+                onChange={(event) => setAssignee(event.target.value)}
+              />
+              <Button size="sm" variant="outline" disabled={assignee === (insight.assignee || '')} onClick={() => onUpdate(insight.id, { assignee: assignee.trim() || undefined })}>保存责任人</Button>
+              {insight.assignee && <span className="text-xs text-muted-foreground">当前：{insight.assignee}</span>}
+            </div>
           </section>
           <div className="grid grid-cols-2 gap-3 border-t border-border pt-4 text-xs text-muted-foreground">
             <span>首次发现：{insight.firstSeenAt}</span>
@@ -375,7 +407,7 @@ function FixesTab({ fixes, insights, onSelectFix, onUpdateStatus }: { fixes: Fix
         <StatCard label="预计收益" value={active.reduce((total, fix) => total + fix.expectedGain, 0)} unit="分" delta={2} icon={TrendingUp} />
       </div>
       <Card>
-        <CardHeader className="flex-row items-start justify-between gap-4 space-y-0"><div><CardTitle>修复计划</CardTitle><CardDescription>前端状态模拟仅保存在当前页面会话，后续将接入整改 API。</CardDescription></div><Segmented size="sm" value={filter} onChange={setFilter} options={[{ value: 'all', label: '全部' }, { value: 'open', label: '待处理' }, { value: 'in_progress', label: '处理中' }, { value: 'resolved', label: '已解决' }]} /></CardHeader>
+        <CardHeader className="flex-row items-start justify-between gap-4 space-y-0"><div><CardTitle>修复计划</CardTitle><CardDescription>状态变更实时写入整改 API，随项目快照持久化。</CardDescription></div><Segmented size="sm" value={filter} onChange={setFilter} options={[{ value: 'all', label: '全部' }, { value: 'open', label: '待处理' }, { value: 'in_progress', label: '处理中' }, { value: 'resolved', label: '已解决' }]} /></CardHeader>
         <CardContent>{!visible.length ? <EmptyState icon={ClipboardCheck} title="没有对应修复项" description="切换筛选查看其他治理状态。" /> : <Table className="min-w-[960px]"><TableHeader><TableRow><TableHead>优先级</TableHead><TableHead>修复项</TableHead><TableHead>模块</TableHead><TableHead>责任人</TableHead><TableHead>成本 / 收益</TableHead><TableHead>截止日期</TableHead><TableHead>状态</TableHead><TableHead className="text-right">操作</TableHead></TableRow></TableHeader><TableBody>{visible.map((fix) => {
           const insight = insights.find((item) => item.id === fix.insightId);
           return <TableRow key={fix.id}><TableCell><Badge variant={fix.priority === 'P0' ? 'danger' : fix.priority === 'P1' ? 'warning' : 'secondary'}>{fix.priority}</Badge></TableCell><TableCell><button onClick={() => onSelectFix(fix)} className="text-left font-medium hover:text-primary">{fix.title}</button>{insight && <div className="mt-1 max-w-[220px] truncate text-xs text-muted-foreground">关联：{insight.title}</div>}</TableCell><TableCell className="font-mono text-xs">{fix.module}</TableCell><TableCell>{fix.assignee || '未分配'}</TableCell><TableCell><div>{fix.effort}</div><div className="text-xs text-success">+{fix.expectedGain} 健康度</div></TableCell><TableCell>{fix.dueDate || '未排期'}</TableCell><TableCell><StatusBadge status={fix.status} /></TableCell><TableCell className="text-right"><div className="flex justify-end gap-1">{fix.status === 'open' || fix.status === 'acknowledged' ? <Button size="sm" variant="outline" onClick={() => onUpdateStatus(fix.id, 'in_progress')}>开始</Button> : null}{fix.status === 'in_progress' ? <Button size="sm" onClick={() => onUpdateStatus(fix.id, 'resolved')}>验证完成</Button> : null}</div></TableCell></TableRow>;
@@ -385,8 +417,8 @@ function FixesTab({ fixes, insights, onSelectFix, onUpdateStatus }: { fixes: Fix
   );
 }
 
-function FixSheet({ fix, insight, onClose, onViewInsight }: { fix: FixPriority | null; insight?: AIReviewInsight; onClose: () => void; onViewInsight: () => void }) {
-  return <Sheet open={Boolean(fix)} onClose={onClose} title={fix?.title} description={fix ? `${fix.priority} · ${fix.module}` : undefined} width="md">{fix && <div className="space-y-6"><div className="flex flex-wrap gap-2"><Badge variant={fix.priority === 'P0' ? 'danger' : fix.priority === 'P1' ? 'warning' : 'secondary'}>{fix.priority}</Badge><SeverityBadge severity={fix.severity} /><StatusBadge status={fix.status} /></div><div className="grid grid-cols-2 gap-3">{[['预估成本', fix.effort], ['预期收益', `+${fix.expectedGain} 健康度`], ['责任人', fix.assignee || '未分配'], ['截止日期', fix.dueDate || '未排期']].map(([label, value]) => <div key={label} className="rounded-lg border border-border/60 p-3"><div className="text-xs text-muted-foreground">{label}</div><div className="mt-1 text-sm font-medium">{value}</div></div>)}</div><section className="space-y-2"><h3 className="text-sm font-semibold">预期影响</h3><p className="text-sm leading-6 text-muted-foreground">{fix.impact}</p></section>{insight && <Button variant="outline" className="w-full" onClick={onViewInsight}>查看关联 AI Review 证据</Button>}</div>}</Sheet>;
+function FixSheet({ fix, insight, onClose, onViewInsight, onUpdateStatus }: { fix: FixPriority | null; insight?: AIReviewInsight; onClose: () => void; onViewInsight: () => void; onUpdateStatus: (fixId: string, status: InsightStatus) => void }) {
+  return <Sheet open={Boolean(fix)} onClose={onClose} title={fix?.title} description={fix ? `${fix.priority} · ${fix.module}` : undefined} width="md">{fix && <div className="space-y-6"><div className="flex flex-wrap gap-2"><Badge variant={fix.priority === 'P0' ? 'danger' : fix.priority === 'P1' ? 'warning' : 'secondary'}>{fix.priority}</Badge><SeverityBadge severity={fix.severity} /><StatusBadge status={fix.status} /></div><div className="grid grid-cols-2 gap-3">{[['预估成本', fix.effort], ['预期收益', `+${fix.expectedGain} 健康度`], ['责任人', fix.assignee || '未分配'], ['截止日期', fix.dueDate || '未排期']].map(([label, value]) => <div key={label} className="rounded-lg border border-border/60 p-3"><div className="text-xs text-muted-foreground">{label}</div><div className="mt-1 text-sm font-medium">{value}</div></div>)}</div><section className="space-y-2"><h3 className="text-sm font-semibold">预期影响</h3><p className="text-sm leading-6 text-muted-foreground">{fix.impact}</p></section><section className="space-y-2 rounded-lg border border-border/60 p-4"><h3 className="flex items-center gap-2 text-sm font-semibold"><Wrench className="h-4 w-4" />整改状态</h3><div className="flex flex-wrap items-center gap-2"><span className="text-xs text-muted-foreground">状态流转：</span>{INSIGHT_TRANSITIONS[fix.status].map((next) => <Button key={next} size="sm" variant={next === 'resolved' ? 'default' : 'outline'} onClick={() => onUpdateStatus(fix.id, next)}>{STATUS_META[next].label}</Button>)}</div></section>{insight && <Button variant="outline" className="w-full" onClick={onViewInsight}>查看关联 AI Review 证据</Button>}</div>}</Sheet>;
 }
 
 export default function ProjectDetailPage() {
@@ -420,8 +452,12 @@ export default function ProjectDetailPage() {
     setSelectedInsight(null);
   };
   const updateFixStatus = (fixId: string, status: InsightStatus) => {
-    api.updateFixStatus(id, fixId, status).catch(() => {});
+    api.updateFixStatus(id, fixId, { status }).catch(() => {});
     setFixes((current) => current.map((fix) => fix.id === fixId ? { ...fix, status } : fix));
+  };
+  const updateInsight = (insightId: string, patch: { status?: InsightStatus; assignee?: string }) => {
+    api.updateInsightStatus(id, insightId, patch).catch(() => {});
+    setDetail((current) => current ? { ...current, aiInsights: current.aiInsights.map((insight) => insight.id === insightId ? { ...insight, ...patch } : insight) } : current);
   };
   const viewModuleReview = (module: string) => {
     setSelectedModule(null);
@@ -450,9 +486,9 @@ export default function ProjectDetailPage() {
       {tab === 'modules' && <ModulesTab detail={detail} onSelectModule={setSelectedModule} />}
       {tab === 'fixes' && <FixesTab fixes={fixes} insights={detail.aiInsights} onSelectFix={selectFix} onUpdateStatus={updateFixStatus} />}
       {reviewModule && tab === 'review' && <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 text-sm"><span>当前仅显示模块：<b className="font-mono">{reviewModule}</b></span><Button size="sm" variant="ghost" onClick={() => setReviewModule(null)}>清除筛选</Button></div>}
-      <InsightSheet insight={selectedInsight} onClose={() => setSelectedInsight(null)} />
+      <InsightSheet insight={selectedInsight ? detail.aiInsights.find((insight) => insight.id === selectedInsight.id) || selectedInsight : null} onClose={() => setSelectedInsight(null)} onUpdate={updateInsight} />
       <ModuleSheet module={selectedModule} onClose={() => setSelectedModule(null)} onViewReview={viewModuleReview} />
-      <FixSheet fix={activeFix || null} insight={relatedInsight} onClose={() => setSelectedFix(null)} onViewInsight={() => { setSelectedFix(null); if (relatedInsight) { setSelectedInsight(relatedInsight); setTab('review'); } }} />
+      <FixSheet fix={activeFix || null} insight={relatedInsight} onClose={() => setSelectedFix(null)} onViewInsight={() => { setSelectedFix(null); if (relatedInsight) { setSelectedInsight(relatedInsight); setTab('review'); } }} onUpdateStatus={updateFixStatus} />
     </div>
   );
 }
