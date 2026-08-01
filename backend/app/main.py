@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
 
 from .db import Base, engine, SessionLocal
-from . import models, seed
+from . import capability, models, seed
 from .routers import overview, projects, developers, teams, repos, config, skills, env_inventory
 
 
@@ -62,6 +62,36 @@ def ensure_migrate():
         )
         conn.commit()
 
+        # Capability Standards：新表由 create_all 建立；以下补列逻辑兼容内测期间
+        # 已存在但字段不完整的数据库，避免部署升级后角色配置/阈值接口不可用。
+        capability_columns = {
+            "capability_roles": {
+                "dimensions": "JSON",
+                "skill_group_id": "VARCHAR",
+                "enabled": "INTEGER",
+                "created_at": "VARCHAR",
+                "updated_at": "VARCHAR",
+            },
+            "capability_standards": {
+                "thresholds": "JSON",
+                "updated_at": "VARCHAR",
+            },
+        }
+        existing_tables = set(insp.get_table_names())
+        for table_name, columns in capability_columns.items():
+            if table_name not in existing_tables:
+                # 正常启动路径中 Base.metadata.create_all 已处理；保留 checkfirst
+                # 使 ensure_migrate 可独立承担新表迁移职责。
+                Base.metadata.tables[table_name].create(bind=conn, checkfirst=True)
+                continue
+            existing_columns = {c["name"] for c in insp.get_columns(table_name)}
+            for name, column_type in columns.items():
+                if name not in existing_columns:
+                    conn.execute(
+                        text(f"ALTER TABLE {table_name} ADD COLUMN {name} {column_type}")
+                    )
+                    conn.commit()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -90,6 +120,13 @@ async def lifespan(app: FastAPI):
         seed.seed_env_inventory()
     else:
         db.close()
+    # 能力标准种子：Skill 组已先完成初始化，因此前端/后端角色可默认关联对应规则组。
+    db = SessionLocal()
+    if db.query(models.CapabilityRole).count() == 0:
+        db.close()
+        seed.seed_capability()
+    else:
+        db.close()
     yield
 
 
@@ -110,6 +147,7 @@ app.include_router(repos.router, prefix="/api/v1")
 app.include_router(config.router, prefix="/api/v1")
 app.include_router(skills.router, prefix="/api/v1")
 app.include_router(env_inventory.router, prefix="/api/v1")
+app.include_router(capability.router, prefix="/api/v1")
 
 
 @app.get("/")

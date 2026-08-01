@@ -55,6 +55,30 @@ export interface LevelStandard {
   standards: Record<string, number>; // 维度 key -> 标准分阈值(0-100)
 }
 
+/** 能力标准管理中单个角色的完整配置 */
+export interface CapabilityRoleInfo {
+  roleKey: Role;
+  roleName: string;
+  dimensions: string[];
+  skillGroupId?: string | null;
+  skillGroupName?: string | null;
+  standards: Record<Level, Record<string, number>>;
+}
+
+/** 能力标准页元数据，由后端提供以避免展示常量漂移 */
+export interface CapabilityMeta {
+  dimensionLabels: Record<string, string>;
+  allLevels: Level[];
+  levelGroups: { prefix: string; label: string; range: string }[];
+  defaultDimensions: Record<string, string[]>;
+}
+
+export interface CapabilitySaveRequest {
+  dimensions: string[];
+  standards: Record<Level, Record<string, number>>;
+  skillGroupId?: string | null;
+}
+
 // ============ 首页：决策总览 ============
 
 export interface StatItem {

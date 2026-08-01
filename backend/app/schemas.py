@@ -491,6 +491,46 @@ class SkillGroupRunM(CamelModel):
     created_at: str = ""
 
 
+# ============ 能力标准管理 ============
+class CapabilityStandardM(CamelModel):
+    id: str
+    role_id: str
+    level: str
+    thresholds: dict[str, int] = {}
+    updated_at: str = ""
+
+
+class CapabilityRoleM(CamelModel):
+    role_key: str
+    role_name: str
+    dimensions: list[str] = []
+    skill_group_id: Optional[str] = None
+    skill_group_name: Optional[str] = None
+    standards: dict[str, dict[str, int]] = {}
+
+
+class CapabilityMetaM(CamelModel):
+    dimension_labels: dict[str, str]
+    all_levels: list[str]
+    level_groups: list[dict[str, str]]
+    default_dimensions: dict[str, list[str]]
+
+
+class CapabilityStandardsResponse(CamelModel):
+    roles: list[CapabilityRoleM]
+    meta: CapabilityMetaM
+
+
+class CapabilitySaveRequest(CamelModel):
+    dimensions: list[str]
+    standards: dict[str, dict[str, int]]
+    skill_group_id: Optional[str] = None
+
+
+class CapabilityLevelPatchRequest(CamelModel):
+    thresholds: dict[str, int]
+
+
 # ---- Skill 请求模型 ----
 class SkillSourceCreateRequest(CamelModel):
     name: str

@@ -8,6 +8,7 @@ import {
   getDeveloperDetail, getProjectDetail, teamSpaces, teamGroups,
   activeProjects, activeDevelopers, activeTeams, repoList, largeTeams,
   modelProviders, taskRoutes, vectorCollections, embeddingModels, graphModules, graphEdges,
+  roleConfigs, roleStandards, DIMENSION_LABELS, ALL_LEVELS,
 } from './mock-data';
 
 import type {
@@ -18,7 +19,9 @@ import type {
   SkillSource, Skill, SkillGroup, SkillGroupPreview, ExtractResult,
   SkillSourceCreateRequest, SkillCreateRequest, SkillGroupCreateRequest,
   EnvInventoryEntry, EnvInventoryScan, EnvInventorySummary, EnvName, EnvToolType,
+  CapabilityMeta, CapabilityRoleInfo, CapabilitySaveRequest, Role,
 } from './types';
+import { LEVEL_GROUPS } from './types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 const USE_MOCK = !process.env.NEXT_PUBLIC_API_URL;
@@ -39,6 +42,36 @@ function mockDelay<T>(data: T, ms = 200): Promise<T> {
 }
 
 const mockRunStartedAt = new Map<string, number>();
+
+// ============ 能力标准管理 mock 数据（复用现有 roleConfigs / roleStandards）============
+const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+
+function buildCapabilityMeta(): CapabilityMeta {
+  return {
+    dimensionLabels: { ...DIMENSION_LABELS },
+    allLevels: [...ALL_LEVELS],
+    levelGroups: LEVEL_GROUPS.map((group) => ({ ...group })),
+    defaultDimensions: Object.fromEntries(
+      roleConfigs.map((role) => [role.key, [...role.dimensions]]),
+    ),
+  };
+}
+
+function buildCapabilityRoles(): CapabilityRoleInfo[] {
+  const defaultSkillGroups: Partial<Record<Role, string>> = {
+    frontend: 'skg-seed-fe',
+    backend: 'skg-seed-java',
+  };
+  return roleConfigs.map((role) => ({
+    roleKey: role.key,
+    roleName: role.name,
+    dimensions: [...role.dimensions],
+    skillGroupId: defaultSkillGroups[role.key] ?? null,
+    standards: clone(roleStandards[role.key]),
+  }));
+}
+
+let mockCapabilityRoles = buildCapabilityRoles();
 
 // ============ Skill 管理模块 mock 数据（可变，支持全链路 mock）============
 const mockSkillSources: SkillSource[] = [
@@ -295,6 +328,47 @@ export const api = {
   },
   bindGroup: (runId: string, groupId: string): Promise<any> =>
     USE_MOCK ? mockDelay({ ok: true, runId, groupId }) : fetchAPI<any>(`/analysis-runs/${runId}/bind-group`, { method: 'POST', body: JSON.stringify({ groupId }) }),
+
+  // ============ 能力标准管理（Capability Standards）============
+  getCapabilityMeta: (): Promise<CapabilityMeta> =>
+    USE_MOCK
+      ? mockDelay(buildCapabilityMeta())
+      : fetchAPI<CapabilityMeta>('/capability-standards/meta').catch(() => buildCapabilityMeta()),
+  getCapabilityStandards: (): Promise<{ roles: CapabilityRoleInfo[]; meta: CapabilityMeta }> =>
+    USE_MOCK
+      ? mockDelay({ roles: clone(mockCapabilityRoles), meta: buildCapabilityMeta() })
+      : fetchAPI<{ roles: CapabilityRoleInfo[]; meta: CapabilityMeta }>('/capability-standards')
+        .catch(() => ({ roles: buildCapabilityRoles(), meta: buildCapabilityMeta() })),
+  getCapabilityRole: (roleKey: Role): Promise<CapabilityRoleInfo> =>
+    USE_MOCK
+      ? mockDelay(clone(mockCapabilityRoles.find((role) => role.roleKey === roleKey)!))
+      : fetchAPI<CapabilityRoleInfo>(`/capability-standards/${roleKey}`),
+  saveCapabilityRole: (roleKey: Role, body: CapabilitySaveRequest): Promise<CapabilityRoleInfo> => {
+    if (!USE_MOCK) {
+      return fetchAPI<CapabilityRoleInfo>(`/capability-standards/${roleKey}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      });
+    }
+    const role = mockCapabilityRoles.find((item) => item.roleKey === roleKey);
+    if (!role) return Promise.reject(new Error('能力角色不存在'));
+    role.dimensions = [...body.dimensions];
+    role.standards = clone(body.standards);
+    role.skillGroupId = body.skillGroupId ?? null;
+    const skillGroup = mockSkillGroups.find((group) => group.id === role.skillGroupId);
+    role.skillGroupName = skillGroup?.name ?? null;
+    return mockDelay(clone(role));
+  },
+  resetCapabilityStandards: (): Promise<{ roles: CapabilityRoleInfo[]; meta: CapabilityMeta }> => {
+    if (!USE_MOCK) {
+      return fetchAPI<{ roles: CapabilityRoleInfo[]; meta: CapabilityMeta }>(
+        '/capability-standards/reset',
+        { method: 'POST' },
+      );
+    }
+    mockCapabilityRoles = buildCapabilityRoles();
+    return mockDelay({ roles: clone(mockCapabilityRoles), meta: buildCapabilityMeta() });
+  },
 
   // ============ 项目环境配置盘点（Env Inventory）============
   getEnvInventory: (projectId: string, params?: { env?: EnvName; toolType?: EnvToolType; status?: string; q?: string }): Promise<EnvInventoryEntry[]> => {

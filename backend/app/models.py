@@ -4,7 +4,7 @@
 既保证前端类型形状，又避免过度拆表（P0 阶段）。
 """
 from sqlalchemy import (
-    Column, String, Integer, Float, Text, JSON, ForeignKey,
+    Column, String, Integer, Float, Text, JSON, ForeignKey, UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -325,6 +325,36 @@ class SkillGroupRun(Base):
     group_snapshot = Column(JSON)                  # {group_name, skill_ids:[...], rules:[{id,name,category,severity,rule_content}]} 快照
     trigger = Column(String, default="manual")     # manual|auto
     created_at = Column(String)
+
+
+# ============ 能力标准管理（2 张新表）============
+
+class CapabilityRole(Base):
+    """开发角色的能力维度配置，以及可选的 Skill 规则编组关联。"""
+    __tablename__ = "capability_roles"
+
+    id = Column(String, primary_key=True)          # cr-frontend / cr-backend / ...
+    key = Column(String, unique=True, nullable=False)  # frontend|backend|devops|algorithm|qa
+    name = Column(String, nullable=False)          # 前端工程师 / 后端工程师 ...
+    dimensions = Column(JSON, default=list)        # ["code_quality", "architecture", ...]
+    skill_group_id = Column(String, ForeignKey("skill_groups.id"), nullable=True)
+    enabled = Column(Integer, default=1)
+    created_at = Column(String)
+    updated_at = Column(String)
+
+
+class CapabilityStandard(Base):
+    """一条记录对应一个角色和职级；各维度阈值以 JSON 字典保存。"""
+    __tablename__ = "capability_standards"
+    __table_args__ = (
+        UniqueConstraint("role_id", "level", name="uq_capability_standard_role_level"),
+    )
+
+    id = Column(String, primary_key=True)          # cstd-xxx
+    role_id = Column(String, ForeignKey("capability_roles.id"), nullable=False)
+    level = Column(String, nullable=False)         # D1-D3 / E1-E3 / F1-F3 / G1-G3
+    thresholds = Column(JSON, default=dict)        # {"code_quality": 85, ...}
+    updated_at = Column(String)
 
 
 # ============ 项目环境配置盘点（Env Inventory，2 张新表）============

@@ -392,6 +392,67 @@ def seed_skills() -> None:
     print("✓ seed_skills 完成")
 
 
+def seed_capability() -> None:
+    """初始化能力标准：5 个角色 × 12 个职级的公式默认阈值。
+
+    仅在 capability_roles 为空时写入，避免覆盖管理员已保存的角色配置、
+    Skill Group 关联和阈值标准。
+    """
+    from .capability import ALL_LEVELS, ROLE_DIMENSIONS, default_thresholds
+
+    Base.metadata.create_all(engine)
+    db = SessionLocal()
+    if db.query(models.CapabilityRole).count() > 0:
+        db.close()
+        return
+
+    now = "2026-08-01T00:00:00+00:00"
+    role_names = {
+        "frontend": "前端工程师",
+        "backend": "后端工程师",
+        "devops": "运维工程师",
+        "algorithm": "算法工程师",
+        "qa": "测试工程师",
+    }
+    default_skill_groups = {
+        "frontend": "skg-seed-fe",
+        "backend": "skg-seed-java",
+    }
+    existing_skill_group_ids = {
+        group_id
+        for (group_id,) in db.query(models.SkillGroup.id).all()
+    }
+
+    for role_key, dimensions in ROLE_DIMENSIONS.items():
+        role = models.CapabilityRole(
+            id=f"cr-{role_key}",
+            key=role_key,
+            name=role_names[role_key],
+            dimensions=list(dimensions),
+            skill_group_id=(
+                default_skill_groups.get(role_key)
+                if default_skill_groups.get(role_key) in existing_skill_group_ids
+                else None
+            ),
+            enabled=1,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(role)
+        for level in ALL_LEVELS:
+            db.add(models.CapabilityStandard(
+                id=f"cstd-{role_key}-{level.lower()}",
+                role_id=role.id,
+                level=level,
+                thresholds=default_thresholds(role_key, level),
+                updated_at=now,
+            ))
+
+    db.commit()
+    db.close()
+    print("✓ seed_capability 完成（5 角色 × 12 职级）")
+
+
 def seed_env_inventory() -> None:
     """初始化环境配置盘点种子数据：为 p1 用户中心造结构化连接配置示例
 
