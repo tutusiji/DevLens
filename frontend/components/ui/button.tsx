@@ -102,7 +102,7 @@ const sizeMap: Record<OldSize, { heroSize: HeroSize; isIconOnly: boolean }> = {
   icon: { heroSize: 'md', isIconOnly: true },
 };
 
-export interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onClick'> {
+export interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onClick' | 'value'> {
   variant?: OldVariant;
   size?: OldSize;
   onClick?: React.MouseEventHandler<HTMLButtonElement>;
@@ -123,7 +123,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         onPress={onClick as never}
         className={cn(config.extraClass, className)}
         style={{ ...config.style, ...style }}
-        {...props}
+        {...(props as unknown as React.ComponentProps<typeof HeroUIButton>)}
       />
     );
   }

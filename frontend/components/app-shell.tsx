@@ -11,7 +11,7 @@ import {
   LayoutDashboard, FolderGit2, Users, Network, Rocket,
   Activity, ChevronRight, Menu, X, Search, Bell,
   GitBranch, Bot, Database, Ruler, Building2, ChevronDown,
-  Waypoints,
+  Waypoints, ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -39,6 +39,7 @@ const ANALYSIS_NAV: NavItem[] = [
 
 const SYSTEM_NAV: NavItem[] = [
   { href: '/team-spaces', label: '团队空间管理', description: '团队 · 小组 · 成员归属', icon: Building2 },
+  { href: '/skills', label: 'Skill 管理', description: '规则库 · 编组 · 规范来源', icon: ShieldCheck },
   { href: '/onboard', label: '接入项目', description: 'Git 仓库 · 身份匹配', icon: Rocket },
   { href: '/repos', label: 'Git 仓库管理', description: '仓库列表 · 同步状态', icon: GitBranch },
   { href: '/models', label: '大模型管理', description: 'OpenAI · Anthropic', icon: Bot },
@@ -215,7 +216,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {/* 团队空间选择器 */}
           <div className="hidden ml-auto md:block">
             {activeLargeTeam ? (
-              <Popover isOpen={teamMenuOpen} onOpenChange={setTeamMenuOpen} placement="bottom end" offset={8}>
+              <Popover isOpen={teamMenuOpen} onOpenChange={setTeamMenuOpen}>
                 <Popover.Trigger
                   className="flex items-center gap-3 rounded-2xl bg-muted/15 px-4 py-2.5 text-left transition-all hover:bg-muted/25 cursor-pointer"
                   aria-label="切换大团队"
@@ -231,7 +232,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </div>
                   <ChevronDown className="h-4 w-4 text-muted-foreground/70" />
                 </Popover.Trigger>
-                <Popover.Content className="w-72 overflow-hidden rounded-xl glass-strong shadow-2xl">
+                <Popover.Content placement="bottom end" offset={8} className="w-72 overflow-hidden rounded-xl glass-strong shadow-2xl">
                   <div className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70 border-b border-border/10">切换大团队</div>
                   {largeTeams.map((lt) => (
                     <button
@@ -269,7 +270,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </button>
 
             {/* 通知按钮带数量气泡 */}
-            <Popover isOpen={notifOpen} onOpenChange={setNotifOpen} placement="bottom end" offset={8}>
+            <Popover isOpen={notifOpen} onOpenChange={setNotifOpen}>
               <Popover.Trigger
                 className="relative inline-flex h-10 w-10 items-center justify-center rounded-3xl text-foreground transition-colors hover:bg-muted/40 cursor-pointer"
                 aria-label="通知"
@@ -281,7 +282,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </span>
                 )}
               </Popover.Trigger>
-              <Popover.Content className="w-80 overflow-hidden rounded-xl glass-strong shadow-2xl">
+              <Popover.Content placement="bottom end" offset={8} className="w-80 overflow-hidden rounded-xl glass-strong shadow-2xl">
                 <div className="border-b border-border/10 px-5 py-4">
                   <div className="text-base font-semibold">风险预警</div>
                   <div className="text-xs text-muted-foreground/70">{riskAlerts.length} 条 · {highRiskCount} 高危</div>

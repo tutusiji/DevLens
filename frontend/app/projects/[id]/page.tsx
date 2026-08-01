@@ -420,6 +420,7 @@ export default function ProjectDetailPage() {
     setSelectedInsight(null);
   };
   const updateFixStatus = (fixId: string, status: InsightStatus) => {
+    api.updateFixStatus(id, fixId, status).catch(() => {});
     setFixes((current) => current.map((fix) => fix.id === fixId ? { ...fix, status } : fix));
   };
   const viewModuleReview = (module: string) => {

@@ -234,6 +234,22 @@ export interface CapabilityGap {
 export type RepositorySourceType = 'remote' | 'local';
 export type RepositoryProvider = 'github' | 'gitlab' | 'gitea' | 'bitbucket' | 'generic';
 
+export interface Repository {
+  id: string;
+  name: string;
+  path: string;
+  sourceType: RepositorySourceType;
+  provider?: RepositoryProvider;
+  remoteUrl?: string;
+  branch: string;
+  teamId: string;
+  projectId?: string;
+  status: 'synced' | 'syncing' | 'failed';
+  lastSync: string;
+  commits: number;
+  contributors: number;
+}
+
 export interface ProjectCreateRequest {
   name: string;
   repoType: RepositorySourceType;
@@ -243,6 +259,7 @@ export interface ProjectCreateRequest {
   branch: string;
   teamId: string;
   accessToken?: string;
+  skillGroupId?: string; // 可选：本次分析绑定的 Skill Group
 }
 
 export interface RepositoryImportResult {
@@ -460,4 +477,128 @@ export interface ProjectDetail extends Project {
   moduleRisks: ModuleRisk[];
   reviewSummary: ProjectReviewSummary;
   analysisMeta: ProjectAnalysisMeta;
+}
+
+// ============ Skill 管理模块 ============
+
+/** 规则分类（与后端 REVIEW_CATEGORIES 对齐） */
+export type SkillCategory = ReviewCategory;
+
+/** 规则严重级 */
+export type SkillSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
+
+/** 检查类型 */
+export type SkillCheckType = 'llm' | 'static';
+
+/** 分析编组类型 */
+export type SkillGroupAnalysisType = 'repo_analysis' | 'developer_review' | 'team_aggregation';
+
+/** 合规/违规示例（few-shot） */
+export interface SkillExample {
+  desc: string;
+  code: string;
+}
+
+/** 规范来源：导入的编码规范文档 */
+export interface SkillSource {
+  id: string;
+  name: string;
+  docType: 'markdown' | 'text' | 'pdf';
+  content: string;
+  sourceLang: string; // java|frontend|go|python|all
+  description: string;
+  status: 'imported' | 'extracted' | 'failed';
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 规则条目：一条可执行的评估规则 */
+export interface Skill {
+  id: string;
+  sourceId?: string;
+  name: string;
+  description: string;
+  category: SkillCategory;
+  severity: SkillSeverity;
+  checkType: SkillCheckType;
+  ruleContent: string;
+  positiveExamples: SkillExample[];
+  negativeExamples: SkillExample[];
+  enabled: number; // 0|1
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 评估编组 */
+export interface SkillGroup {
+  id: string;
+  name: string;
+  description: string;
+  skillIds: string[];
+  analysisType: SkillGroupAnalysisType;
+  enabled: number; // 0|1
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 编组预览（组 + 规则明细） */
+export interface SkillGroupPreview extends SkillGroup {
+  skills: Skill[];
+}
+
+/** 评估运行记录：哪次分析用了哪个组 + 规则快照 */
+export interface SkillGroupRun {
+  id: string;
+  runId?: string;
+  projectId?: string;
+  groupId: string;
+  groupSnapshot: {
+    groupName: string;
+    skillIds: string[];
+    rules: { id: string; name: string; category: SkillCategory; severity: SkillSeverity; ruleContent: string }[];
+  };
+  trigger: 'manual' | 'auto';
+  createdAt: string;
+}
+
+/** AI 抽取结果 */
+export interface ExtractResult {
+  sourceId: string;
+  status: 'imported' | 'extracted' | 'failed';
+  extracted: number;
+  message: string;
+}
+
+/** 创建规范来源请求 */
+export interface SkillSourceCreateRequest {
+  name: string;
+  docType: 'markdown' | 'text' | 'pdf';
+  content: string;
+  sourceLang: string;
+  description: string;
+}
+
+/** 创建规则请求 */
+export interface SkillCreateRequest {
+  name: string;
+  description?: string;
+  category: SkillCategory;
+  severity: SkillSeverity;
+  checkType: SkillCheckType;
+  ruleContent: string;
+  positiveExamples?: SkillExample[];
+  negativeExamples?: SkillExample[];
+  sourceId?: string;
+  enabled?: number;
+}
+
+/** 创建编组请求 */
+export interface SkillGroupCreateRequest {
+  name: string;
+  description?: string;
+  skillIds: string[];
+  analysisType: SkillGroupAnalysisType;
+  enabled?: number;
 }

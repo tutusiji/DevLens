@@ -18,7 +18,7 @@ import { PageHeader } from '@/components/widgets';
 import { EmptyState } from '@/components/filter-bar';
 import { useTeamSpace } from '@/components/team-space-provider';
 import { api } from '@/lib/api';
-import type { IdentityMatch } from '@/lib/types';
+import type { IdentityMatch, SkillGroup } from '@/lib/types';
 
 const STEPS = [
   { id: 1, label: '填写信息', icon: FileSearch },
@@ -104,6 +104,7 @@ export default function OnboardPage() {
   const [importResult, setImportResult] = React.useState<RepositoryImportResult | null>(null);
   const [submitError, setSubmitError] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
+  const [skillGroups, setSkillGroups] = React.useState<SkillGroup[]>([]);
   const { spaces, largeTeams, activeLargeTeamId, activeTeamSpaceId } = useTeamSpace();
   const [form, setForm] = React.useState(() => ({
     name: '',
@@ -113,7 +114,22 @@ export default function OnboardPage() {
     branch: 'main',
     largeTeamId: activeLargeTeamId || '',
     teamId: activeTeamSpaceId || '',
+    skillGroupId: '',
   }));
+
+  // 加载可用的 Skill Group（评估规则编组）
+  React.useEffect(() => {
+    api.getSkillGroups()
+      .then((groups) => {
+        const enabled = groups.filter((g) => g.enabled === 1 && g.analysisType === 'repo_analysis');
+        setSkillGroups(enabled);
+        setForm((current) => ({
+          ...current,
+          skillGroupId: current.skillGroupId || enabled[0]?.id || '',
+        }));
+      })
+      .catch(() => { /* 后端不可用时保持空选择 */ });
+  }, []);
 
   // 顶部切换大团队时，自动选中该大团队下的第一个团队空间
   React.useEffect(() => {
@@ -176,6 +192,7 @@ export default function OnboardPage() {
         provider: form.repoType === 'remote' ? detectProvider(form.repoPath) : undefined,
         branch: form.branch.trim(),
         teamId: form.teamId,
+        skillGroupId: form.skillGroupId || undefined,
         accessToken: form.repoType === 'remote' ? form.accessToken || undefined : undefined,
       };
       const result = await api.createProject(request);
@@ -288,6 +305,25 @@ export default function OnboardPage() {
                     <p className="text-xs text-muted-foreground">用于克隆私有仓库，仅本次接入使用，不会持久化存储。</p>
                   </div>
                 )}
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="skillGroupId" className="text-sm font-medium">
+                  评估规则组 <span className="text-muted-foreground">（Skill Group）</span>
+                </label>
+                <select
+                  id="skillGroupId"
+                  value={form.skillGroupId}
+                  onChange={(e) => setForm({ ...form, skillGroupId: e.target.value })}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="">默认（内置 Security + Quality）</option>
+                  {skillGroups.map((g) => (
+                    <option key={g.id} value={g.id}>{g.name}（{g.skillIds.length} 条规则）</option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  选择本次分析使用的规则编组；规则可在「Skill 管理」页配置，评估时逐条注入审查。
+                </p>
               </div>
               <div className="space-y-1.5">
                 <label htmlFor="branch" className="text-sm font-medium">

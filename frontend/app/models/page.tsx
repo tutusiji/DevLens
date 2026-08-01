@@ -12,9 +12,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { PageHeader } from '@/components/widgets';
-import { modelProviders, taskRoutes } from '@/lib/mock-data';
+import { api } from '@/lib/api';
 
 export default function ModelsPage() {
+  const [providers, setProviders] = React.useState<any[]>([]);
+  const [routes, setRoutes] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  React.useEffect(() => {
+    Promise.all([api.getModelProviders(), api.getTaskRoutes()])
+      .then(([p, r]) => { setProviders(p); setRoutes(r); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+  if (loading) return <div className="space-y-6"><div className="h-8 w-64 skeleton rounded" /><div className="h-96 skeleton rounded-xl" /></div>;
   return (
     <>
       <PageHeader
@@ -25,7 +34,7 @@ export default function ModelsPage() {
 
       {/* Provider 卡片 */}
       <div className="mb-6 grid gap-4 md:grid-cols-3">
-        {modelProviders.map((p) => (
+        {providers.map((p) => (
           <Card key={p.key}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -63,7 +72,7 @@ export default function ModelsPage() {
               </div>
               {p.models.length > 0 && (
                 <div className="flex flex-wrap gap-1 pt-1">
-                  {p.models.map((m) => (
+                  {p.models.map((m: string) => (
                     <Badge key={m} variant="outline" className="font-mono text-[10px]">{m}</Badge>
                   ))}
                 </div>
@@ -93,7 +102,7 @@ export default function ModelsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {taskRoutes.map((r) => (
+              {routes.map((r) => (
                 <TableRow key={r.task}>
                   <TableCell className="font-medium">{r.task}</TableCell>
                   <TableCell><Badge variant="secondary">{r.provider}</Badge></TableCell>

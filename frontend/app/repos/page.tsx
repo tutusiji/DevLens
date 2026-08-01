@@ -4,6 +4,7 @@
  */
 'use client';
 
+import * as React from 'react';
 import Link from 'next/link';
 import { Plus, RefreshCw, Trash2, Eye, GitBranch, Users, Clock } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -11,7 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { PageHeader } from '@/components/widgets';
-import { repoList, projects, teamSpaces } from '@/lib/mock-data';
+import { api } from '@/lib/api';
+import type { Repository, Project, TeamSpace } from '@/lib/types';
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'success' | 'warning' | 'danger' }> = {
   synced: { label: '已同步', variant: 'success' },
@@ -20,8 +22,18 @@ const STATUS_CONFIG: Record<string, { label: string; variant: 'success' | 'warni
 };
 
 export default function ReposPage() {
-  const totalCommits = repoList.reduce((s, r) => s + r.commits, 0);
-  const syncedCount = repoList.filter((r) => r.status === 'synced').length;
+  const [repos, setRepos] = React.useState<Repository[]>([]);
+  const [projects, setProjects] = React.useState<Project[]>([]);
+  const [teamSpaces, setTeamSpaces] = React.useState<TeamSpace[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  React.useEffect(() => {
+    Promise.all([api.getRepos(), api.getProjects(), api.getTeamSpaces()])
+      .then(([r, p, t]) => { setRepos(r); setProjects(p); setTeamSpaces(t); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+  if (loading) return <div className="space-y-6"><div className="h-8 w-64 skeleton rounded" /><div className="h-96 skeleton rounded-xl" /></div>;
+  const totalCommits = repos.reduce((s, r) => s + r.commits, 0);
+  const syncedCount = repos.filter((r) => r.status === 'synced').length;
 
   return (
     <>
@@ -37,9 +49,9 @@ export default function ReposPage() {
 
       {/* 汇总统计 */}
       <div className="mb-4 flex items-center gap-4 rounded-lg border border-border bg-muted/20 px-4 py-2 text-sm">
-        <span>共 <span className="font-mono tabular-nums font-medium">{repoList.length}</span> 个仓库</span>
+        <span>共 <span className="font-mono tabular-nums font-medium">{repos.length}</span> 个仓库</span>
         <span className="text-muted-foreground">·</span>
-        <span>远程 <span className="font-mono tabular-nums font-medium text-primary">{repoList.filter((repo) => repo.sourceType === 'remote').length}</span></span>
+        <span>远程 <span className="font-mono tabular-nums font-medium text-primary">{repos.filter((repo) => repo.sourceType === 'remote').length}</span></span>
         <span className="text-muted-foreground">·</span>
         <span>已同步 <span className="font-mono tabular-nums font-medium text-success">{syncedCount}</span></span>
         <span className="text-muted-foreground">·</span>
@@ -63,7 +75,7 @@ export default function ReposPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {repoList.map((repo) => {
+            {repos.map((repo) => {
               const status = STATUS_CONFIG[repo.status];
               const team = teamSpaces.find((space) => space.id === repo.teamId);
               const project = projects.find((item) => item.id === repo.projectId);

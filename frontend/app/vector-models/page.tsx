@@ -4,6 +4,7 @@
  */
 'use client';
 
+import * as React from 'react';
 import { Database, Layers, RefreshCw, Save, HardDrive, Hash } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,9 +13,18 @@ import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Segmented } from '@/components/ui/segmented';
 import { PageHeader } from '@/components/widgets';
-import { vectorCollections, embeddingModels } from '@/lib/mock-data';
+import { api } from '@/lib/api';
 
 export default function VectorModelsPage() {
+  const [collections, setCollections] = React.useState<any[]>([]);
+  const [embeddings, setEmbeddings] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  React.useEffect(() => {
+    Promise.all([api.getVectorCollections(), api.getEmbeddingModels()])
+      .then(([c, e]) => { setCollections(c); setEmbeddings(e); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+  if (loading) return <div className="space-y-6"><div className="h-8 w-64 skeleton rounded" /><div className="h-96 skeleton rounded-xl" /></div>;
   return (
     <>
       <PageHeader
@@ -34,7 +44,7 @@ export default function VectorModelsPage() {
             <CardDescription>代码向量化用的 embedding 模型</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {embeddingModels.map((m) => (
+            {embeddings.map((m) => (
               <div key={m.name} className="flex items-center justify-between rounded-lg border border-border p-3">
                 <div>
                   <div className="text-sm font-medium">{m.name}</div>
@@ -120,7 +130,7 @@ export default function VectorModelsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {vectorCollections.map((c) => (
+              {collections.map((c) => (
                 <TableRow key={c.name}>
                   <TableCell className="font-mono">{c.name}</TableCell>
                   <TableCell className="text-right font-mono tabular-nums">

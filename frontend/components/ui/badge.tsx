@@ -25,11 +25,11 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant;
 }
 
-function Badge({ className, variant = 'default', children, ...props }: BadgeProps) {
+function Badge({ className, variant = 'default', children, color: _color, ...props }: BadgeProps) {
   const mapping = variantMap[variant] ?? variantMap.default;
   return (
     <Chip
-      color={mapping.color}
+      color={mapping.color as 'default' | 'warning' | 'success' | 'danger' | 'accent'}
       variant={mapping.variant}
       className={cn('rounded-full cursor-default', className)}
       {...props}

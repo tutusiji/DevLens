@@ -383,15 +383,26 @@
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
+/* 浅色模式（默认）：底色微压暗 + 高光用 muted 本色，柔和灰白流光，
+   避免深色高光条纹在灰白底上扫过造成的突兀感 */
 .skeleton {
   background: linear-gradient(
     90deg,
-    var(--muted) 25%,
-    oklch(0.25 0.025 250) 50%,
-    var(--muted) 75%
+    color-mix(in oklch, var(--muted), black 12%) 25%,
+    var(--muted) 50%,
+    color-mix(in oklch, var(--muted), black 12%) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
+}
+/* 深色模式：底色用 muted + 高光轻微提亮，保持低调流光 */
+.dark .skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 25%,
+    color-mix(in oklch, var(--muted), white 18%) 50%,
+    var(--muted) 75%
+  );
 }
 
 /* ============================================
