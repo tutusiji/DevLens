@@ -88,15 +88,19 @@ function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
     <button
       onClick={onChange}
       className={cn(
-        'relative h-5 w-9 rounded-full transition-colors cursor-pointer',
+        'relative h-5 w-9 shrink-0 rounded-full transition-colors cursor-pointer',
         on ? 'bg-success' : 'bg-muted-foreground/30',
       )}
       aria-label={on ? '启用' : '停用'}
+      role="switch"
+      aria-checked={on}
     >
-      <span className={cn(
-        'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform',
-        on ? 'translate-x-4' : 'translate-x-0.5',
-      )} />
+      <span
+        className={cn(
+          'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200',
+          on ? 'left-[18px]' : 'left-[2px]',
+        )}
+      />
     </button>
   );
 }
