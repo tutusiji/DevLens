@@ -64,9 +64,9 @@ function ProjectCard({ project }: { project: Project }) {
 
             {/* 中部：三维进度条 */}
             <div className="mt-4 space-y-2.5">
-              <ProgressBar label="质量" value={project.quality} showValue={false} indicatorClassName="bg-gradient-to-r from-primary to-secondary" />
-              <ProgressBar label="安全" value={project.security} showValue={false} indicatorClassName="bg-gradient-to-r from-success to-[oklch(0.65_0.18_160)]" />
-              <ProgressBar label="技术债" value={project.debt} showValue={false} indicatorClassName="bg-gradient-to-r from-warning to-[oklch(0.72_0.16_85)]" />
+              <ProgressBar label="质量" value={project.quality} showValue={false} indicatorClassName="bg-primary" />
+              <ProgressBar label="安全" value={project.security} showValue={false} indicatorClassName="bg-success" />
+              <ProgressBar label="技术债" value={project.debt} showValue={false} indicatorClassName="bg-warning" />
             </div>
 
             {/* 底部：统计信息 */}

@@ -115,11 +115,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r-0 bg-sidebar/60 backdrop-blur-xl lg:flex">
         {/* Logo 区域 */}
         <div className="flex h-20 items-center gap-3 border-b border-border/10 px-6">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-secondary shadow-lg shadow-primary/10">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/10">
             <Activity className="h-6 w-6 text-white" />
           </div>
           <div>
-            <div className="font-mono text-lg font-bold tracking-tight text-gradient-primary">DevLens</div>
+            <div className="font-mono text-lg font-bold tracking-tight text-primary">DevLens</div>
             <div className="text-[11px] text-muted-foreground">研发棱镜 · v0.1</div>
           </div>
         </div>
@@ -134,7 +134,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           ))}
 
           {/* 极简分隔线 */}
-          <div className="my-4 mx-6 h-px bg-gradient-to-r from-transparent via-border/30 to-transparent" />
+          <div className="my-4 mx-6 h-px bg-border/30" />
 
           <div className="mb-3 px-3.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
             系统管理
@@ -147,7 +147,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* 底部用户卡 */}
         <div className="border-t border-border/10 p-4">
           <div className="flex items-center gap-3 rounded-2xl bg-muted/15 p-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-accent/20 to-accent/10 text-sm font-mono font-semibold text-accent">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-sm font-mono font-semibold text-accent">
               TL
             </div>
             <div className="flex-1 min-w-0">
@@ -168,10 +168,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <aside className="absolute inset-y-0 left-0 flex w-72 flex-col bg-sidebar/90 backdrop-blur-xl">
             <div className="flex h-20 items-center justify-between border-b border-border/10 px-6">
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-secondary shadow-lg shadow-primary/10">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/10">
                   <Activity className="h-6 w-6 text-white" />
                 </div>
-                <span className="font-mono text-lg font-bold text-gradient-primary">DevLens</span>
+                <span className="font-mono text-lg font-bold text-primary">DevLens</span>
               </div>
               <Button variant="ghost" size="icon" onClick={() => setMobileOpen(false)}>
                 <X className="h-5 w-5" />
@@ -277,7 +277,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               >
                 <Bell className="h-4.5 w-4.5" />
                 {highRiskCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-r from-destructive to-destructive/80 px-1.5 font-mono text-[10px] font-bold text-white shadow-lg shadow-destructive/15">
+                  <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 font-mono text-[10px] font-bold text-white shadow-lg shadow-destructive/15">
                     {highRiskCount}
                   </span>
                 )}

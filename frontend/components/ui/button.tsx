@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
    Button 组件 - 基于 HeroUI Button
    保持原有 API：variant, size, onClick, disabled, className
    内部映射到 HeroUI Button：onPress, isDisabled, variant, isIconOnly
-   通过 CSS 变量内联覆盖保持原有配色（渐变/半透明等）
+   由 HeroUI 主题和纯色语义类提供配色
    ============================================ */
 
 type OldVariant = 'default' | 'accent' | 'outline' | 'ghost' | 'secondary' | 'destructive' | 'success';
@@ -19,35 +19,20 @@ type HeroSize = 'sm' | 'md' | 'lg';
 
 interface VariantConfig {
   herouiVariant: HeroVariant;
-  style?: React.CSSProperties;
   extraClass?: string;
 }
 
-/** 旧 variant -> HeroUI variant + CSS 变量覆盖 */
+/** 旧 variant -> HeroUI variant + 纯色语义样式 */
 const variantConfig: Record<OldVariant, VariantConfig> = {
-  /* 主按钮：蓝色渐变（HeroUI primary 默认用 --accent 即琥珀色，需覆盖为 --primary 蓝色） */
+  /* 主按钮：HeroUI primary（项目主题已桥接 primary token） */
   default: {
     herouiVariant: 'primary',
-    style: {
-      '--button-bg': 'transparent',
-      '--button-bg-hover': 'transparent',
-      '--button-bg-pressed': 'transparent',
-      '--button-fg': 'var(--primary-foreground)',
-      backgroundImage: 'linear-gradient(to right, oklch(0.68 0.2 245), oklch(0.58 0.18 265))',
-    } as React.CSSProperties,
-    extraClass: 'shadow-lg shadow-primary/15 hover:shadow-xl hover:shadow-primary/25',
+    extraClass: 'shadow-md shadow-primary/15 hover:shadow-lg hover:shadow-primary/20',
   },
-  /* 强调色按钮：琥珀色渐变 */
+  /* 强调色按钮：琥珀纯色 */
   accent: {
     herouiVariant: 'primary',
-    style: {
-      '--button-bg': 'transparent',
-      '--button-bg-hover': 'transparent',
-      '--button-bg-pressed': 'transparent',
-      '--button-fg': 'var(--accent-foreground)',
-      backgroundImage: 'linear-gradient(to right, oklch(0.75 0.18 68), oklch(0.65 0.15 85))',
-    } as React.CSSProperties,
-    extraClass: 'shadow-lg shadow-accent/15 hover:shadow-xl hover:shadow-accent/25',
+    extraClass: 'bg-amber-500 text-white shadow-md shadow-amber-500/15 hover:bg-amber-600 hover:shadow-lg hover:shadow-amber-500/20',
   },
   /* 玻璃质感按钮 */
   outline: {
@@ -58,40 +43,20 @@ const variantConfig: Record<OldVariant, VariantConfig> = {
   ghost: {
     herouiVariant: 'ghost',
   },
-  /* 次要按钮：半透明紫色 */
+  /* 次要按钮：HeroUI secondary + 现有玻璃材质 */
   secondary: {
     herouiVariant: 'secondary',
-    style: {
-      '--button-bg': 'color-mix(in oklch, var(--secondary) 12%, transparent)',
-      '--button-bg-hover': 'color-mix(in oklch, var(--secondary) 20%, transparent)',
-      '--button-bg-pressed': 'color-mix(in oklch, var(--secondary) 20%, transparent)',
-      '--button-fg': 'var(--secondary)',
-    } as React.CSSProperties,
     extraClass: 'glass-light',
   },
-  /* 危险按钮：红色渐变 */
+  /* 危险按钮：HeroUI danger */
   destructive: {
     herouiVariant: 'danger',
-    style: {
-      '--button-bg': 'transparent',
-      '--button-bg-hover': 'transparent',
-      '--button-bg-pressed': 'transparent',
-      '--button-fg': 'white',
-      backgroundImage: 'linear-gradient(to right, oklch(0.68 0.22 25), oklch(0.58 0.20 35))',
-    } as React.CSSProperties,
-    extraClass: 'shadow-lg shadow-destructive/15 hover:shadow-xl hover:shadow-destructive/25',
+    extraClass: 'shadow-md shadow-destructive/15 hover:shadow-lg hover:shadow-destructive/20',
   },
-  /* 成功按钮：绿色渐变 */
+  /* 成功按钮：绿色纯色 */
   success: {
     herouiVariant: 'primary',
-    style: {
-      '--button-bg': 'transparent',
-      '--button-bg-hover': 'transparent',
-      '--button-bg-pressed': 'transparent',
-      '--button-fg': 'white',
-      backgroundImage: 'linear-gradient(to right, oklch(0.72 0.18 155), oklch(0.62 0.16 170))',
-    } as React.CSSProperties,
-    extraClass: 'shadow-lg shadow-success/15 hover:shadow-xl hover:shadow-success/25',
+    extraClass: 'bg-emerald-500 text-white shadow-md shadow-emerald-500/15 hover:bg-emerald-600 hover:shadow-lg hover:shadow-emerald-500/20',
   },
 };
 
@@ -122,7 +87,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         isDisabled={disabled}
         onPress={onClick as never}
         className={cn(config.extraClass, className)}
-        style={{ ...config.style, ...style }}
+        style={style}
         {...(props as unknown as React.ComponentProps<typeof HeroUIButton>)}
       />
     );

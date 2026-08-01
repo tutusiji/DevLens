@@ -1,23 +1,35 @@
+'use client';
+
 import * as React from 'react';
+import { Input as HeroUIInput } from '@heroui/react/input';
 import { cn } from '@/lib/utils';
 
-const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
-  ({ className, type, ...props }, ref) => (
-    <input
-      type={type}
-      ref={ref}
-      className={cn(
-        'flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors',
-        'file:border-0 file:bg-transparent file:text-sm file:font-medium',
-        'placeholder:text-muted-foreground',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background',
-        'disabled:cursor-not-allowed disabled:opacity-50',
-        className
-      )}
-      {...props}
-    />
-  )
+/* ============================================
+   Input 组件 - 基于 HeroUI Input
+   保持 React.InputHTMLAttributes 的 value/onChange/
+   placeholder/disabled/className 使用方式。
+   ============================================ */
+
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
+
+const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, onChange, ...props }, ref) => {
+    const handleChange = React.useCallback(
+      (event: React.ChangeEvent<HTMLInputElement>) => onChange?.(event),
+      [onChange]
+    );
+
+    return (
+      <HeroUIInput
+        ref={ref}
+        className={cn('w-full', className)}
+        onChange={handleChange}
+        {...props}
+      />
+    );
+  }
 );
+
 Input.displayName = 'Input';
 
 export { Input };

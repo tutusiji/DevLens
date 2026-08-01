@@ -167,13 +167,13 @@ export default function HomePage() {
                   }}
                 />
                 {Icon && (
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-secondary/15 shadow-lg shadow-primary/8">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary/15 shadow-lg shadow-primary/8">
                     <Icon className="h-6 w-6 text-primary" />
                   </div>
                 )}
                 <div className="relative">
                   <div className="flex items-baseline gap-1.5">
-                    <span className="font-mono text-3xl font-bold text-gradient-primary">
+                    <span className="font-mono text-3xl font-bold text-primary">
                       {s.value}
                     </span>
                     {s.unit && <span className="text-base text-muted-foreground">{s.unit}</span>}
@@ -340,7 +340,7 @@ export default function HomePage() {
                     value={src.coverage}
                     showValue={false}
                     indicatorClassName={
-                      src.coverage >= 90 ? 'bg-gradient-to-r from-success to-[oklch(0.65_0.18_160)]' : src.coverage >= 60 ? 'bg-gradient-to-r from-warning to-[oklch(0.72_0.16_85)]' : 'bg-gradient-to-r from-destructive to-[oklch(0.6_0.2_35)]'
+                      src.coverage >= 90 ? 'bg-success' : src.coverage >= 60 ? 'bg-warning' : 'bg-destructive'
                     }
                     glow
                   />

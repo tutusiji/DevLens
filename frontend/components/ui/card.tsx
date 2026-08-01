@@ -1,93 +1,66 @@
 import * as React from 'react';
+import {
+  Card as HeroUICard,
+  CardContent as HeroUICardContent,
+  CardDescription as HeroUICardDescription,
+  CardFooter as HeroUICardFooter,
+  CardHeader as HeroUICardHeader,
+  CardTitle as HeroUICardTitle,
+} from '@heroui/react/card';
 import { cn } from '@/lib/utils';
 
 /* ============================================
-   Bento Grid 卡片组件 - 去框化设计
-   无硬边框，用背景色差异 + 柔和阴影
-   Apple 风格大圆角
+   Card 组件 - 基于 HeroUI Card
+   保持原有导出 API，并保留 className 透传。
+   HeroUI 3.2 的 CardContent 即内容区语义组件，
+   对应设计中的 CardBody 映射。
    ============================================ */
 
-const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={cn(
-        'relative rounded-2xl bento-card',
-        className
-      )}
-      {...props}
-    />
-  )
-);
-Card.displayName = 'Card';
+type HeroUICardProps = React.ComponentProps<typeof HeroUICard>;
+type HeroUICardHeaderProps = React.ComponentProps<typeof HeroUICardHeader>;
+type HeroUICardTitleProps = React.ComponentProps<typeof HeroUICardTitle>;
+type HeroUICardDescriptionProps = React.ComponentProps<typeof HeroUICardDescription>;
+type HeroUICardContentProps = React.ComponentProps<typeof HeroUICardContent>;
+type HeroUICardFooterProps = React.ComponentProps<typeof HeroUICardFooter>;
 
-/* 紧凑卡片 - 用于小部件或嵌套内容 */
-const CardCompact = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={cn(
-        'relative rounded-2xl bento-card',
-        className
-      )}
-      {...props}
-    />
-  )
-);
-CardCompact.displayName = 'CardCompact';
+function Card({ className, ...props }: HeroUICardProps) {
+  return <HeroUICard className={cn('rounded-2xl', className)} {...props} />;
+}
 
-/* 强调卡片 - 主角区域专用，带微光渐变边框 */
-const CardAccent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={cn(
-        'relative rounded-2xl bento-card-accent',
-        className
-      )}
-      {...props}
-    />
-  )
-);
-CardAccent.displayName = 'CardAccent';
+/**
+ * 兼容历史紧凑卡片导出。使用 HeroUI secondary 表面层，
+ * 不再依赖旧的自写 bento-card 样式。
+ */
+function CardCompact({ className, ...props }: HeroUICardProps) {
+  return <HeroUICard variant="secondary" className={cn('rounded-2xl', className)} {...props} />;
+}
 
-const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('flex flex-col space-y-1.5 p-6 pb-4', className)} {...props} />
-  )
-);
-CardHeader.displayName = 'CardHeader';
+/**
+ * 兼容历史强调卡片导出。使用 HeroUI tertiary 表面层，
+ * 以纯色层级替换旧的渐变强调边框。
+ */
+function CardAccent({ className, ...props }: HeroUICardProps) {
+  return <HeroUICard variant="tertiary" className={cn('rounded-2xl', className)} {...props} />;
+}
 
-const CardTitle = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={cn('text-lg font-semibold leading-none tracking-tight', className)}
-      {...props}
-    />
-  )
-);
-CardTitle.displayName = 'CardTitle';
+function CardHeader({ className, ...props }: HeroUICardHeaderProps) {
+  return <HeroUICardHeader className={className} {...props} />;
+}
 
-const CardDescription = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('text-sm text-muted-foreground', className)} {...props} />
-  )
-);
-CardDescription.displayName = 'CardDescription';
+function CardTitle({ className, ...props }: HeroUICardTitleProps) {
+  return <HeroUICardTitle className={className} {...props} />;
+}
 
-const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('p-6 pt-0', className)} {...props} />
-  )
-);
-CardContent.displayName = 'CardContent';
+function CardDescription({ className, ...props }: HeroUICardDescriptionProps) {
+  return <HeroUICardDescription className={className} {...props} />;
+}
 
-const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('flex items-center p-6 pt-0', className)} {...props} />
-  )
-);
-CardFooter.displayName = 'CardFooter';
+function CardContent({ className, ...props }: HeroUICardContentProps) {
+  return <HeroUICardContent className={className} {...props} />;
+}
+
+function CardFooter({ className, ...props }: HeroUICardFooterProps) {
+  return <HeroUICardFooter className={className} {...props} />;
+}
 
 export { Card, CardCompact, CardAccent, CardHeader, CardTitle, CardDescription, CardContent, CardFooter };

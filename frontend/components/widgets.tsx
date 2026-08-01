@@ -1,7 +1,7 @@
 /**
  * 业务展示组件 v3.0 - Bento Grid 去框化风格
  * 增强动画：数字滚动 + 微光光晕 + stagger 入场
- * 视觉效果：渐变文字 + ScoreRing 发光效果
+ * 视觉效果：语义色文字 + ScoreRing 发光效果
  */
 'use client';
 
@@ -90,7 +90,7 @@ export function PageHeader({
       className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
     >
       <div className="space-y-2">
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gradient-primary">{title}</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-primary">{title}</h1>
         {description && <p className="text-sm sm:text-base text-muted-foreground">{description}</p>}
       </div>
       {actions && <div className="flex items-center gap-3">{actions}</div>}
@@ -126,13 +126,13 @@ export function StatCard({
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">{label}</span>
         {Icon && (
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-secondary/15 shadow-lg shadow-primary/8">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-secondary/10 shadow-lg shadow-primary/8">
             <Icon className="h-5 w-5 text-primary" />
           </div>
         )}
       </div>
       <div className="mt-3 flex items-baseline gap-1">
-        <span className="font-mono text-2xl sm:text-3xl font-bold text-gradient-primary">
+        <span className="font-mono text-2xl sm:text-3xl font-bold text-primary">
           <CountUp value={value} decimals={isFloat ? 1 : 0} />
         </span>
         {unit && <span className="text-sm text-muted-foreground">{unit}</span>}
@@ -160,7 +160,7 @@ export function StatCard({
                 initial={{ height: 0 }}
                 animate={{ height: h }}
                 transition={{ duration: 0.5, delay: i * 0.05, ease: 'easeOut' }}
-                className="flex-1 rounded-xl bg-gradient-to-t from-primary/30 to-primary/60 shadow-sm"
+                className="flex-1 rounded-xl bg-primary/50 shadow-sm"
               />
             );
           })}
@@ -252,7 +252,7 @@ export function ScoreRing({
   );
 }
 
-// ============ ProgressBar 带标签进度条（渐变 + 发光） ============
+// ============ ProgressBar 带标签进度条（纯色 + 发光） ============
 
 export function ProgressBar({
   label,
@@ -299,7 +299,7 @@ export function ProgressBar({
           whileInView={{ width: `${pct}%` }}
           viewport={{ once: true }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className={cn('h-full rounded-full', indicatorClassName || 'bg-gradient-to-r from-primary to-secondary')}
+          className={cn('h-full rounded-full', indicatorClassName || 'bg-primary')}
           style={{
             boxShadow: glow ? `0 0 10px ${barColor}40` : undefined,
           }}
@@ -326,14 +326,14 @@ export function HeroStat({
   icon?: React.ComponentType<{ className?: string }>;
   variant?: 'primary' | 'success' | 'warning' | 'accent';
 }) {
-  const gradientClass =
+  const textColorClass =
     variant === 'success'
-      ? 'text-gradient-success'
+      ? 'text-success'
       : variant === 'warning'
-      ? 'text-gradient-warning'
+      ? 'text-warning'
       : variant === 'accent'
-      ? 'text-gradient-accent'
-      : 'text-gradient-primary';
+      ? 'text-accent'
+      : 'text-primary';
 
   const isUp = delta && delta > 0;
   const isDown = delta && delta < 0;
@@ -351,14 +351,14 @@ export function HeroStat({
       />
 
       {Icon && (
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-secondary/15 shadow-lg shadow-primary/8">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary/10 shadow-lg shadow-primary/8">
           <Icon className="h-6 w-6 text-primary" />
         </div>
       )}
 
       <div className="relative">
         <div className="flex items-baseline gap-1.5">
-          <span className={cn('font-mono text-3xl sm:text-4xl font-bold', gradientClass)}>
+          <span className={cn('font-mono text-3xl sm:text-4xl font-bold', textColorClass)}>
             <CountUp value={value} glow />
           </span>
           {unit && <span className="text-base text-muted-foreground">{unit}</span>}
@@ -404,7 +404,7 @@ export function HealthHero({
 
       <div className="relative z-10 flex flex-col items-center w-full">
         <div className="mb-4 sm:mb-6 flex items-center gap-2">
-          <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/25 to-secondary/15">
+          <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-2xl bg-secondary/10">
             <svg className="h-4.5 w-4.5 sm:h-5 sm:w-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
             </svg>
@@ -449,7 +449,7 @@ export function HealthHero({
             value={score}
             max={100}
             showValue={false}
-            indicatorClassName={score >= 85 ? 'bg-gradient-to-r from-success to-[oklch(0.65_0.18_160)]' : score >= 70 ? 'bg-gradient-to-r from-warning to-[oklch(0.72_0.16_85)]' : 'bg-gradient-to-r from-destructive to-[oklch(0.6_0.2_35)]'}
+            indicatorClassName={score >= 85 ? 'bg-success' : score >= 70 ? 'bg-warning' : 'bg-destructive'}
             glow
           />
           <div className="mt-2.5 flex justify-between text-xs text-muted-foreground/70">

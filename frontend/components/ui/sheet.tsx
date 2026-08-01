@@ -1,95 +1,111 @@
 /**
  * Sheet 侧滑抽屉
- * 用于 TrinityMatrix 下钻、筛选面板等
- * 遵循 skill：modal-motion 从触发源滑入，300ms ease
+ * 基于 HeroUI Drawer，保留既有受控 Sheet API，
+ * 并导出 SheetContent/SheetHeader/SheetTitle/SheetTrigger/SheetClose。
  */
 'use client';
 
 import * as React from 'react';
-import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import {
+  DrawerBackdrop,
+  DrawerBody,
+  DrawerCloseTrigger,
+  DrawerContent,
+  DrawerDialog,
+  DrawerHeader,
+  DrawerHeading,
+  DrawerRoot,
+  DrawerTrigger,
+} from '@heroui/react/drawer';
 import { cn } from '@/lib/utils';
 
-export function Sheet({
+type SheetSide = 'right' | 'left';
+type SheetWidth = 'sm' | 'md' | 'lg';
+
+const widthClass: Record<SheetWidth, string> = {
+  sm: 'w-full max-w-sm',
+  md: 'w-full max-w-md',
+  lg: 'w-full max-w-lg',
+};
+
+export interface SheetProps {
+  open: boolean;
+  onClose?: () => void;
+  onOpenChange?: (open: boolean) => void;
+  title?: string;
+  description?: string;
+  children: React.ReactNode;
+  side?: SheetSide;
+  width?: SheetWidth;
+  className?: string;
+}
+
+/**
+ * HeroUI DrawerContent 的兼容包装。
+ * 对外的 className 应用于实际滑出的 panel，而非全屏定位容器。
+ */
+export interface SheetContentProps
+  extends Omit<React.ComponentProps<typeof DrawerContent>, 'children' | 'placement' | 'className'> {
+  children: React.ReactNode;
+  className?: string;
+  side?: SheetSide;
+}
+
+function SheetContent({ children, className, side = 'right', ...props }: SheetContentProps) {
+  return (
+    <DrawerBackdrop variant="blur">
+      <DrawerContent placement={side} {...props}>
+        <DrawerDialog className={className}>{children}</DrawerDialog>
+      </DrawerContent>
+    </DrawerBackdrop>
+  );
+}
+
+function Sheet({
   open,
   onClose,
+  onOpenChange,
   title,
   description,
   children,
   side = 'right',
   width = 'md',
-}: {
-  open: boolean;
-  onClose: () => void;
-  title?: string;
-  description?: string;
-  children: React.ReactNode;
-  side?: 'right' | 'left';
-  width?: 'sm' | 'md' | 'lg';
-}) {
-  const [mounted, setMounted] = React.useState(false);
-  React.useEffect(() => setMounted(true), []);
+  className,
+}: SheetProps) {
+  const handleOpenChange = React.useCallback(
+    (isOpen: boolean) => {
+      onOpenChange?.(isOpen);
 
-  React.useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-    };
-  }, [open, onClose]);
+      if (!isOpen) {
+        onClose?.();
+      }
+    },
+    [onClose, onOpenChange]
+  );
 
-  if (!mounted || !open) return null;
-
-  const widthClass = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg' }[width];
-
-  return createPortal(
-    <div className="fixed inset-0 z-50">
-      {/* 遮罩 */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-        style={{ animation: 'fadeIn 200ms ease-out' }}
-      />
-      {/* 抽屉面板 */}
-      <div
-        className={cn(
-          'absolute top-0 bottom-0 flex flex-col border-border bg-card shadow-2xl',
-          side === 'right' ? 'right-0 border-l' : 'left-0 border-r',
-          'w-full',
-          widthClass
-        )}
-        style={{
-          animation: `${side === 'right' ? 'slideInRight' : 'slideInLeft'} 300ms cubic-bezier(0.16, 1, 0.3, 1)`,
-        }}
+  return (
+    <DrawerRoot isOpen={open} onOpenChange={handleOpenChange}>
+      <SheetContent
+        side={side}
+        className={cn(widthClass[width], className)}
+        aria-label={title ?? '侧边抽屉'}
       >
-        {/* 头部 */}
         {(title || description) && (
-          <div className="flex items-start justify-between gap-4 border-b border-border p-5">
-            <div className="space-y-1">
-              {title && <h2 className="font-mono text-lg font-semibold">{title}</h2>}
-              {description && <p className="text-sm text-muted-foreground">{description}</p>}
-            </div>
-            <button
-              onClick={onClose}
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground cursor-pointer"
-              aria-label="关闭"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
+          <DrawerHeader className="border-b border-border pb-4 pr-10">
+            {title && <DrawerHeading className="font-mono text-lg font-semibold">{title}</DrawerHeading>}
+            {description && <p className="text-sm text-muted-foreground">{description}</p>}
+          </DrawerHeader>
         )}
-        {/* 内容 */}
-        <div className="flex-1 overflow-y-auto p-5">{children}</div>
-      </div>
-      <style>{`
-        @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes slideInRight { from { transform: translateX(100%) } to { transform: translateX(0) } }
-        @keyframes slideInLeft { from { transform: translateX(-100%) } to { transform: translateX(0) } }
-      `}</style>
-    </div>,
-    document.body
+        <DrawerCloseTrigger aria-label="关闭" />
+        <DrawerBody className="pt-5">{children}</DrawerBody>
+      </SheetContent>
+    </DrawerRoot>
   );
 }
+
+const SheetHeader = DrawerHeader;
+const SheetTitle = DrawerHeading;
+const SheetTrigger = DrawerTrigger;
+const SheetClose = DrawerCloseTrigger;
+
+export { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose };
