@@ -490,10 +490,54 @@
    Hero 大数字专用样式
    ============================================ */
 
+
 .hero-number {
   font-size: clamp(4rem, 8vw, 6rem);
   line-height: 1;
   font-weight: 700;
   font-family: var(--font-mono);
   letter-spacing: -0.02em;
+}
+
+/* ============================================
+   React Flow 架构图谱：与企业工作台的浅 / 深色主题保持一致。
+   ============================================ */
+.architecture-flow .react-flow__controls,
+.architecture-flow .react-flow__minimap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  box-shadow: var(--surface-shadow);
+  overflow: hidden;
+}
+
+.architecture-flow .react-flow__controls-button {
+  border-bottom-color: var(--border);
+  background: var(--card);
+  color: var(--foreground);
+}
+
+.architecture-flow .react-flow__controls-button:hover {
+  background: var(--surface-muted);
+}
+
+.architecture-flow .react-flow__controls-button svg {
+  fill: currentColor;
+}
+
+.architecture-flow .react-flow__minimap-mask {
+  fill: color-mix(in oklch, var(--background) 58%, transparent);
+}
+
+.architecture-flow .react-flow__minimap-node {
+  stroke: var(--background);
+  stroke-width: 2px;
+}
+
+.architecture-flow .react-flow__edge-path {
+  stroke: var(--muted-foreground);
+}
+
+.architecture-flow .react-flow__attribution {
+  display: none;
 }

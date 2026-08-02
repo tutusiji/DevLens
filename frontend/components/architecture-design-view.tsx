@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Boxes, CheckCircle2, GitFork, Layers3, ShieldAlert, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { GraphCanvas, type GraphNode } from '@/components/graph-canvas';
+import { ArchitectureFlow } from '@/components/architecture-flow';
 import { scoreColor } from '@/lib/utils';
 import type { ArchitectureDesign } from '@/lib/types';
 
@@ -27,30 +27,6 @@ function formatGeneratedAt(value: string) {
   return Number.isNaN(date.getTime()) ? value || '待生成' : date.toLocaleString('zh-CN', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-function buildArchitectureNodes(design: ArchitectureDesign): GraphNode[] {
-  const grouped = new Map<string, typeof design.components>();
-  design.components.forEach((component) => {
-    const list = grouped.get(component.layer) || [];
-    list.push(component);
-    grouped.set(component.layer, list);
-  });
-  const layerX: Record<string, number> = { edge: 15, service: 40, data: 66, infra: 89 };
-  return design.components.map((component) => {
-    const peers = grouped.get(component.layer) || [];
-    const index = peers.findIndex((peer) => peer.id === component.id);
-    const y = 18 + ((index + 1) * 64) / (peers.length + 1);
-    return {
-      id: component.id,
-      label: component.name,
-      sublabel: `${component.layerLabel} · 健康 ${component.health}`,
-      x: layerX[component.layer] ?? 50,
-      y: Math.round(y),
-      size: Math.max(15, Math.min(24, 16 + component.issueCount * 0.8)),
-      color: LAYER_COLOR[component.layer] || 'var(--primary)',
-    };
-  });
-}
-
 export function ArchitectureDesignView({
   design,
   compact = false,
@@ -58,7 +34,6 @@ export function ArchitectureDesignView({
   design: ArchitectureDesign;
   compact?: boolean;
 }) {
-  const nodes = React.useMemo(() => buildArchitectureNodes(design), [design]);
   const layerCount = design.layers.length;
   const stats: Array<{ label: string; value: number; icon: React.ComponentType<{ className?: string }> }> = [
     { label: '架构组件', value: design.components.length, icon: Boxes },
@@ -106,7 +81,7 @@ export function ArchitectureDesignView({
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <CardTitle>架构分层图</CardTitle>
-              <CardDescription>从当前项目的模块、静态依赖、技术资产和风险工件提取；不是跨项目拼接图。</CardDescription>
+              <CardDescription>从当前项目的模块、静态依赖、技术资产和风险工件提取；支持拖拽节点、空白处平移和滚轮缩放。</CardDescription>
             </div>
             <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
               {design.layers.map((layer) => (
@@ -119,9 +94,9 @@ export function ArchitectureDesignView({
           </div>
         </CardHeader>
         <CardContent>
-          {nodes.length ? (
-            <div className="rounded-xl border border-border/50 bg-muted/15 p-2">
-              <GraphCanvas nodes={nodes} links={design.relations} height={compact ? 330 : 430} />
+          {design.components.length ? (
+            <div className="rounded-lg border border-border bg-background p-2">
+              <ArchitectureFlow design={design} compact={compact} />
             </div>
           ) : (
             <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
