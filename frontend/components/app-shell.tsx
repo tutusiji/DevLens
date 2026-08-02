@@ -11,7 +11,7 @@ import {
   LayoutDashboard, FolderGit2, Users, Network, Rocket,
   Activity, ChevronRight, Menu, X, Search, Bell,
   GitBranch, Bot, Database, Ruler, Building2, ChevronDown,
-  Waypoints, ShieldCheck,
+  ShieldCheck, GitCompareArrows, UserCog, Compass,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -32,9 +32,10 @@ interface NavItem {
 const ANALYSIS_NAV: NavItem[] = [
   { href: '/', label: '决策总览', description: '结论 · 风险 · 行动', icon: Activity },
   { href: '/projects', label: '项目评估', description: '代码质量 · 健康度', icon: FolderGit2 },
+  { href: '/project-portfolio', label: '项目组合对比', description: '横向评估 · 历史趋势', icon: GitCompareArrows },
   { href: '/developers', label: '开发者画像', description: '能力 · 成长 · 协作', icon: Users },
   { href: '/teams', label: '团队分析', description: 'Bus Factor · 缺口', icon: Network },
-  { href: '/graph', label: '代码图谱', description: '模块依赖 · 架构可视化', icon: Waypoints },
+  { href: '/architecture-design', label: '架构设计图谱', description: '分层方案 · 技术治理', icon: Compass },
 ];
 
 const SYSTEM_NAV: NavItem[] = [
@@ -45,6 +46,7 @@ const SYSTEM_NAV: NavItem[] = [
   { href: '/models', label: '大模型管理', description: 'OpenAI · Anthropic', icon: Bot },
   { href: '/vector-models', label: '向量模型管理', description: 'Embedding · 索引', icon: Database },
   { href: '/capability-standards', label: '能力标准', description: '角色 · 级别 · 阈值', icon: Ruler },
+  { href: '/access-control', label: '租户与权限', description: '成员 · RBAC · 数据隔离', icon: UserCog },
 ];
 
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {

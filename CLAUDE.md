@@ -28,5 +28,10 @@
 - 前端：`cd frontend && pnpm dev`（端口 3800）/ `pnpm build`
 - 数据库：`psql devlens`（Unix socket peer auth）
 
-## 进行中任务
-Skill 管理模块开发：设计文档在 `docs/架构设计/Skill管理模块详细设计文档.md`，按文档第 8 节开发顺序实现。
+## 当前能力
+- **开发者能力实测评估**：`developer_evaluations` + `evaluation.py` + `routers/evaluations.py`。开发者详情页从当前租户的已接入仓库选择 Git 作者，按角色的 Skill Group 实测评分，和能力标准阈值比对后输出达标职级、参考职级和差距；评估中冻结 `rule_snapshot`，保证「规则即资产」的审计闭环。
+- **项目组合对比 / 趋势**：`project_assessment_snapshots` 在每次完成项目分析后写入；`/project-portfolio` 负责批量横向对比、历史趋势与报告入口。
+- **报告导出**：HTML/PDF 导出分别由 `/reports/project-comparison` 与开发者评估 report API 提供，导出审计写入 `report_exports`。
+- **多租户 / RBAC**：`access.py` 解析 `X-DevLens-User-Id`、`X-DevLens-Tenant-Id`，业务资产按 `tenant_id` 隔离；成员和角色在 `/access-control` 管理。生产接入与环境变量见 `docs/guides/tenant-rbac-reporting.md`。
+
+已完成模块：Skill 管理、Env Inventory、能力标准后端化（capability.py）、全站 HeroUI 化。

@@ -219,7 +219,7 @@ export function ScoreRing({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="var(--muted)"
+          stroke="var(--surface-muted)"
           strokeWidth={stroke}
           opacity={0.2}
         />

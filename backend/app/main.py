@@ -7,7 +7,11 @@ from sqlalchemy import inspect, text
 
 from .db import Base, engine, SessionLocal
 from . import capability, models, seed
-from .routers import overview, projects, developers, teams, repos, config, skills, env_inventory
+from .access import DEFAULT_TENANT_ID, ensure_bootstrap_tenant
+from .routers import (
+    overview, projects, developers, teams, repos, config, skills, env_inventory, evaluations,
+    portfolio, reports, tenants, architecture_designs,
+)
 
 
 def ensure_migrate():
@@ -92,11 +96,64 @@ def ensure_migrate():
                     )
                     conn.commit()
 
+        # 可售化升级：为已有业务资产补 tenant_id，历史记录统一归入本地默认租户；
+        # DeveloperEvaluation 另补 project / rule snapshot，保证评估可审计并可进报告。
+        commercial_columns = {
+            "developers": {"tenant_id": "VARCHAR"},
+            "projects": {"tenant_id": "VARCHAR", "architecture_design": "JSON"},
+            "repositories": {"tenant_id": "VARCHAR"},
+            "large_teams": {"tenant_id": "VARCHAR"},
+            "team_spaces": {"tenant_id": "VARCHAR"},
+            "team_groups": {"tenant_id": "VARCHAR"},
+            "teams": {"tenant_id": "VARCHAR"},
+            "capability_gaps": {"tenant_id": "VARCHAR"},
+            "identity_matches": {"tenant_id": "VARCHAR"},
+            "skill_sources": {"tenant_id": "VARCHAR"},
+            "skills": {"tenant_id": "VARCHAR"},
+            "skill_groups": {"tenant_id": "VARCHAR"},
+            "capability_roles": {"tenant_id": "VARCHAR"},
+            "developer_evaluations": {
+                "tenant_id": "VARCHAR",
+                "project_id": "VARCHAR",
+                "rule_snapshot": "JSON",
+            },
+        }
+        existing_tables = set(insp.get_table_names())
+        for table_name, columns in commercial_columns.items():
+            if table_name not in existing_tables:
+                continue
+            existing_columns = {column["name"] for column in insp.get_columns(table_name)}
+            for name, column_type in columns.items():
+                if name not in existing_columns:
+                    conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {name} {column_type}"))
+            if "tenant_id" in columns:
+                conn.execute(
+                    text(f"UPDATE {table_name} SET tenant_id = :tenant_id WHERE tenant_id IS NULL"),
+                    {"tenant_id": DEFAULT_TENANT_ID},
+                )
+        conn.commit()
+
+        # v0.5 起能力角色按租户隔离。早期 PostgreSQL schema 对 key 有全局唯一
+        # 约束，须在 tenant_id 回填后替换为 (tenant_id, key) 复合唯一约束。
+        if engine.dialect.name == "postgresql":
+            conn.execute(text(
+                "ALTER TABLE capability_roles "
+                "DROP CONSTRAINT IF EXISTS capability_roles_key_key"
+            ))
+            conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_capability_role_tenant_key "
+                "ON capability_roles (tenant_id, key)"
+            ))
+            conn.commit()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(engine)
     ensure_migrate()
+    db = SessionLocal()
+    ensure_bootstrap_tenant(db)
+    db.close()
     db = SessionLocal()
     if db.query(models.LargeTeam).count() == 0:
         db.close()
@@ -148,6 +205,11 @@ app.include_router(config.router, prefix="/api/v1")
 app.include_router(skills.router, prefix="/api/v1")
 app.include_router(env_inventory.router, prefix="/api/v1")
 app.include_router(capability.router, prefix="/api/v1")
+app.include_router(evaluations.router, prefix="/api/v1")
+app.include_router(portfolio.router, prefix="/api/v1")
+app.include_router(reports.router, prefix="/api/v1")
+app.include_router(tenants.router, prefix="/api/v1")
+app.include_router(architecture_designs.router, prefix="/api/v1")
 
 
 @app.get("/")

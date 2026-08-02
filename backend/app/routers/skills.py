@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from .. import models, schemas
+from ..access import TenantContext, require_permission
 from ..llm import chat_json
 
 router = APIRouter()
@@ -23,18 +24,26 @@ def _now() -> str:
 # ============ 规范来源 skill_sources ============
 
 @router.get("/skill-sources", response_model=list[schemas.SkillSourceM])
-def list_skill_sources(db: Session = Depends(get_db)):
-    return db.query(models.SkillSource).order_by(models.SkillSource.created_at.desc()).all()
+def list_skill_sources(
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:read")),
+):
+    return db.query(models.SkillSource).filter_by(
+        tenant_id=ctx.tenant_id,
+    ).order_by(models.SkillSource.created_at.desc()).all()
 
 
 @router.post("/skill-sources", response_model=schemas.SkillSourceM)
-def create_skill_source(body: schemas.SkillSourceCreateRequest, db: Session = Depends(get_db)):
+def create_skill_source(
+    body: schemas.SkillSourceCreateRequest, db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:write")),
+):
     now = _now()
     src = models.SkillSource(
         id=f"sk-src-{uuid.uuid4().hex[:8]}",
         name=body.name, doc_type=body.doc_type, content=body.content,
         source_lang=body.source_lang, description=body.description,
-        status="imported", created_at=now, updated_at=now,
+        status="imported", created_at=now, updated_at=now, tenant_id=ctx.tenant_id,
     )
     db.add(src)
     db.commit()
@@ -43,29 +52,38 @@ def create_skill_source(body: schemas.SkillSourceCreateRequest, db: Session = De
 
 
 @router.get("/skill-sources/{src_id}", response_model=schemas.SkillSourceM)
-def get_skill_source(src_id: str, db: Session = Depends(get_db)):
-    src = db.query(models.SkillSource).filter_by(id=src_id).first()
+def get_skill_source(
+    src_id: str, db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:read")),
+):
+    src = db.query(models.SkillSource).filter_by(id=src_id, tenant_id=ctx.tenant_id).first()
     if not src:
         raise HTTPException(status_code=404, detail="规范来源不存在")
     return src
 
 
 @router.delete("/skill-sources/{src_id}")
-def delete_skill_source(src_id: str, db: Session = Depends(get_db)):
-    src = db.query(models.SkillSource).filter_by(id=src_id).first()
+def delete_skill_source(
+    src_id: str, db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:write")),
+):
+    src = db.query(models.SkillSource).filter_by(id=src_id, tenant_id=ctx.tenant_id).first()
     if not src:
         raise HTTPException(status_code=404, detail="规范来源不存在")
     # 级联不删 skills，仅置 source_id 为 null（规则可能已手工复用）
-    db.query(models.Skill).filter_by(source_id=src_id).update({"source_id": None})
+    db.query(models.Skill).filter_by(source_id=src_id, tenant_id=ctx.tenant_id).update({"source_id": None})
     db.delete(src)
     db.commit()
     return {"ok": True, "id": src_id}
 
 
 @router.post("/skill-sources/{src_id}/extract", response_model=schemas.ExtractResult)
-def extract_skills(src_id: str, db: Session = Depends(get_db)):
+def extract_skills(
+    src_id: str, db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:write")),
+):
     """LLM 抽取：调 LLM 从规范 content 生成 skills 草稿并入库（status=extracted）"""
-    src = db.query(models.SkillSource).filter_by(id=src_id).first()
+    src = db.query(models.SkillSource).filter_by(id=src_id, tenant_id=ctx.tenant_id).first()
     if not src:
         raise HTTPException(status_code=404, detail="规范来源不存在")
     if not src.content or not src.content.strip():
@@ -121,7 +139,7 @@ def extract_skills(src_id: str, db: Session = Depends(get_db)):
             check_type="llm", rule_content=rule_content,
             positive_examples=[item.get("positiveExample") or item.get("positive_example") or {}],
             negative_examples=[item.get("negativeExample") or item.get("negative_example") or {}],
-            enabled=1, created_at=now, updated_at=now,
+            enabled=1, created_at=now, updated_at=now, tenant_id=ctx.tenant_id,
         ))
         count += 1
 
@@ -142,8 +160,9 @@ def list_skills(
     category: str | None = Query(default=None),
     enabled: int | None = Query(default=None),
     db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:read")),
 ):
-    q = db.query(models.Skill)
+    q = db.query(models.Skill).filter_by(tenant_id=ctx.tenant_id)
     if source_id:
         q = q.filter_by(source_id=source_id)
     if category:
@@ -154,7 +173,14 @@ def list_skills(
 
 
 @router.post("/skills", response_model=schemas.SkillM)
-def create_skill(body: schemas.SkillCreateRequest, db: Session = Depends(get_db)):
+def create_skill(
+    body: schemas.SkillCreateRequest, db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:write")),
+):
+    if body.source_id and not db.query(models.SkillSource).filter_by(
+        id=body.source_id, tenant_id=ctx.tenant_id,
+    ).first():
+        raise HTTPException(status_code=422, detail="规则来源不存在或不属于当前租户")
     now = _now()
     skill = models.Skill(
         id=f"sk-{uuid.uuid4().hex[:8]}",
@@ -163,7 +189,7 @@ def create_skill(body: schemas.SkillCreateRequest, db: Session = Depends(get_db)
         rule_content=body.rule_content,
         positive_examples=[e.model_dump() for e in body.positive_examples],
         negative_examples=[e.model_dump() for e in body.negative_examples],
-        enabled=body.enabled, created_at=now, updated_at=now,
+        enabled=body.enabled, created_at=now, updated_at=now, tenant_id=ctx.tenant_id,
     )
     db.add(skill)
     db.commit()
@@ -172,8 +198,11 @@ def create_skill(body: schemas.SkillCreateRequest, db: Session = Depends(get_db)
 
 
 @router.patch("/skills/{skill_id}", response_model=schemas.SkillM)
-def update_skill(skill_id: str, body: dict = Body(...), db: Session = Depends(get_db)):
-    skill = db.query(models.Skill).filter_by(id=skill_id).first()
+def update_skill(
+    skill_id: str, body: dict = Body(...), db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:write")),
+):
+    skill = db.query(models.Skill).filter_by(id=skill_id, tenant_id=ctx.tenant_id).first()
     if not skill:
         raise HTTPException(status_code=404, detail="规则不存在")
     allowed = {
@@ -191,8 +220,11 @@ def update_skill(skill_id: str, body: dict = Body(...), db: Session = Depends(ge
 
 
 @router.delete("/skills/{skill_id}")
-def delete_skill(skill_id: str, db: Session = Depends(get_db)):
-    skill = db.query(models.Skill).filter_by(id=skill_id).first()
+def delete_skill(
+    skill_id: str, db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:write")),
+):
+    skill = db.query(models.Skill).filter_by(id=skill_id, tenant_id=ctx.tenant_id).first()
     if not skill:
         raise HTTPException(status_code=404, detail="规则不存在")
     db.delete(skill)
@@ -203,18 +235,32 @@ def delete_skill(skill_id: str, db: Session = Depends(get_db)):
 # ============ 编组 skill_groups ============
 
 @router.get("/skill-groups", response_model=list[schemas.SkillGroupM])
-def list_skill_groups(db: Session = Depends(get_db)):
-    return db.query(models.SkillGroup).order_by(models.SkillGroup.created_at.desc()).all()
+def list_skill_groups(
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:read")),
+):
+    return db.query(models.SkillGroup).filter_by(
+        tenant_id=ctx.tenant_id,
+    ).order_by(models.SkillGroup.created_at.desc()).all()
 
 
 @router.post("/skill-groups", response_model=schemas.SkillGroupM)
-def create_skill_group(body: schemas.SkillGroupCreateRequest, db: Session = Depends(get_db)):
+def create_skill_group(
+    body: schemas.SkillGroupCreateRequest, db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:write")),
+):
+    skill_count = db.query(models.Skill).filter(
+        models.Skill.id.in_(body.skill_ids),
+        models.Skill.tenant_id == ctx.tenant_id,
+    ).count() if body.skill_ids else 0
+    if skill_count != len(set(body.skill_ids)):
+        raise HTTPException(status_code=422, detail="Skill Group 含不存在或跨租户的规则")
     now = _now()
     group = models.SkillGroup(
         id=f"skg-{uuid.uuid4().hex[:8]}",
         name=body.name, description=body.description,
         skill_ids=body.skill_ids, analysis_type=body.analysis_type,
-        enabled=body.enabled, created_at=now, updated_at=now,
+        enabled=body.enabled, created_at=now, updated_at=now, tenant_id=ctx.tenant_id,
     )
     db.add(group)
     db.commit()
@@ -223,8 +269,11 @@ def create_skill_group(body: schemas.SkillGroupCreateRequest, db: Session = Depe
 
 
 @router.patch("/skill-groups/{group_id}", response_model=schemas.SkillGroupM)
-def update_skill_group(group_id: str, body: dict = Body(...), db: Session = Depends(get_db)):
-    group = db.query(models.SkillGroup).filter_by(id=group_id).first()
+def update_skill_group(
+    group_id: str, body: dict = Body(...), db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:write")),
+):
+    group = db.query(models.SkillGroup).filter_by(id=group_id, tenant_id=ctx.tenant_id).first()
     if not group:
         raise HTTPException(status_code=404, detail="编组不存在")
     allowed = {"name", "description", "skill_ids", "analysis_type", "enabled"}
@@ -238,8 +287,11 @@ def update_skill_group(group_id: str, body: dict = Body(...), db: Session = Depe
 
 
 @router.delete("/skill-groups/{group_id}")
-def delete_skill_group(group_id: str, db: Session = Depends(get_db)):
-    group = db.query(models.SkillGroup).filter_by(id=group_id).first()
+def delete_skill_group(
+    group_id: str, db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:write")),
+):
+    group = db.query(models.SkillGroup).filter_by(id=group_id, tenant_id=ctx.tenant_id).first()
     if not group:
         raise HTTPException(status_code=404, detail="编组不存在")
     db.delete(group)
@@ -248,14 +300,17 @@ def delete_skill_group(group_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/skill-groups/{group_id}/preview")
-def preview_skill_group(group_id: str, db: Session = Depends(get_db)):
+def preview_skill_group(
+    group_id: str, db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:read")),
+):
     """组内规则预览：返回组 + 规则明细，用于评估前确认"""
-    group = db.query(models.SkillGroup).filter_by(id=group_id).first()
+    group = db.query(models.SkillGroup).filter_by(id=group_id, tenant_id=ctx.tenant_id).first()
     if not group:
         raise HTTPException(status_code=404, detail="编组不存在")
     skills = (
         db.query(models.Skill)
-        .filter(models.Skill.id.in_(group.skill_ids or []))
+        .filter(models.Skill.id.in_(group.skill_ids or []), models.Skill.tenant_id == ctx.tenant_id)
         .all()
     )
     # 保持 skill_ids 顺序
@@ -272,11 +327,14 @@ def preview_skill_group(group_id: str, db: Session = Depends(get_db)):
 # ============ 分析运行绑定 Skill Group ============
 
 @router.post("/analysis-runs/{run_id}/bind-group", response_model=schemas.AnalysisRun)
-def bind_group(run_id: str, body: schemas.BindGroupRequest, db: Session = Depends(get_db)):
+def bind_group(
+    run_id: str, body: schemas.BindGroupRequest, db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:write")),
+):
     run = db.query(models.AnalysisRun).filter_by(id=run_id).first()
-    if not run:
+    if not run or not db.query(models.Project).filter_by(id=run.project_id, tenant_id=ctx.tenant_id).first():
         raise HTTPException(status_code=404, detail="分析运行不存在")
-    group = db.query(models.SkillGroup).filter_by(id=body.group_id).first()
+    group = db.query(models.SkillGroup).filter_by(id=body.group_id, tenant_id=ctx.tenant_id).first()
     if not group:
         raise HTTPException(status_code=404, detail="编组不存在")
     run.skill_group_id = body.group_id

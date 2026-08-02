@@ -222,7 +222,7 @@ export function GroupedBars({
         <CartesianGrid {...gridProps} />
         <XAxis dataKey={xKey} tick={axisStyle} axisLine={false} tickLine={false} />
         <YAxis tick={axisStyle} axisLine={false} tickLine={false} domain={[0, 100]} />
-        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'var(--muted)', opacity: 0.2 }} />
+        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'var(--surface-muted)', opacity: 0.2 }} />
         {series.length > 1 && (
           <Legend wrapperStyle={{ fontSize: 11, color: 'var(--muted-foreground)', marginTop: '16px' }} />
         )}
@@ -312,7 +312,7 @@ export function ScoreGauge({
         <path
           d="M 10 55 A 50 50 0 0 1 110 55"
           fill="none"
-          stroke="var(--muted)"
+          stroke="var(--surface-muted)"
           strokeWidth="8"
           strokeLinecap="round"
           opacity={0.3}

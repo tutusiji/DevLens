@@ -421,6 +421,8 @@ class GraphNodeM(CamelModel):
     y: int
     loc: str
     health: int
+    path: str = ""
+    issue_count: int = 0
 
 
 class GraphEdgeM(CamelModel):
@@ -432,6 +434,34 @@ class GraphData(CamelModel):
     nodes: list[GraphNodeM]
     edges: list[GraphEdgeM]
     stats: dict[str, Any]
+    project_id: Optional[str] = None
+    project_name: str = ""
+    branch: str = ""
+    commit: str = ""
+    generated_at: str = ""
+
+
+class ArchitectureDesignM(CamelModel):
+    """从项目分析产物中提取的架构级设计方案。"""
+    project_id: str
+    project_name: str
+    language: str = ""
+    analysis_status: str = "ready"
+    branch: str = ""
+    commit: str = ""
+    generated_at: str = ""
+    overview: str = ""
+    principles: list[str] = []
+    layers: list[dict[str, Any]] = []
+    components: list[dict[str, Any]] = []
+    relations: list[GraphEdgeM] = []
+    decisions: list[dict[str, str]] = []
+    risks: list[dict[str, Any]] = []
+
+
+class ArchitectureDesignListResponse(CamelModel):
+    designs: list[ArchitectureDesignM] = []
+    generated_at: str = ""
 
 
 # ============ Skill 管理模块 ============
@@ -626,3 +656,143 @@ class EnvInventorySummaryM(CamelModel):
 
 class EnvInventoryScanRequest(CamelModel):
     scan_type: str = "full"  # full | incremental
+
+
+# ============ 开发者能力实测评估 ============
+class DeveloperEvaluationM(CamelModel):
+    id: str
+    developer_id: str
+    role_key: str
+    skill_group_id: Optional[str] = None
+    tenant_id: str = "tenant-default"
+    project_id: Optional[str] = None
+    repo_path: str
+    git_author: str
+    scores: dict[str, int] = {}
+    evidence: list[dict[str, Any]] = []
+    rule_snapshot: dict[str, Any] = {}
+    achieved_level: Optional[str] = None
+    best_level: Optional[str] = None
+    gaps: list[dict[str, Any]] = []
+    summary: str = ""
+    status: str = "running"
+    error: str = ""
+    created_at: str = ""
+    updated_at: str = ""
+
+
+class DeveloperEvaluationListResponse(CamelModel):
+    """评估记录列表响应模型（列表端点当前直接返回 evaluations 数组）。"""
+    evaluations: list[DeveloperEvaluationM] = []
+
+
+class EvaluateRequest(CamelModel):
+    repo_path: str
+    git_author: str
+    role_key: Optional[str] = None
+    skill_group_id: Optional[str] = None
+
+
+# ============ 可售化：项目对比 / 历史趋势 / 报告 ============
+
+class ProjectAssessmentSnapshotM(CamelModel):
+    id: str
+    project_id: str
+    score: int = 0
+    quality: int = 0
+    security: int = 0
+    debt: int = 0
+    contributors: int = 0
+    commits: int = 0
+    recorded_at: str
+    source: str = "analysis"
+
+
+class ProjectComparisonItem(CamelModel):
+    project_id: str
+    project_name: str
+    language: str = ""
+    score: int = 0
+    quality: int = 0
+    security: int = 0
+    debt: int = 0
+    contributors: int = 0
+    commits: int = 0
+    last_analyzed: str = ""
+    score_delta: Optional[int] = None
+
+
+class ProjectComparisonResponse(CamelModel):
+    projects: list[ProjectComparisonItem] = []
+    generated_at: str
+
+
+class ProjectTrendResponse(CamelModel):
+    project_id: str
+    project_name: str
+    snapshots: list[ProjectAssessmentSnapshotM] = []
+
+
+class ProjectReportRequest(CamelModel):
+    project_ids: list[str]
+    title: str = ""
+    format: str = "html"  # html|pdf
+
+
+class ReportExportM(CamelModel):
+    id: str
+    report_type: str
+    format: str
+    subject_ids: list[str] = []
+    requested_by: str = ""
+    created_at: str
+
+
+# ============ 可售化：多租户 / RBAC ============
+
+class TenantM(CamelModel):
+    id: str
+    name: str
+    slug: str
+    status: str = "active"
+    created_at: str
+    updated_at: str
+
+
+class TenantCreateRequest(CamelModel):
+    name: str
+    slug: str
+    owner_email: str
+    owner_name: str = ""
+
+
+class UserM(CamelModel):
+    id: str
+    email: str
+    name: str
+    status: str = "active"
+    created_at: str
+    updated_at: str
+
+
+class TenantMembershipM(CamelModel):
+    id: str
+    tenant_id: str
+    user_id: str
+    role: str
+    created_at: str
+    updated_at: str
+    user: Optional[UserM] = None
+
+
+class TenantMembershipCreateRequest(CamelModel):
+    email: str
+    name: str
+    role: str
+
+
+class CurrentTenantContextM(CamelModel):
+    tenant: TenantM
+    user: UserM
+    role: str
+    permissions: list[str]

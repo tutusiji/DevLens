@@ -6,6 +6,7 @@ analyze_repository 由 POST /projects 触发，background=True 时在线程中�
 import os
 import subprocess
 import threading
+import uuid
 from datetime import datetime, timezone
 
 from .config import settings
@@ -104,17 +105,27 @@ SKILL_GROUPS = {
 }
 
 
-def _load_group_rules(db, group_id: str | None) -> dict | None:
+def _load_group_rules(
+    db,
+    group_id: str | None,
+    tenant_id: str | None = None,
+) -> dict | None:
     """从数据库加载 Skill Group + 组内 rules（无则返回 None）"""
     if not group_id:
         return None
-    group = db.query(models.SkillGroup).filter_by(id=group_id).first()
+    group_query = db.query(models.SkillGroup).filter_by(id=group_id)
+    if tenant_id:
+        group_query = group_query.filter_by(tenant_id=tenant_id)
+    group = group_query.first()
     if not group:
         return None
-    skills = db.query(models.Skill).filter(
+    skills_query = db.query(models.Skill).filter(
         models.Skill.id.in_(group.skill_ids or []),
         models.Skill.enabled == 1,
-    ).all()
+    )
+    if tenant_id:
+        skills_query = skills_query.filter(models.Skill.tenant_id == tenant_id)
+    skills = skills_query.all()
     return {
         "group_name": group.name,
         "group_id": group.id,
@@ -248,22 +259,31 @@ def _discover_assets(repo_path: str, meta: dict) -> dict:
 
 def _build_identity_matches(project_id: str, meta: dict, db) -> None:
     """从 git contributors 生成身份匹配（git 作者 -> 组织人员）"""
-    db.query(models.IdentityMatch).filter_by(project_id=project_id).delete()
+    project = db.query(models.Project).filter_by(id=project_id).first()
+    tenant_id = project.tenant_id if project else "tenant-default"
+    db.query(models.IdentityMatch).filter_by(
+        project_id=project_id, tenant_id=tenant_id,
+    ).delete()
     for c in meta["contributors"][:10]:
         name = c["name"]
         email = c["email"].split(" / ")[0] if c["email"] else ""
-        dev = db.query(models.Developer).filter(models.Developer.name == name).first()
+        dev = db.query(models.Developer).filter(
+            models.Developer.name == name,
+            models.Developer.tenant_id == tenant_id,
+        ).first()
         if dev:
             db.add(models.IdentityMatch(
                 id=f"im-{project_id}-{abs(hash(name)) % 100000}",
                 project_id=project_id, git_name=name, git_email=email,
                 person_name=dev.name, department=dev.team, confidence=0.95, method="exact",
+                tenant_id=tenant_id,
             ))
         else:
             db.add(models.IdentityMatch(
                 id=f"im-{project_id}-{abs(hash(name)) % 100000}",
                 project_id=project_id, git_name=name, git_email=email,
                 person_name=name, department="未匹配", confidence=0.5, method="fuzzy",
+                tenant_id=tenant_id,
             ))
 
 
@@ -365,6 +385,32 @@ def _persist(db, project_id: str, name: str, meta: dict, result: dict, repo_path
     }
     p.assets = _discover_assets(repo_path, meta)
     p.graph_edges = meta.get("dependencies", [])
+    # 架构设计方案是项目级工件：只基于本项目的模块、依赖、资产和风险提取，
+    # 避免全局图谱混合多个仓库的代码上下文。
+    from .architecture import derive_architecture_design
+    p.architecture_design = derive_architecture_design(p)
+    # 每一次成功分析固化不可变评分快照；项目页当前分值只是最新视图，
+    # 横向对比/趋势报表以快照为准。
+    latest_run = (
+        db.query(models.AnalysisRun)
+        .filter_by(project_id=project_id)
+        .order_by(models.AnalysisRun.updated_at.desc())
+        .first()
+    )
+    db.add(models.ProjectAssessmentSnapshot(
+        id=f"psnap-{uuid.uuid4().hex[:12]}",
+        tenant_id=p.tenant_id or "tenant-default",
+        project_id=p.id,
+        analysis_run_id=latest_run.id if latest_run else None,
+        score=p.score or 0,
+        quality=p.quality or 0,
+        security=p.security or 0,
+        debt=p.debt or 0,
+        contributors=p.contributors or 0,
+        commits=p.commits or 0,
+        recorded_at=_now(),
+        source="analysis",
+    ))
     db.commit()
     _build_identity_matches(project_id, meta, db)
     db.commit()

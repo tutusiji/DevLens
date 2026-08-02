@@ -1,12 +1,7 @@
 @import 'tailwindcss';
 @import '@heroui/styles';
 
-/* ============================================
-   DevLens 设计系统 v3.0 - OLED Dark Mode
-   深蓝灰基底 #0A0E27 / #121212
-   Apple 风格 Bento Grid + 去框化设计
-   高对比度文字 + 微光点缀
-   ============================================ */
+/* DevLens 只保留布局与字体扩展；颜色、控件状态与深浅主题交给 HeroUI 官方主题。 */
 
 @custom-variant dark (&:is(.dark *));
 
@@ -15,7 +10,7 @@
   --font-sans: var(--font-fira-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-fira-code), ui-monospace, monospace;
 
-  /* 圆角阶梯 - 适度圆角 */
+  /* 与 HeroUI 官方 radius 保持一致 */
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -23,7 +18,7 @@
   --radius-2xl: calc(var(--radius) * 1.5);
   --radius-3xl: calc(var(--radius) * 1.75);
 
-  /* 颜色映射到 Tailwind 语义类 */
+  /* 历史 Tailwind 语义类映射到 HeroUI 官方 token，不再维护第二套色板。 */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -36,6 +31,8 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--surface-muted);
+  --color-muted-foreground: var(--app-secondary-foreground);
   --color-destructive: var(--destructive);
   --color-success: var(--success);
   --color-warning: var(--warning);
@@ -56,153 +53,47 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Glassmorphism 专用色 */
-  --glass-border: var(--glass-border);
-  --glass-shadow: var(--glass-shadow);
-
-  /* 渐变预设 */
-  --gradient-primary: linear-gradient(135deg, oklch(0.68 0.2 245), oklch(0.58 0.18 265));
-  --gradient-accent: linear-gradient(135deg, oklch(0.75 0.18 68), oklch(0.65 0.15 85));
-  --gradient-success: linear-gradient(135deg, oklch(0.72 0.18 155), oklch(0.62 0.16 170));
-  --gradient-warning: linear-gradient(135deg, oklch(0.78 0.16 78), oklch(0.70 0.14 95));
-  --gradient-destructive: linear-gradient(135deg, oklch(0.68 0.22 25), oklch(0.58 0.20 35));
 }
 
-/* ============================================
-   浅色主题（备用）
-   ============================================ */
+/*
+ * HeroUI 默认主题同时提供 :root 与 .dark 两套 token。
+ * 下面仅为项目中既有的 CSS/SVG 变量提供别名，所有实际色值均来自 HeroUI。
+ */
 :root {
-  color-scheme: light dark;
-
-  /* 背景：浅灰蓝基底 */
-  --background: oklch(0.96 0.008 250);
-  --foreground: oklch(0.20 0.015 255);
-
-  /* 卡片：极浅背景 + 软阴影 */
-  --card: oklch(1 0 0 / 0.8);
-  --card-foreground: oklch(0.20 0.015 255);
-  --popover: oklch(1 0 0 / 0.95);
-  --popover-foreground: oklch(0.20 0.015 255);
-
-  /* 主色：蓝紫色系 */
-  --primary: oklch(0.60 0.2 250);
-  --primary-foreground: oklch(0.98 0.01 255);
-  --secondary: oklch(0.64 0.18 275);
-  --secondary-foreground: oklch(0.98 0.01 255);
-
-  /* 强调色：琥珀 */
-  --accent: oklch(0.75 0.18 68);
-  --accent-foreground: oklch(0.20 0.015 68);
-
-  /* 语义色 */
-  --success: oklch(0.68 0.18 155);
-  --warning: oklch(0.75 0.16 78);
-  --destructive: oklch(0.63 0.21 25);
-
-  /* HeroUI 变量桥接 - 让 HeroUI 组件使用项目主题色 */
-  --danger: var(--destructive);
-  --danger-foreground: oklch(0.98 0.01 255);
-
-  /* 中性层 - 几乎不可见边框（去框化核心） */
-  --muted: oklch(0.92 0.008 250);
-  --muted-foreground: oklch(0.55 0.015 250);
-  --border: oklch(0 0 0 / 0.04);
-  --input: oklch(0 0 0 / 0.05);
-  --ring: oklch(0.60 0.2 250);
-
-  /* Glassmorphism 专用 */
-  --glass-border: oklch(0 0 0 / 0.06);
-  --glass-shadow: 0 4px 24px oklch(0.4 0.15 255 / 0.06);
-
-  /* 图表 5 色 */
-  --chart-1: oklch(0.60 0.2 250);
-  --chart-2: oklch(0.72 0.14 185);
-  --chart-3: oklch(0.57 0.2 295);
-  --chart-4: oklch(0.68 0.18 155);
-  --chart-5: oklch(0.63 0.21 25);
-
-  /* 侧栏 */
-  --sidebar: oklch(0.98 0.005 250);
-  --sidebar-foreground: oklch(0.25 0.015 255);
-  --sidebar-primary: oklch(0.60 0.2 250);
-  --sidebar-primary-foreground: oklch(0.98 0.01 255);
-  --sidebar-accent: oklch(0.94 0.008 250);
-  --sidebar-accent-foreground: oklch(0.20 0.015 255);
-  --sidebar-border: oklch(0 0 0 / 0.03);
-  --sidebar-ring: oklch(0.60 0.2 250);
-
-  --radius: 0.5rem;
+  --card: var(--surface);
+  --card-foreground: var(--surface-foreground);
+  --popover: var(--overlay);
+  --popover-foreground: var(--overlay-foreground);
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-foreground);
+  --secondary: var(--surface-secondary);
+  --secondary-foreground: var(--surface-secondary-foreground);
+  --destructive: var(--danger);
+  /*
+   * 辅助文字采用“前景色 70% + 背景色 30%”的可读层级，而非 HeroUI 的装饰性
+   * muted。该 token 只供 DevLens 页面里的副标题、路径、表头等信息使用。
+   */
+  --app-secondary-foreground: color-mix(in oklch, var(--foreground) 70%, var(--background));
+  --muted-foreground: var(--app-secondary-foreground);
+  --surface-muted: var(--background-secondary);
+  --input: var(--field-background);
+  --ring: var(--focus);
+  --chart-1: var(--accent);
+  --chart-2: var(--success);
+  --chart-3: var(--warning);
+  --chart-4: var(--danger);
+  --chart-5: var(--foreground);
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--surface-foreground);
+  --sidebar-primary: var(--accent);
+  --sidebar-primary-foreground: var(--accent-foreground);
+  --sidebar-accent: var(--surface-secondary);
+  --sidebar-accent-foreground: var(--surface-secondary-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--focus);
+  --glass-border: var(--border);
+  --glass-shadow: var(--surface-shadow);
 }
-
-/* ============================================
-   暗色主题 - OLED Dark Mode（默认启用）
-   深蓝灰基底 #0A0E27 风格
-   高对比度文字 + 微光光晕
-   ============================================ */
-.dark {
-  color-scheme: dark;
-
-  /* 背景：深蓝灰基底 */
-  --background: oklch(0.12 0.015 250);
-  --foreground: oklch(0.97 0.005 250);
-
-  /* 卡片：深色半透明背景（去框化核心：不依赖边框） */
-  --card: oklch(0.16 0.02 250 / 0.6);
-  --card-foreground: oklch(0.97 0.005 250);
-  --popover: oklch(0.18 0.02 250 / 0.95);
-  --popover-foreground: oklch(0.97 0.005 250);
-
-  /* 主色：高亮蓝紫色系 */
-  --primary: oklch(0.68 0.2 245);
-  --primary-foreground: oklch(0.98 0.01 255);
-  --secondary: oklch(0.72 0.18 275);
-  --secondary-foreground: oklch(0.98 0.01 255);
-
-  /* 强调色：琥珀色（CTA 专用） */
-  --accent: oklch(0.75 0.18 68);
-  --accent-foreground: oklch(0.20 0.015 68);
-
-  /* 语义色（提亮确保可见） */
-  --success: oklch(0.72 0.18 155);
-  --warning: oklch(0.78 0.16 78);
-  --destructive: oklch(0.68 0.22 25);
-
-  /* HeroUI 变量桥接 - 让 HeroUI 组件使用项目主题色 */
-  --danger: var(--destructive);
-  --danger-foreground: oklch(0.98 0.01 255);
-
-  /* 中性层 - 极淡/不可见边框 */
-  --muted: oklch(0.20 0.02 250);
-  --muted-foreground: oklch(0.60 0.015 250);
-  --border: oklch(1 0 0 / 0.03);
-  --input: oklch(1 0 0 / 0.05);
-  --ring: oklch(0.68 0.2 245);
-
-  /* Glassmorphism 专用 */
-  --glass-border: oklch(1 0 0 / 0.04);
-  --glass-shadow: 0 4px 24px oklch(0 0 0 / 0.15);
-
-  /* 图表 5 色（提亮） */
-  --chart-1: oklch(0.68 0.2 245);
-  --chart-2: oklch(0.72 0.14 185);
-  --chart-3: oklch(0.65 0.2 295);
-  --chart-4: oklch(0.72 0.18 155);
-  --chart-5: oklch(0.68 0.22 25);
-
-  /* 侧栏 */
-  --sidebar: oklch(0.14 0.02 250 / 0.7);
-  --sidebar-foreground: oklch(0.95 0.005 250);
-  --sidebar-primary: oklch(0.68 0.2 245);
-  --sidebar-primary-foreground: oklch(0.98 0.01 255);
-  --sidebar-accent: oklch(0.22 0.03 250 / 0.4);
-  --sidebar-accent-foreground: oklch(0.97 0.005 250);
-  --sidebar-border: oklch(1 0 0 / 0.02);
-  --sidebar-ring: oklch(0.68 0.2 245);
-}
-
-/* ============================================
-   全局样式重置 + 背景微光效果
-   ============================================ */
 
 @layer base {
   * {
@@ -210,19 +101,9 @@
     border-color: var(--border);
   }
 
-  html {
-    /* 默认启用深色主题 */
-    color-scheme: dark;
-  }
-
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: 'cv11', 'ss01';
-    /* 背景微光效果 - 角落两个模糊光斑，极简风格 */
-    background-image:
-      radial-gradient(ellipse 60% 40% at 10% -10%, oklch(0.68 0.2 245 / 0.08), transparent),
-      radial-gradient(ellipse 50% 30% at 90% 110%, oklch(0.75 0.18 68 / 0.06), transparent);
-    background-attachment: fixed;
   }
 
   /* 数值等宽对齐，dashboard 必备 */
@@ -325,38 +206,6 @@
 }
 
 /* ============================================
-   渐变文字工具类
-   ============================================ */
-
-.text-gradient-primary {
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.text-gradient-accent {
-  background: var(--gradient-accent);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.text-gradient-success {
-  background: var(--gradient-success);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.text-gradient-warning {
-  background: var(--gradient-warning);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* ============================================
    自定义滚动条
    ============================================ */
 
@@ -388,9 +237,9 @@
 .skeleton {
   background: linear-gradient(
     90deg,
-    color-mix(in oklch, var(--muted), black 12%) 25%,
-    var(--muted) 50%,
-    color-mix(in oklch, var(--muted), black 12%) 75%
+    color-mix(in oklch, var(--surface-muted), black 12%) 25%,
+    var(--surface-muted) 50%,
+    color-mix(in oklch, var(--surface-muted), black 12%) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
@@ -399,9 +248,9 @@
 .dark .skeleton {
   background: linear-gradient(
     90deg,
-    var(--muted) 25%,
-    color-mix(in oklch, var(--muted), white 18%) 50%,
-    var(--muted) 75%
+    var(--surface-muted) 25%,
+    color-mix(in oklch, var(--surface-muted), white 18%) 50%,
+    var(--surface-muted) 75%
   );
 }
 
@@ -506,7 +355,7 @@
   transition: background-color 150ms ease;
 }
 .borderless-table tr:hover {
-  background: color-mix(in oklch, var(--muted) 30%, transparent);
+  background: color-mix(in oklch, var(--surface-muted) 30%, transparent);
 }
 .borderless-table td,
 .borderless-table th {

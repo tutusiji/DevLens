@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from . import models, schemas
 from .db import get_db
+from .access import TenantContext, require_permission
 
 
 router = APIRouter(tags=["capability-standards"])
@@ -128,8 +129,10 @@ def _meta() -> dict:
     }
 
 
-def _find_role(role_key: str, db: Session) -> models.CapabilityRole:
-    role = db.query(models.CapabilityRole).filter_by(key=role_key).first()
+def _find_role(role_key: str, db: Session, tenant_id: str) -> models.CapabilityRole:
+    role = db.query(models.CapabilityRole).filter_by(
+        key=role_key, tenant_id=tenant_id,
+    ).first()
     if not role:
         raise HTTPException(status_code=404, detail="能力角色不存在")
     return role
@@ -161,12 +164,14 @@ def _validate_thresholds(
         raise HTTPException(status_code=422, detail=f"阈值必须是 0-100 的整数: {', '.join(invalid)}")
 
 
-def _validate_skill_group(skill_group_id: str | None, db: Session) -> None:
-    if skill_group_id and not db.query(models.SkillGroup).filter_by(id=skill_group_id).first():
+def _validate_skill_group(skill_group_id: str | None, db: Session, tenant_id: str) -> None:
+    if skill_group_id and not db.query(models.SkillGroup).filter_by(
+        id=skill_group_id, tenant_id=tenant_id,
+    ).first():
         raise HTTPException(status_code=422, detail="关联的 Skill 组不存在")
 
 
-def _serialize_role(role: models.CapabilityRole, db: Session) -> dict:
+def _serialize_role(role: models.CapabilityRole, db: Session, tenant_id: str) -> dict:
     dimensions = list(role.dimensions or ROLE_DIMENSIONS.get(role.key, []))
     rows = (
         db.query(models.CapabilityStandard)
@@ -185,7 +190,9 @@ def _serialize_role(role: models.CapabilityRole, db: Session) -> dict:
 
     skill_group_name = None
     if role.skill_group_id:
-        group = db.query(models.SkillGroup).filter_by(id=role.skill_group_id).first()
+        group = db.query(models.SkillGroup).filter_by(
+            id=role.skill_group_id, tenant_id=tenant_id,
+        ).first()
         skill_group_name = group.name if group else None
 
     return {
@@ -199,24 +206,32 @@ def _serialize_role(role: models.CapabilityRole, db: Session) -> dict:
 
 
 @router.get("/capability-standards/meta", response_model=schemas.CapabilityMetaM)
-def get_capability_meta():
+def get_capability_meta(
+    ctx: TenantContext = Depends(require_permission("rules:read")),
+):
     return _meta()
 
 
 @router.get("/capability-standards", response_model=schemas.CapabilityStandardsResponse)
-def get_capability_standards(db: Session = Depends(get_db)):
+def get_capability_standards(
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:read")),
+):
     roles = (
         db.query(models.CapabilityRole)
-        .filter_by(enabled=1)
+        .filter_by(enabled=1, tenant_id=ctx.tenant_id)
         .order_by(models.CapabilityRole.id)
         .all()
     )
-    return {"roles": [_serialize_role(role, db) for role in roles], "meta": _meta()}
+    return {"roles": [_serialize_role(role, db, ctx.tenant_id) for role in roles], "meta": _meta()}
 
 
 @router.get("/capability-standards/{role_key}", response_model=schemas.CapabilityRoleM)
-def get_capability_role(role_key: str, db: Session = Depends(get_db)):
-    return _serialize_role(_find_role(role_key, db), db)
+def get_capability_role(
+    role_key: str, db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:read")),
+):
+    return _serialize_role(_find_role(role_key, db, ctx.tenant_id), db, ctx.tenant_id)
 
 
 @router.put("/capability-standards/{role_key}", response_model=schemas.CapabilityRoleM)
@@ -224,11 +239,12 @@ def save_capability_role(
     role_key: str,
     body: schemas.CapabilitySaveRequest,
     db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:write")),
 ):
     """原子替换单角色的维度、12 个职级阈值和关联 Skill Group。"""
-    role = _find_role(role_key, db)
+    role = _find_role(role_key, db, ctx.tenant_id)
     _validate_dimensions(body.dimensions)
-    _validate_skill_group(body.skill_group_id, db)
+    _validate_skill_group(body.skill_group_id, db, ctx.tenant_id)
 
     invalid_levels = [level for level in body.standards if level not in ALL_LEVELS]
     if invalid_levels:
@@ -262,7 +278,7 @@ def save_capability_role(
         raise
 
     db.refresh(role)
-    return _serialize_role(role, db)
+    return _serialize_role(role, db, ctx.tenant_id)
 
 
 @router.patch(
@@ -274,11 +290,12 @@ def patch_capability_level(
     level: str,
     body: schemas.CapabilityLevelPatchRequest,
     db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:write")),
 ):
     """仅更新一个职级的部分维度阈值。"""
     if level not in ALL_LEVELS:
         raise HTTPException(status_code=422, detail="未知职级")
-    role = _find_role(role_key, db)
+    role = _find_role(role_key, db, ctx.tenant_id)
     dimensions = list(role.dimensions or ROLE_DIMENSIONS.get(role.key, []))
     _validate_thresholds(body.thresholds, dimensions)
 
@@ -316,13 +333,16 @@ def patch_capability_level(
         db.rollback()
         raise
     db.refresh(role)
-    return _serialize_role(role, db)
+    return _serialize_role(role, db, ctx.tenant_id)
 
 
 @router.post("/capability-standards/reset", response_model=schemas.CapabilityStandardsResponse)
-def reset_capability_standards(db: Session = Depends(get_db)):
+def reset_capability_standards(
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:write")),
+):
     """按默认公式重建全部角色的 12 个职级阈值。"""
-    roles = db.query(models.CapabilityRole).all()
+    roles = db.query(models.CapabilityRole).filter_by(tenant_id=ctx.tenant_id).all()
     now = _now()
     try:
         for role in roles:
@@ -345,4 +365,4 @@ def reset_capability_standards(db: Session = Depends(get_db)):
         db.rollback()
         raise
 
-    return {"roles": [_serialize_role(role, db) for role in roles], "meta": _meta()}
+    return {"roles": [_serialize_role(role, db, ctx.tenant_id) for role in roles], "meta": _meta()}

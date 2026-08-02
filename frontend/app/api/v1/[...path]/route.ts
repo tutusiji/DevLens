@@ -9,9 +9,17 @@ const BACKEND = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   const { path } = await ctx.params;
   const target = `${BACKEND}/api/v1/${path.join('/')}${req.nextUrl.search}`;
+  const identityHeaders: Record<string, string> = {};
+  for (const header of ['x-devlens-user-id', 'x-devlens-tenant-id']) {
+    const value = req.headers.get(header);
+    if (value) identityHeaders[header] = value;
+  }
   const init: RequestInit = {
     method: req.method,
-    headers: { 'content-type': req.headers.get('content-type') || 'application/json' },
+    headers: {
+      'content-type': req.headers.get('content-type') || 'application/json',
+      ...identityHeaders,
+    },
   };
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     init.body = await req.text();

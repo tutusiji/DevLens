@@ -503,6 +503,97 @@ export interface ProjectDetail extends Project {
   analysisMeta: ProjectAnalysisMeta;
 }
 
+// ============ 项目代码图谱与架构设计方案 ============
+
+export interface ProjectGraphNode {
+  id: string;
+  label: string;
+  layer: 'edge' | 'service' | 'data' | 'infra' | string;
+  x: number;
+  y: number;
+  loc: string;
+  health: number;
+  path: string;
+  issueCount: number;
+}
+
+export interface ProjectGraphEdge {
+  source: string;
+  target: string;
+}
+
+export interface ProjectCodeGraph {
+  projectId: string;
+  projectName: string;
+  branch: string;
+  commit: string;
+  generatedAt: string;
+  nodes: ProjectGraphNode[];
+  edges: ProjectGraphEdge[];
+  stats: {
+    moduleCount: number;
+    edgeCount: number;
+    avgHealth: number;
+    riskModuleCount: number;
+  };
+}
+
+export interface ArchitectureLayer {
+  key: 'edge' | 'service' | 'data' | 'infra' | string;
+  label: string;
+  description: string;
+  color: string;
+  componentCount: number;
+  components: string[];
+}
+
+export interface ArchitectureComponent {
+  id: string;
+  name: string;
+  layer: 'edge' | 'service' | 'data' | 'infra' | string;
+  layerLabel: string;
+  description: string;
+  health: number;
+  issueCount: number;
+}
+
+export interface ArchitectureDecision {
+  title: string;
+  value: string;
+  evidence: string;
+}
+
+export interface ArchitectureRisk {
+  name: string;
+  path: string;
+  severity: 'critical' | 'high' | 'medium' | 'low' | string;
+  score: number;
+  issueCount: number;
+  owner: string;
+}
+
+export interface ArchitectureDesign {
+  projectId: string;
+  projectName: string;
+  language: string;
+  analysisStatus: 'ready' | 'pending' | string;
+  branch: string;
+  commit: string;
+  generatedAt: string;
+  overview: string;
+  principles: string[];
+  layers: ArchitectureLayer[];
+  components: ArchitectureComponent[];
+  relations: ProjectGraphEdge[];
+  decisions: ArchitectureDecision[];
+  risks: ArchitectureRisk[];
+}
+
+export interface ArchitectureDesignListResponse {
+  designs: ArchitectureDesign[];
+  generatedAt: string;
+}
+
 // ============ Skill 管理模块 ============
 
 /** 规则分类（与后端 REVIEW_CATEGORIES 对齐） */
@@ -688,4 +779,134 @@ export interface EnvInventorySummary {
   byToolType: Record<EnvToolType, number>;
   lastScanAt?: string;
   lastScanType?: 'full' | 'incremental';
+}
+
+// ============ 开发者能力实测评估 ============
+
+export interface DeveloperEvaluationRuleEvidence {
+  rule: string;
+  hit: boolean;
+  note: string;
+}
+
+export interface DeveloperEvaluationEvidence {
+  dimension: string;
+  summary: string;
+  rules: DeveloperEvaluationRuleEvidence[];
+}
+
+export interface DeveloperEvaluationGap {
+  dimension: string;
+  current: number;
+  target: number;
+  gap: number;
+}
+
+/** 一次真实 git 作者代码贡献的能力实测结果。 */
+export interface DeveloperEvaluation {
+  id: string;
+  developerId: string;
+  roleKey: Role;
+  skillGroupId?: string | null;
+  repoPath: string;
+  gitAuthor: string;
+  scores: Record<string, number>;
+  evidence: DeveloperEvaluationEvidence[];
+  achievedLevel?: Level | null;
+  bestLevel?: Level | null;
+  gaps: DeveloperEvaluationGap[];
+  summary: string;
+  status: 'running' | 'completed' | 'failed';
+  error: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EvaluateDeveloperRequest {
+  repoPath: string;
+  gitAuthor: string;
+  roleKey?: Role;
+  skillGroupId?: string | null;
+}
+
+export interface TriggerDeveloperEvaluationResponse {
+  id: string;
+  status: 'queued';
+}
+
+// ============ 可售化：项目组合 / 报告 / 多租户权限 ============
+
+export interface ProjectAssessmentSnapshot {
+  id: string;
+  projectId: string;
+  score: number;
+  quality: number;
+  security: number;
+  debt: number;
+  contributors: number;
+  commits: number;
+  recordedAt: string;
+  source: string;
+}
+
+export interface ProjectComparisonItem {
+  projectId: string;
+  projectName: string;
+  language: string;
+  score: number;
+  quality: number;
+  security: number;
+  debt: number;
+  contributors: number;
+  commits: number;
+  lastAnalyzed: string;
+  scoreDelta?: number | null;
+}
+
+export interface ProjectComparisonResponse {
+  projects: ProjectComparisonItem[];
+  generatedAt: string;
+}
+
+export interface ProjectTrendResponse {
+  projectId: string;
+  projectName: string;
+  snapshots: ProjectAssessmentSnapshot[];
+}
+
+export type TenantRole = 'owner' | 'admin' | 'evaluator' | 'analyst' | 'viewer';
+
+export interface Tenant {
+  id: string;
+  name: string;
+  slug: string;
+  status: 'active' | 'suspended';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AccountUser {
+  id: string;
+  email: string;
+  name: string;
+  status: 'active' | 'disabled';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TenantMembership {
+  id: string;
+  tenantId: string;
+  userId: string;
+  role: TenantRole;
+  createdAt: string;
+  updatedAt: string;
+  user?: AccountUser;
+}
+
+export interface CurrentTenantContext {
+  tenant: Tenant;
+  user: AccountUser;
+  role: TenantRole;
+  permissions: string[];
 }

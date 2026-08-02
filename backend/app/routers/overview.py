@@ -5,18 +5,22 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from .. import models, schemas
+from ..access import TenantContext, require_permission
 
 router = APIRouter()
 
 
 @router.get("/overview", response_model=list[schemas.StatItem])
-def get_overview(db: Session = Depends(get_db)):
-    proj = db.query(models.Project).count()
-    dev = db.query(models.Developer).count()
-    team = db.query(models.Team).count()
+def get_overview(
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("project:read")),
+):
+    proj = db.query(models.Project).filter_by(tenant_id=ctx.tenant_id).count()
+    dev = db.query(models.Developer).filter_by(tenant_id=ctx.tenant_id).count()
+    team = db.query(models.Team).filter_by(tenant_id=ctx.tenant_id).count()
     avg = (
         db.query(func.avg(models.Project.score))
-        .filter(models.Project.score.isnot(None))
+        .filter(models.Project.score.isnot(None), models.Project.tenant_id == ctx.tenant_id)
         .scalar()
         or 78.4
     )
@@ -30,7 +34,7 @@ def get_overview(db: Session = Depends(get_db)):
 
 
 @router.get("/trinity-matrix", response_model=schemas.TrinityMatrix)
-def get_trinity():
+def get_trinity(ctx: TenantContext = Depends(require_permission("project:read"))):
     return {
         "rows": ["平台架构组", "业务中台组", "前端体验组", "数据智能组", "基础架构组"],
         "cols": ["用户中心", "订单系统", "数据网关", "支付平台", "内容引擎"],
@@ -45,7 +49,7 @@ def get_trinity():
 
 
 @router.get("/health-trend", response_model=list[schemas.HealthTrendPoint])
-def get_health():
+def get_health(ctx: TenantContext = Depends(require_permission("project:read"))):
     return [
         {"month": "2月", "quality": 72, "security": 68, "health": 70},
         {"month": "3月", "quality": 74, "security": 71, "health": 72},
@@ -57,7 +61,7 @@ def get_health():
 
 
 @router.get("/risk-alerts", response_model=list[schemas.RiskAlert])
-def get_alerts():
+def get_alerts(ctx: TenantContext = Depends(require_permission("project:read"))):
     return [
         {"id": "r1", "type": "skill_gap", "level": "high", "title": "数据智能组「安全意识」覆盖率仅 18%", "description": "7 名成员中仅 1 人安全维度 >=60，支付平台存在单点风险", "time": "2小时前", "action": "安排安全培训 + 代码审查配对"},
         {"id": "r2", "type": "bus_factor", "level": "high", "title": "内容引擎 Bus Factor = 1", "description": "王琳独占 92 分模块知识，离职将导致项目停摆", "time": "5小时前", "action": "识别备份负责人 + 文档沉淀"},
@@ -68,7 +72,7 @@ def get_alerts():
 
 
 @router.get("/data-sources", response_model=list[schemas.DataSource])
-def get_sources():
+def get_sources(ctx: TenantContext = Depends(require_permission("project:read"))):
     return [
         {"name": "GitLab 仓库", "coverage": 100, "status": "connected"},
         {"name": "Merge Request", "coverage": 92, "status": "connected"},
@@ -79,8 +83,14 @@ def get_sources():
 
 
 @router.get("/active-projects", response_model=list[schemas.ActiveProject])
-def active_projects(db: Session = Depends(get_db)):
-    items = db.query(models.Project).filter(models.Project.status != "failed").all()
+def active_projects(
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("project:read")),
+):
+    items = db.query(models.Project).filter(
+        models.Project.status != "failed",
+        models.Project.tenant_id == ctx.tenant_id,
+    ).all()
     items.sort(key=lambda p: p.commits + (p.contributors or 0) * 200, reverse=True)
     out = []
     for p in items[:5]:
@@ -90,8 +100,11 @@ def active_projects(db: Session = Depends(get_db)):
 
 
 @router.get("/active-developers", response_model=list[schemas.ActiveDeveloper])
-def active_developers(db: Session = Depends(get_db)):
-    items = db.query(models.Developer).all()
+def active_developers(
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("developer:read")),
+):
+    items = db.query(models.Developer).filter_by(tenant_id=ctx.tenant_id).all()
     items.sort(key=lambda d: d.commits + d.reviews * 3, reverse=True)
     out = []
     for d in items[:5]:
@@ -101,8 +114,11 @@ def active_developers(db: Session = Depends(get_db)):
 
 
 @router.get("/active-teams", response_model=list[schemas.ActiveTeam])
-def active_teams(db: Session = Depends(get_db)):
-    items = db.query(models.Team).all()
+def active_teams(
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("project:read")),
+):
+    items = db.query(models.Team).filter_by(tenant_id=ctx.tenant_id).all()
     items.sort(key=lambda t: (t.avg_score or 0) + (t.members or 0) * 2, reverse=True)
     out = []
     for t in items[:5]:

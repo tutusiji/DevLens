@@ -7,7 +7,7 @@ import {
   projects, developers, teams, capabilityGaps, identityMatches,
   getDeveloperDetail, getProjectDetail, teamSpaces, teamGroups,
   activeProjects, activeDevelopers, activeTeams, repoList, largeTeams,
-  modelProviders, taskRoutes, vectorCollections, embeddingModels, graphModules, graphEdges,
+  modelProviders, taskRoutes, vectorCollections, embeddingModels,
   roleConfigs, roleStandards, DIMENSION_LABELS, ALL_LEVELS,
 } from './mock-data';
 
@@ -20,6 +20,10 @@ import type {
   SkillSourceCreateRequest, SkillCreateRequest, SkillGroupCreateRequest,
   EnvInventoryEntry, EnvInventoryScan, EnvInventorySummary, EnvName, EnvToolType,
   CapabilityMeta, CapabilityRoleInfo, CapabilitySaveRequest, Role,
+  DeveloperEvaluation, EvaluateDeveloperRequest, TriggerDeveloperEvaluationResponse,
+  ProjectComparisonResponse, ProjectTrendResponse, CurrentTenantContext, TenantMembership,
+  TenantRole,
+  ProjectCodeGraph, ArchitectureDesign, ArchitectureDesignListResponse,
 } from './types';
 import { LEVEL_GROUPS } from './types';
 
@@ -28,12 +32,28 @@ const USE_MOCK = !process.env.NEXT_PUBLIC_API_URL;
 
 /** 真实 fetch 封装 */
 async function fetchAPI<T>(path: string, init?: RequestInit): Promise<T> {
+  const tenantHeaders = typeof window === 'undefined' ? {} : {
+    ...(localStorage.getItem('devlens-user-id') ? { 'X-DevLens-User-Id': localStorage.getItem('devlens-user-id')! } : {}),
+    ...(localStorage.getItem('devlens-tenant-id') ? { 'X-DevLens-Tenant-Id': localStorage.getItem('devlens-tenant-id')! } : {}),
+  };
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    headers: { 'Content-Type': 'application/json', ...tenantHeaders, ...init?.headers },
   });
   if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
   return res.json();
+}
+
+async function downloadAPI(path: string): Promise<{ blob: Blob; filename: string }> {
+  const tenantHeaders = typeof window === 'undefined' ? {} : {
+    ...(localStorage.getItem('devlens-user-id') ? { 'X-DevLens-User-Id': localStorage.getItem('devlens-user-id')! } : {}),
+    ...(localStorage.getItem('devlens-tenant-id') ? { 'X-DevLens-Tenant-Id': localStorage.getItem('devlens-tenant-id')! } : {}),
+  };
+  const res = await fetch(`${API_BASE}${path}`, { headers: tenantHeaders });
+  if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
+  const disposition = res.headers.get('content-disposition') || '';
+  const filename = disposition.match(/filename="?([^"]+)"?/)?.[1] || 'devlens-report';
+  return { blob: await res.blob(), filename };
 }
 
 /** mock 延迟模拟网络（让 skeleton 态可见） */
@@ -71,7 +91,104 @@ function buildCapabilityRoles(): CapabilityRoleInfo[] {
   }));
 }
 
+function mockProjectGraph(projectId: string): ProjectCodeGraph {
+  const detail = getProjectDetail(projectId);
+  const modules = detail?.moduleRisks || [];
+  const nodes = modules.map((module, index) => {
+    const angle = (Math.PI * 2 * index) / Math.max(1, modules.length);
+    const path = module.path || module.name;
+    return {
+      id: path,
+      label: module.name,
+      layer: /api|route|controller|page/i.test(path) ? 'edge' : /repo|model|dao|entity|db/i.test(path) ? 'data' : 'service',
+      x: Math.round(50 + 34 * Math.cos(angle)),
+      y: Math.round(50 + 34 * Math.sin(angle)),
+      loc: `${module.issueCount} 项问题`,
+      health: Math.max(0, 100 - module.score),
+      path,
+      issueCount: module.issueCount,
+    };
+  });
+  return {
+    projectId,
+    projectName: detail?.name || '未知项目',
+    branch: detail?.analysisMeta?.branch || 'main',
+    commit: detail?.analysisMeta?.commit || '',
+    generatedAt: detail?.analysisMeta?.scannedAt || new Date().toISOString(),
+    nodes,
+    edges: nodes.slice(1).map((node, index) => ({ source: nodes[index].id, target: node.id })),
+    stats: {
+      moduleCount: nodes.length,
+      edgeCount: Math.max(0, nodes.length - 1),
+      avgHealth: nodes.length ? Math.round(nodes.reduce((sum, node) => sum + node.health, 0) / nodes.length) : 0,
+      riskModuleCount: nodes.filter((node) => node.issueCount > 0).length,
+    },
+  };
+}
+
+function mockArchitectureDesign(projectId: string): ArchitectureDesign {
+  const graph = mockProjectGraph(projectId);
+  const detail = getProjectDetail(projectId);
+  const components = graph.nodes.map((node) => ({
+    id: node.id, name: node.label, layer: node.layer, layerLabel: node.layer === 'edge' ? '接入层' : node.layer === 'data' ? '数据与集成层' : '业务服务层',
+    description: node.path, health: node.health, issueCount: node.issueCount,
+  }));
+  const layers = ['edge', 'service', 'data', 'infra'].map((key) => {
+    const matched = components.filter((component) => component.layer === key);
+    const labels: Record<string, [string, string, string]> = {
+      edge: ['接入层', 'HTTP、页面、路由与外部入口', '#5B8FF9'],
+      service: ['业务服务层', '领域逻辑、编排与应用服务', '#7CB305'],
+      data: ['数据与集成层', '数据访问、缓存、消息与外部集成', '#F6BD16'],
+      infra: ['基础设施层', '部署、配置、运行与平台能力', '#7262FD'],
+    };
+    return { key, label: labels[key][0], description: labels[key][1], color: labels[key][2], componentCount: matched.length, components: matched.slice(0, 6).map((component) => component.name) };
+  }).filter((layer) => layer.componentCount > 0);
+  return {
+    projectId, projectName: graph.projectName, language: detail?.language || '', analysisStatus: graph.nodes.length ? 'ready' : 'pending', branch: graph.branch, commit: graph.commit, generatedAt: graph.generatedAt,
+    overview: `${graph.projectName} 的项目级架构方案由代码模块、依赖关系、技术资产与风险模块自动提取。`,
+    principles: ['按接入、业务服务、数据集成、基础设施分层展示。', '架构结论与当前项目分析快照关联。', '风险模块用于识别架构治理优先级。'],
+    layers, components, relations: graph.edges,
+    decisions: [
+      { title: '应用技术基座', value: detail?.language || '待识别', evidence: '来自项目语言和依赖扫描' },
+      { title: '模块依赖治理', value: `${graph.stats.edgeCount} 条模块关系`, evidence: '来自项目级 import 解析' },
+      { title: '风险治理范围', value: `${graph.stats.riskModuleCount} 个风险模块`, evidence: '来自 AI Review 与模块风险分析' },
+    ],
+    risks: (detail?.moduleRisks || []).filter((module) => module.severity === 'critical' || module.severity === 'high').slice(0, 5).map((module) => ({
+      name: module.name, path: module.path, severity: module.severity, score: module.score, issueCount: module.issueCount, owner: module.owner || '未分配',
+    })),
+  };
+}
+
 let mockCapabilityRoles = buildCapabilityRoles();
+
+// ============ 多租户 / RBAC mock ============
+const mockTenantContext: CurrentTenantContext = {
+  tenant: {
+    id: 'tenant-default', name: 'DevLens 演示工作区', slug: 'demo',
+    status: 'active', createdAt: '2026-08-01T00:00:00Z', updatedAt: '2026-08-01T00:00:00Z',
+  },
+  user: {
+    id: 'usr-local-admin', email: 'admin@devlens.demo', name: '演示管理员',
+    status: 'active', createdAt: '2026-08-01T00:00:00Z', updatedAt: '2026-08-01T00:00:00Z',
+  },
+  role: 'owner',
+  permissions: ['*'],
+};
+let mockTenantMembers: TenantMembership[] = [
+  {
+    id: 'tmem-local-owner', tenantId: 'tenant-default', userId: 'usr-local-admin', role: 'owner',
+    createdAt: '2026-08-01T00:00:00Z', updatedAt: '2026-08-01T00:00:00Z',
+    user: mockTenantContext.user,
+  },
+  {
+    id: 'tmem-demo-analyst', tenantId: 'tenant-default', userId: 'usr-demo-analyst', role: 'analyst',
+    createdAt: '2026-08-01T00:00:00Z', updatedAt: '2026-08-01T00:00:00Z',
+    user: {
+      id: 'usr-demo-analyst', email: 'analyst@devlens.demo', name: '评估分析师',
+      status: 'active', createdAt: '2026-08-01T00:00:00Z', updatedAt: '2026-08-01T00:00:00Z',
+    },
+  },
+];
 
 // ============ Skill 管理模块 mock 数据（可变，支持全链路 mock）============
 const mockSkillSources: SkillSource[] = [
@@ -196,6 +313,106 @@ export const api = {
   getDevelopers: () => (USE_MOCK ? mockDelay(developers) : fetchAPI<Developer[]>('/developers')),
   getDeveloperDetail: (id: string) =>
     USE_MOCK ? mockDelay(getDeveloperDetail(id)) : fetchAPI<DeveloperDetail>(`/developers/${id}`),
+  triggerDeveloperEvaluation: (
+    developerId: string,
+    body: EvaluateDeveloperRequest,
+  ): Promise<TriggerDeveloperEvaluationResponse> =>
+    USE_MOCK
+      ? mockDelay({ id: 'deval-mock', status: 'queued' })
+      : fetchAPI<TriggerDeveloperEvaluationResponse>(`/developers/${developerId}/evaluations`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+  getDeveloperEvaluations: (developerId: string): Promise<DeveloperEvaluation[]> =>
+    USE_MOCK
+      ? mockDelay([])
+      : fetchAPI<DeveloperEvaluation[]>(`/developers/${developerId}/evaluations`),
+  getLatestDeveloperEvaluation: (developerId: string): Promise<DeveloperEvaluation | null> =>
+    USE_MOCK
+      ? mockDelay(null)
+      : fetchAPI<DeveloperEvaluation | null>(`/developers/${developerId}/evaluations/latest`),
+  getGitAuthors: (repoPath: string): Promise<string[]> =>
+    USE_MOCK
+      ? mockDelay(['Tutuhuang'])
+      : fetchAPI<string[]>(`/git-authors?repo_path=${encodeURIComponent(repoPath)}`),
+
+  // 项目组合与趋势（评分历史来自持久化 snapshot）
+  getProjectComparison: (projectIds: string[] = []): Promise<ProjectComparisonResponse> =>
+    USE_MOCK
+      ? mockDelay({
+        projects: projects.map((project) => ({
+          projectId: project.id, projectName: project.name, language: project.language,
+          score: project.score, quality: project.quality, security: project.security, debt: project.debt,
+          contributors: project.contributors, commits: project.commits, lastAnalyzed: project.lastAnalyzed,
+          scoreDelta: null,
+        })), generatedAt: new Date().toISOString(),
+      })
+      : fetchAPI<ProjectComparisonResponse>(`/project-comparisons${projectIds.length ? `?project_ids=${encodeURIComponent(projectIds.join(','))}` : ''}`),
+  getProjectTrend: (projectId: string): Promise<ProjectTrendResponse> => {
+    if (!USE_MOCK) return fetchAPI<ProjectTrendResponse>(`/projects/${projectId}/trend`);
+    const project = getProjectDetail(projectId);
+    if (!project) return mockDelay({ projectId, projectName: '未知项目', snapshots: [] });
+    return mockDelay({
+      projectId, projectName: project.name,
+      snapshots: (project.debtTrend || []).map((point, index) => ({
+        id: `mock-snapshot-${index}`, projectId, score: Math.max(0, project.score - point.debt + 50),
+        quality: project.quality, security: project.security,
+        debt: point.debt, contributors: project.contributors,
+        commits: project.commits, recordedAt: `${index + 1}`, source: 'legacy_baseline',
+      })),
+    });
+  },
+  downloadProjectComparisonReport: (projectIds: string[], format: 'html' | 'pdf') =>
+    USE_MOCK
+      ? mockDelay({
+        blob: new Blob([`<html><body><h1>DevLens 项目组合评估报告</h1><p>演示导出 · 项目：${projectIds.join(', ') || '全部'}</p></body></html>`], { type: 'text/html' }),
+        filename: `devlens-project-comparison.${format === 'pdf' ? 'html' : format}`,
+      })
+      : downloadAPI(`/reports/project-comparison?format=${format}&project_ids=${encodeURIComponent(projectIds.join(','))}`),
+  downloadDeveloperEvaluationReport: (developerId: string, evaluationId: string, format: 'html' | 'pdf') =>
+    USE_MOCK
+      ? mockDelay({
+        blob: new Blob([`<html><body><h1>DevLens 开发者能力评估报告</h1><p>${developerId} / ${evaluationId}</p></body></html>`], { type: 'text/html' }),
+        filename: `devlens-evaluation-${evaluationId}.${format === 'pdf' ? 'html' : format}`,
+      })
+      : downloadAPI(`/developers/${developerId}/evaluations/${evaluationId}/report?format=${format}`),
+
+  // 租户/RBAC：真实环境由网关注入身份头；本地可在设置页选择测试成员。
+  getCurrentTenantContext: (): Promise<CurrentTenantContext> =>
+    USE_MOCK ? mockDelay(clone(mockTenantContext)) : fetchAPI<CurrentTenantContext>('/auth/me'),
+  getTenantMembers: (): Promise<TenantMembership[]> =>
+    USE_MOCK ? mockDelay(clone(mockTenantMembers)) : fetchAPI<TenantMembership[]>('/tenants/current/members'),
+  addTenantMember: (body: { email: string; name: string; role: TenantRole }): Promise<TenantMembership> =>
+    USE_MOCK
+      ? (() => {
+        const now = new Date().toISOString();
+        const userId = `usr-mock-${Date.now()}`;
+        const membership: TenantMembership = {
+          id: `tmem-mock-${Date.now()}`, tenantId: 'tenant-default', userId, role: body.role,
+          createdAt: now, updatedAt: now,
+          user: { id: userId, email: body.email, name: body.name || body.email, status: 'active', createdAt: now, updatedAt: now },
+        };
+        mockTenantMembers = [membership, ...mockTenantMembers];
+        return mockDelay(clone(membership));
+      })()
+      : fetchAPI<TenantMembership>('/tenants/current/members', { method: 'POST', body: JSON.stringify(body) }),
+  updateTenantMember: (membershipId: string, role: TenantRole): Promise<TenantMembership> =>
+    USE_MOCK
+      ? (() => {
+        const membership = mockTenantMembers.find((item) => item.id === membershipId);
+        if (!membership) return Promise.reject(new Error('成员不存在'));
+        membership.role = role;
+        membership.updatedAt = new Date().toISOString();
+        return mockDelay(clone(membership));
+      })()
+      : fetchAPI<TenantMembership>(`/tenants/current/members/${membershipId}`, { method: 'PATCH', body: JSON.stringify({ role }) }),
+  removeTenantMember: (membershipId: string): Promise<{ ok: boolean; id: string }> =>
+    USE_MOCK
+      ? (() => {
+        mockTenantMembers = mockTenantMembers.filter((item) => item.id !== membershipId);
+        return mockDelay({ ok: true, id: membershipId });
+      })()
+      : fetchAPI<{ ok: boolean; id: string }>(`/tenants/current/members/${membershipId}`, { method: 'DELETE' }),
 
   // 团队
   getTeams: () => (USE_MOCK ? mockDelay(teams) : fetchAPI<Team[]>('/teams')),
@@ -207,12 +424,20 @@ export const api = {
   // 仓库
   getRepos: () => (USE_MOCK ? mockDelay(repoList) : fetchAPI<Repository[]>('/repos')),
 
-  // 配置: LLM / 向量 / 图谱
+  // 配置: LLM / 向量
   getModelProviders: () => (USE_MOCK ? mockDelay(modelProviders) : fetchAPI<any[]>('/model-providers')),
   getTaskRoutes: () => (USE_MOCK ? mockDelay(taskRoutes) : fetchAPI<any[]>('/task-routes')),
   getVectorCollections: () => (USE_MOCK ? mockDelay(vectorCollections) : fetchAPI<any[]>('/vector-collections')),
   getEmbeddingModels: () => (USE_MOCK ? mockDelay(embeddingModels) : fetchAPI<any[]>('/embedding-models')),
-  getGraph: () => (USE_MOCK ? mockDelay({ nodes: graphModules, edges: graphEdges, stats: { moduleCount: graphModules.length, edgeCount: graphEdges.length, avgHealth: 84 } }) : fetchAPI<any>('/graph')),
+  // 图谱均必须绑定项目；不再提供跨项目混合的全局代码图谱。
+  getProjectGraph: (projectId: string): Promise<ProjectCodeGraph> =>
+    USE_MOCK ? mockDelay(mockProjectGraph(projectId)) : fetchAPI<ProjectCodeGraph>(`/projects/${projectId}/graph`),
+  getProjectArchitectureDesign: (projectId: string): Promise<ArchitectureDesign> =>
+    USE_MOCK ? mockDelay(mockArchitectureDesign(projectId)) : fetchAPI<ArchitectureDesign>(`/projects/${projectId}/architecture-design`),
+  getArchitectureDesigns: (): Promise<ArchitectureDesignListResponse> =>
+    USE_MOCK
+      ? mockDelay({ designs: projects.map((project) => mockArchitectureDesign(project.id)), generatedAt: new Date().toISOString() })
+      : fetchAPI<ArchitectureDesignListResponse>('/architecture-designs'),
 
   // 治理闭环：洞察 / 修复状态变更（支持 status + assignee 组合 PATCH）
   updateInsightStatus: (projectId: string, insightId: string, patch: { status?: string; assignee?: string }) =>

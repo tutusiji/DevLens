@@ -16,6 +16,7 @@ class LargeTeam(Base):
     id = Column(String, primary_key=True)
     name = Column(String, nullable=False)
     description = Column(Text)
+    tenant_id = Column(String, default="tenant-default", index=True)
 
 
 class TeamSpace(Base):
@@ -31,6 +32,7 @@ class TeamSpace(Base):
     updated_at = Column(String)
     member_ids = Column(JSON, default=list)
     project_ids = Column(JSON, default=list)
+    tenant_id = Column(String, default="tenant-default", index=True)
 
 
 class TeamGroup(Base):
@@ -42,6 +44,7 @@ class TeamGroup(Base):
     lead_name = Column(String)
     member_ids = Column(JSON, default=list)
     project_ids = Column(JSON, default=list)
+    tenant_id = Column(String, default="tenant-default", index=True)
 
 
 class Developer(Base):
@@ -68,6 +71,8 @@ class Developer(Base):
     partners = Column(JSON)                # CollaborationPartner[]
     modules = Column(JSON)                 # ModuleContribution[]
     ai_suggestion = Column(Text)
+    # 组织隔离：旧数据迁移至 tenant-default，新写入数据必须归属租户。
+    tenant_id = Column(String, default="tenant-default", index=True)
 
 
 class Team(Base):
@@ -79,6 +84,7 @@ class Team(Base):
     bus_factor = Column(Integer)
     risk_count = Column(Integer, default=0)
     capability = Column(JSON)  # TeamCapabilityVector
+    tenant_id = Column(String, default="tenant-default", index=True)
 
 
 class Project(Base):
@@ -104,6 +110,8 @@ class Project(Base):
     analysis_meta = Column(JSON)       # ProjectAnalysisMeta
     assets = Column(JSON)              # 技术资产清单(frameworks/dependencies/configs/deployments)
     graph_edges = Column(JSON)         # 代码图谱真实依赖边(import 解析)
+    architecture_design = Column(JSON) # 从项目代码、资产、依赖与风险提取的架构设计方案快照
+    tenant_id = Column(String, default="tenant-default", index=True)
     insights = relationship("Insight", back_populates="project", cascade="all, delete-orphan")
     module_risks = relationship("ModuleRisk", back_populates="project", cascade="all, delete-orphan")
     fix_priorities = relationship("FixPriority", back_populates="project", cascade="all, delete-orphan")
@@ -124,6 +132,7 @@ class Repository(Base):
     last_sync = Column(String)
     commits = Column(Integer, default=0)
     contributors = Column(Integer, default=0)
+    tenant_id = Column(String, default="tenant-default", index=True)
 
 
 class AnalysisRun(Base):
@@ -217,6 +226,7 @@ class IdentityMatch(Base):
     department = Column(String)
     confidence = Column(Float)
     method = Column(String)  # email|employee_id|pinyin|fuzzy|exact
+    tenant_id = Column(String, default="tenant-default", index=True)
 
 
 class CapabilityGap(Base):
@@ -227,6 +237,7 @@ class CapabilityGap(Base):
     target = Column(Integer)
     owner = Column(String)
     action = Column(String)
+    tenant_id = Column(String, default="tenant-default", index=True)
 
 
 class ModelProvider(Base):
@@ -281,6 +292,7 @@ class SkillSource(Base):
     created_by = Column(String, default="")
     created_at = Column(String)
     updated_at = Column(String)
+    tenant_id = Column(String, default="tenant-default", index=True)
 
 
 class Skill(Base):
@@ -300,6 +312,7 @@ class Skill(Base):
     created_by = Column(String, default="")
     created_at = Column(String)
     updated_at = Column(String)
+    tenant_id = Column(String, default="tenant-default", index=True)
 
 
 class SkillGroup(Base):
@@ -313,6 +326,7 @@ class SkillGroup(Base):
     enabled = Column(Integer, default=1)
     created_at = Column(String)
     updated_at = Column(String)
+    tenant_id = Column(String, default="tenant-default", index=True)
 
 
 class SkillGroupRun(Base):
@@ -333,14 +347,19 @@ class CapabilityRole(Base):
     """开发角色的能力维度配置，以及可选的 Skill 规则编组关联。"""
     __tablename__ = "capability_roles"
 
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "key", name="uq_capability_role_tenant_key"),
+    )
+
     id = Column(String, primary_key=True)          # cr-frontend / cr-backend / ...
-    key = Column(String, unique=True, nullable=False)  # frontend|backend|devops|algorithm|qa
+    key = Column(String, nullable=False)           # frontend|backend|devops|algorithm|qa
     name = Column(String, nullable=False)          # 前端工程师 / 后端工程师 ...
     dimensions = Column(JSON, default=list)        # ["code_quality", "architecture", ...]
     skill_group_id = Column(String, ForeignKey("skill_groups.id"), nullable=True)
     enabled = Column(Integer, default=1)
     created_at = Column(String)
     updated_at = Column(String)
+    tenant_id = Column(String, default="tenant-default", index=True)
 
 
 class CapabilityStandard(Base):
@@ -407,3 +426,102 @@ class EnvInventoryEntry(Base):
     updated_at = Column(String, default="")        # 最近更新时间（本次扫描时间）
     status = Column(String, default="active")      # active|added|changed|removed（增量对比用）
     previous_value = Column(Text, default="")      # 增量扫描前的旧值（changed 时记录）
+
+
+# ============ 开发者能力实测评估（1 张新表）============
+
+class DeveloperEvaluation(Base):
+    """一次评估 = 一个 git 作者在某仓库的真实代码贡献实测。"""
+    __tablename__ = "developer_evaluations"
+
+    id = Column(String, primary_key=True)          # deval-xxx
+    developer_id = Column(String, ForeignKey("developers.id"), nullable=False)
+    role_key = Column(String, nullable=False)      # frontend|backend|devops|algorithm|qa
+    skill_group_id = Column(String, ForeignKey("skill_groups.id"), nullable=True)
+    tenant_id = Column(String, default="tenant-default", index=True)
+    project_id = Column(String, ForeignKey("projects.id"), nullable=True)
+    repo_path = Column(String, nullable=False)     # 真实 git 仓库绝对路径
+    git_author = Column(String, nullable=False)    # git log --format=%an
+    scores = Column(JSON, default=dict)            # {"code_quality": 85, ...}
+    evidence = Column(JSON, default=list)          # [{dimension, summary, rules: [...]}]
+    rule_snapshot = Column(JSON, default=dict)     # 评估时冻结的 Skill Group + 已启用规则
+    achieved_level = Column(String, nullable=True) # D1-G3；无达标则 NULL
+    best_level = Column(String, nullable=True)     # 阈值距离最近的参考职级
+    gaps = Column(JSON, default=list)              # [{dimension, current, target, gap}]
+    summary = Column(Text, default="")
+    status = Column(String, default="running")     # running|completed|failed
+    error = Column(Text, default="")
+    created_at = Column(String)
+    updated_at = Column(String)
+
+
+# ============ 可售化：多租户 / 权限 / 评估快照与报告 ============
+
+class Tenant(Base):
+    """一个客户组织（租户）；所有可售化资产均以 tenant_id 隔离。"""
+    __tablename__ = "tenants"
+
+    id = Column(String, primary_key=True)          # tenant-xxx
+    name = Column(String, nullable=False)
+    slug = Column(String, unique=True, nullable=False)
+    status = Column(String, default="active")      # active|suspended
+    created_at = Column(String)
+    updated_at = Column(String)
+
+
+class AccountUser(Base):
+    """认证提供方映射的本地用户资料；密码/Token 不落在该表。"""
+    __tablename__ = "account_users"
+
+    id = Column(String, primary_key=True)          # usr-xxx
+    email = Column(String, unique=True, nullable=False)
+    name = Column(String, nullable=False)
+    status = Column(String, default="active")      # active|disabled
+    created_at = Column(String)
+    updated_at = Column(String)
+
+
+class TenantMembership(Base):
+    """用户在租户内的 RBAC 角色。"""
+    __tablename__ = "tenant_memberships"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "user_id", name="uq_tenant_membership"),
+    )
+
+    id = Column(String, primary_key=True)          # tmem-xxx
+    tenant_id = Column(String, ForeignKey("tenants.id"), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("account_users.id"), nullable=False, index=True)
+    role = Column(String, nullable=False)          # owner|admin|evaluator|analyst|viewer
+    created_at = Column(String)
+    updated_at = Column(String)
+
+
+class ProjectAssessmentSnapshot(Base):
+    """项目评分历史快照，支撑横向对比与时间趋势。"""
+    __tablename__ = "project_assessment_snapshots"
+
+    id = Column(String, primary_key=True)          # psnap-xxx
+    tenant_id = Column(String, default="tenant-default", index=True)
+    project_id = Column(String, ForeignKey("projects.id"), nullable=False, index=True)
+    analysis_run_id = Column(String, ForeignKey("analysis_runs.id"), nullable=True)
+    score = Column(Integer, default=0)
+    quality = Column(Integer, default=0)
+    security = Column(Integer, default=0)
+    debt = Column(Integer, default=0)
+    contributors = Column(Integer, default=0)
+    commits = Column(Integer, default=0)
+    recorded_at = Column(String, nullable=False)
+    source = Column(String, default="analysis")    # analysis|baseline|manual
+
+
+class ReportExport(Base):
+    """可追溯的评估报告导出记录；导出本身动态生成，不存储敏感内容副本。"""
+    __tablename__ = "report_exports"
+
+    id = Column(String, primary_key=True)          # rpt-xxx
+    tenant_id = Column(String, default="tenant-default", index=True)
+    report_type = Column(String, nullable=False)   # project_comparison|developer_evaluation
+    format = Column(String, nullable=False)        # html|pdf
+    subject_ids = Column(JSON, default=list)
+    requested_by = Column(String, default="")
+    created_at = Column(String, nullable=False)

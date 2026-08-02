@@ -52,7 +52,11 @@ function CardTitle({ className, ...props }: HeroUICardTitleProps) {
 }
 
 function CardDescription({ className, ...props }: HeroUICardDescriptionProps) {
-  return <HeroUICardDescription className={className} {...props} />;
+  /*
+   * HeroUI 的 description 默认使用较弱的 muted 色。DevLens 的卡片副标题通常
+   * 承载评估口径、风险范围等工作信息，因此统一走项目定义的 70% 辅助文字色。
+   */
+  return <HeroUICardDescription className={cn('!text-muted-foreground', className)} {...props} />;
 }
 
 function CardContent({ className, ...props }: HeroUICardContentProps) {

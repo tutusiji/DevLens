@@ -1,50 +1,72 @@
 """团队 / 组织 / 身份匹配路由"""
 import uuid
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..db import get_db
 from .. import models, schemas
+from ..access import TenantContext, require_permission
 
 router = APIRouter()
 
 
 @router.get("/large-teams", response_model=list[schemas.LargeTeamM])
-def large_teams(db: Session = Depends(get_db)):
-    return db.query(models.LargeTeam).all()
+def large_teams(
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("project:read")),
+):
+    return db.query(models.LargeTeam).filter_by(tenant_id=ctx.tenant_id).all()
 
 
 @router.get("/teams", response_model=list[schemas.Team])
-def list_teams(db: Session = Depends(get_db)):
-    return db.query(models.Team).all()
+def list_teams(
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("project:read")),
+):
+    return db.query(models.Team).filter_by(tenant_id=ctx.tenant_id).all()
 
 
 @router.get("/capability-gaps", response_model=list[schemas.CapabilityGap])
-def capability_gaps(db: Session = Depends(get_db)):
-    return db.query(models.CapabilityGap).all()
+def capability_gaps(
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("assessment:read")),
+):
+    return db.query(models.CapabilityGap).filter_by(tenant_id=ctx.tenant_id).all()
 
 
 @router.get("/identity-matches", response_model=list[schemas.IdentityMatch])
-def identity_matches(db: Session = Depends(get_db)):
-    return db.query(models.IdentityMatch).all()
+def identity_matches(
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("developer:read")),
+):
+    return db.query(models.IdentityMatch).filter_by(tenant_id=ctx.tenant_id).all()
 
 
 @router.get("/team-spaces", response_model=list[schemas.TeamSpace])
-def team_spaces(db: Session = Depends(get_db)):
-    return db.query(models.TeamSpace).all()
+def team_spaces(
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("project:read")),
+):
+    return db.query(models.TeamSpace).filter_by(tenant_id=ctx.tenant_id).all()
 
 
 @router.get("/team-groups", response_model=list[schemas.TeamGroup])
-def team_groups(team_id: str | None = None, db: Session = Depends(get_db)):
-    q = db.query(models.TeamGroup)
+def team_groups(
+    team_id: str | None = None, db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("project:read")),
+):
+    q = db.query(models.TeamGroup).filter_by(tenant_id=ctx.tenant_id)
     if team_id:
         q = q.filter_by(team_id=team_id)
     return q.all()
 
 
 @router.post("/team-spaces", response_model=schemas.TeamSpace)
-def create_team_space(body: dict = Body(...), db: Session = Depends(get_db)):
+def create_team_space(
+    body: dict = Body(...), db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("project:write")),
+):
     owner_id = body.get("ownerId") or body.get("owner_id")
     space = models.TeamSpace(
         id=f"team-{uuid.uuid4().hex[:6]}",
@@ -58,6 +80,7 @@ def create_team_space(body: dict = Body(...), db: Session = Depends(get_db)):
         updated_at="刚刚",
         member_ids=[owner_id] if owner_id else [],
         project_ids=[],
+        tenant_id=ctx.tenant_id,
     )
     db.add(space)
     db.commit()
@@ -66,15 +89,22 @@ def create_team_space(body: dict = Body(...), db: Session = Depends(get_db)):
 
 
 @router.post("/team-groups", response_model=schemas.TeamGroup)
-def create_team_group(body: dict = Body(...), db: Session = Depends(get_db)):
+def create_team_group(
+    body: dict = Body(...), db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("project:write")),
+):
+    team_id = body.get("teamId") or body.get("team_id", "")
+    if not db.query(models.TeamSpace).filter_by(id=team_id, tenant_id=ctx.tenant_id).first():
+        raise HTTPException(status_code=404, detail="团队空间不存在")
     group = models.TeamGroup(
         id=f"group-{uuid.uuid4().hex[:6]}",
-        team_id=body.get("teamId") or body.get("team_id", ""),
+        team_id=team_id,
         name=body.get("name", ""),
         lead_id=body.get("leadId") or body.get("lead_id"),
         lead_name=body.get("leadName") or body.get("lead_name"),
         member_ids=[],
         project_ids=[],
+        tenant_id=ctx.tenant_id,
     )
     db.add(group)
     db.commit()

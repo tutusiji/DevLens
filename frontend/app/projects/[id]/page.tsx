@@ -10,7 +10,7 @@ import {
   Activity, AlertTriangle, ArrowLeft, CheckCircle2, ChevronRight, CircleDot,
   ClipboardCheck, Code2, DatabaseZap, FileCode2, FileSearch, FolderKanban, Gauge,
   Layers3, Play, RefreshCw, ShieldAlert, Sparkles, TrendingUp, UserRound,
-  Wrench, Zap,
+  Waypoints, Wrench, Zap,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,11 +21,12 @@ import { Sheet } from '@/components/ui/sheet';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AreaTrend, GroupedBars } from '@/components/charts';
 import { DiceBearAvatar } from '@/components/dicebear-avatar';
+import { GraphCanvas, type GraphNode } from '@/components/graph-canvas';
 import { EmptyState, FilterBar } from '@/components/filter-bar';
 import { ProgressBar, ScoreRing, StatCard } from '@/components/widgets';
 import { api } from '@/lib/api';
 import { scoreColor } from '@/lib/utils';
-import type { AIReviewInsight, FixPriority, InsightStatus, ModuleRisk, ProjectDetail, ReviewCategory } from '@/lib/types';
+import type { AIReviewInsight, FixPriority, InsightStatus, ModuleRisk, ProjectCodeGraph, ProjectDetail, ReviewCategory } from '@/lib/types';
 
 const TREND_ARROW = { up: '↑', down: '↓', stable: '→' };
 const TREND_COLOR = { up: 'var(--success)', down: 'var(--destructive)', stable: 'var(--muted-foreground)' };
@@ -394,6 +395,61 @@ function ModulesTab({ detail, onSelectModule }: { detail: ProjectDetail; onSelec
   );
 }
 
+function CodeGraphTab({
+  graph,
+  loading,
+  error,
+}: {
+  graph: ProjectCodeGraph | null;
+  loading: boolean;
+  error: string;
+}) {
+  if (loading) {
+    return <div className="grid gap-4 lg:grid-cols-4"><div className="h-96 skeleton rounded-xl lg:col-span-3" /><div className="h-96 skeleton rounded-xl" /></div>;
+  }
+  if (error) {
+    return <div className="rounded-lg border border-destructive/35 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>;
+  }
+  if (!graph) {
+    return <EmptyState icon={Waypoints} title="尚未生成项目代码图谱" description="当前分析没有解析到模块依赖；重新分析项目后将自动提取 import 关系。" />;
+  }
+  const colors: Record<string, string> = { edge: '#5B8FF9', service: '#7CB305', data: '#F6BD16', infra: '#7262FD' };
+  const nodes: GraphNode[] = graph.nodes.map((node) => ({
+    id: node.id, x: node.x, y: node.y, size: Math.max(16, Math.min(26, 17 + node.issueCount)),
+    color: colors[node.layer] || 'var(--primary)', label: node.label,
+    sublabel: `${node.loc} · 健康 ${node.health}`,
+  }));
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          ['模块总数', graph.stats.moduleCount],
+          ['模块依赖', graph.stats.edgeCount],
+          ['风险模块', graph.stats.riskModuleCount],
+          ['平均健康度', `${graph.stats.avgHealth} 分`],
+        ].map(([label, value]) => <Card key={String(label)}><CardContent className="p-4"><div className="text-xs text-muted-foreground">{label}</div><div className="mt-2 font-mono text-2xl font-bold">{value}</div></CardContent></Card>)}
+      </div>
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div><CardTitle>项目代码图谱</CardTitle><CardDescription>仅展示当前项目的模块与静态 import 依赖；节点不会与其他项目混合。</CardDescription></div>
+            <div className="flex flex-wrap gap-2 text-xs"><Badge variant="outline" className="font-mono">{graph.branch || '默认分支'}</Badge>{graph.commit && <Badge variant="outline" className="font-mono">{graph.commit}</Badge>}</div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {!nodes.length ? <div className="rounded-lg border border-dashed border-border p-10 text-center text-sm text-muted-foreground">当前项目尚未解析到代码模块。</div> : <div className="rounded-xl border border-border/60 bg-muted/15 p-2"><GraphCanvas nodes={nodes} links={graph.edges} height={480} /></div>}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle>模块清单</CardTitle><CardDescription>按健康度排序；健康度由模块风险分数折算。</CardDescription></CardHeader>
+        <CardContent className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {[...graph.nodes].sort((a, b) => a.health - b.health).map((node) => <div key={node.id} className="rounded-lg border border-border/70 p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate font-mono text-sm">{node.label}</div><div className="mt-1 truncate font-mono text-[11px] text-muted-foreground">{node.path}</div></div><span className="font-mono text-sm font-bold" style={{ color: scoreColor(node.health) }}>{node.health}</span></div><div className="mt-2 text-xs text-muted-foreground">{node.loc}</div></div>)}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function FixesTab({ fixes, insights, onSelectFix, onUpdateStatus }: { fixes: FixPriority[]; insights: AIReviewInsight[]; onSelectFix: (fix: FixPriority) => void; onUpdateStatus: (id: string, status: InsightStatus) => void }) {
   const [filter, setFilter] = React.useState('all');
   const visible = fixes.filter((fix) => filter === 'all' || fix.status === filter);
@@ -434,9 +490,14 @@ export default function ProjectDetailPage() {
   const [fixes, setFixes] = React.useState<FixPriority[]>([]);
   const [refreshing, setRefreshing] = React.useState(false);
   const [reviewModule, setReviewModule] = React.useState<string | null>(null);
+  const [projectGraph, setProjectGraph] = React.useState<ProjectCodeGraph | null>(null);
+  const [graphLoading, setGraphLoading] = React.useState(false);
+  const [graphError, setGraphError] = React.useState('');
 
   React.useEffect(() => {
     setLoading(true);
+    setProjectGraph(null);
+    setGraphError('');
     api.getProjectDetail(id).then((project) => {
       setDetail(project);
       setFixes(project?.fixPriorities || []);
@@ -446,6 +507,18 @@ export default function ProjectDetailPage() {
       setLoading(false);
     });
   }, [id]);
+
+  React.useEffect(() => {
+    if (tab !== 'graph' || projectGraph) return;
+    let active = true;
+    setGraphLoading(true);
+    setGraphError('');
+    api.getProjectGraph(id)
+      .then((graph) => { if (active) setProjectGraph(graph); })
+      .catch((error) => { if (active) setGraphError(error instanceof Error ? error.message : '加载项目代码图谱失败。'); })
+      .finally(() => { if (active) setGraphLoading(false); });
+    return () => { active = false; };
+  }, [id, tab, projectGraph]);
 
   const selectFix = (fix: FixPriority) => {
     setSelectedFix(fix);
@@ -480,10 +553,31 @@ export default function ProjectDetailPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="ghost" size="sm" onClick={() => router.push('/projects')}><ArrowLeft className="h-4 w-4" />返回项目列表</Button><Button variant="outline" size="sm" onClick={refresh} disabled={refreshing}><RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />{refreshing ? '分析中...' : '重新分析'}</Button></div>
       <Card><CardContent className="p-6"><div className="flex flex-col items-start gap-6 lg:flex-row lg:items-center"><ScoreRing score={detail.score} size={140} stroke={10} label="健康度" sublabel={detail.analysisMeta.analysisVersion} /><div className="min-w-0 flex-1 space-y-3"><div className="flex flex-wrap items-center gap-2"><h1 className="font-mono text-2xl font-bold">{detail.name}</h1><Badge variant="outline" className="font-mono">{detail.language}</Badge><Badge variant={detail.status === 'completed' ? 'success' : 'warning'}>{detail.status === 'completed' ? '已分析' : detail.status}</Badge></div><div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"><span>{detail.group}</span><span>·</span><span>{detail.commits.toLocaleString()} commits</span><span>·</span><span>{detail.contributors} 贡献者</span><span>·</span><span>最近扫描 {detail.analysisMeta.scannedAt}</span></div><div className="flex flex-wrap gap-2 text-xs"><Badge variant="outline">分支 {detail.analysisMeta.branch}</Badge><Badge variant="outline">{detail.analysisMeta.commit}</Badge><Badge variant="outline">{detail.analysisMeta.filesScanned} 文件</Badge><Badge variant="outline">覆盖 {detail.analysisMeta.coverage}%</Badge><Badge variant="outline">置信度 {Math.round(detail.analysisMeta.confidence * 100)}%</Badge></div></div></div></CardContent></Card>
-      <div className="overflow-x-auto pb-1"><Segmented value={tab} onChange={(value) => { if (value === 'env') { router.push(`/projects/${id}/env`); return; } setTab(value); if (value !== 'review') setReviewModule(null); }} options={[{ value: 'overview', label: '概览', icon: Activity }, { value: 'review', label: `AI Review ${detail.reviewSummary.open}`, icon: Sparkles }, { value: 'modules', label: `模块风险 ${detail.moduleRisks.length}`, icon: Layers3 }, { value: 'fixes', label: `修复计划 ${fixes.filter((fix) => fix.status !== 'resolved').length}`, icon: ClipboardCheck }, { value: 'env', label: '环境盘点', icon: DatabaseZap }]} /></div>
+      <div className="overflow-x-auto pb-1">
+        <Segmented
+          value={tab}
+          onChange={(value) => {
+            if (value === 'env') {
+              router.push(`/projects/${id}/env`);
+              return;
+            }
+            setTab(value);
+            if (value !== 'review') setReviewModule(null);
+          }}
+          options={[
+            { value: 'overview', label: '概览', icon: Activity },
+            { value: 'review', label: 'AI Review', icon: Sparkles, count: detail.reviewSummary.open, countTone: 'destructive' },
+            { value: 'modules', label: '模块风险', icon: Layers3, count: detail.moduleRisks.length, countTone: 'warning' },
+            { value: 'graph', label: '代码图谱', icon: Waypoints },
+            { value: 'fixes', label: '修复计划', icon: ClipboardCheck, count: fixes.filter((fix) => fix.status !== 'resolved').length, countTone: 'warning' },
+            { value: 'env', label: '环境盘点', icon: DatabaseZap },
+          ]}
+        />
+      </div>
       {tab === 'overview' && <OverviewTab detail={detail} fixes={fixes} onSelectInsight={setSelectedInsight} onSelectFix={selectFix} onOpenReview={() => setTab('review')} />}
       {tab === 'review' && <ReviewTab detail={detail} insights={reviewInsights} onSelectInsight={setSelectedInsight} />}
       {tab === 'modules' && <ModulesTab detail={detail} onSelectModule={setSelectedModule} />}
+      {tab === 'graph' && <CodeGraphTab graph={projectGraph} loading={graphLoading} error={graphError} />}
       {tab === 'fixes' && <FixesTab fixes={fixes} insights={detail.aiInsights} onSelectFix={selectFix} onUpdateStatus={updateFixStatus} />}
       {reviewModule && tab === 'review' && <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 text-sm"><span>当前仅显示模块：<b className="font-mono">{reviewModule}</b></span><Button size="sm" variant="ghost" onClick={() => setReviewModule(null)}>清除筛选</Button></div>}
       <InsightSheet insight={selectedInsight ? detail.aiInsights.find((insight) => insight.id === selectedInsight.id) || selectedInsight : null} onClose={() => setSelectedInsight(null)} onUpdate={updateInsight} />

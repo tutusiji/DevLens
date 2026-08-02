@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from ..config import settings
 from ..db import get_db
 from .. import models, schemas
+from ..access import TenantContext, require_permission
 from ..env_scanner import scan_repo, RawEntry
 
 router = APIRouter()
@@ -30,12 +31,16 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _resolve_repo(db: Session, project_id: str) -> tuple[str | None, models.Project | None]:
+def _resolve_repo(
+    db: Session,
+    project_id: str,
+    tenant_id: str,
+) -> tuple[str | None, models.Project | None]:
     """解析项目本地仓库路径：repo.path -> repos_cache/name -> repos_cache/project.name"""
-    p = db.query(models.Project).filter_by(id=project_id).first()
+    p = db.query(models.Project).filter_by(id=project_id, tenant_id=tenant_id).first()
     if not p:
         return None, None
-    repo = db.query(models.Repository).filter_by(project_id=project_id).first()
+    repo = db.query(models.Repository).filter_by(project_id=project_id, tenant_id=tenant_id).first()
     candidates: list[str] = []
     if repo:
         if repo.path:
@@ -59,8 +64,9 @@ def list_env_inventory(
     status: str | None = Query(default=None),
     q: str | None = Query(default=None),
     db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("project:read")),
 ):
-    if not db.query(models.Project).filter_by(id=pid).first():
+    if not db.query(models.Project).filter_by(id=pid, tenant_id=ctx.tenant_id).first():
         raise HTTPException(status_code=404, detail="项目不存在")
     query = db.query(models.EnvInventoryEntry).filter_by(project_id=pid)
     if env:
@@ -93,8 +99,11 @@ def list_env_inventory(
 # ============ 概览 ============
 
 @router.get("/projects/{pid}/env-inventory/summary", response_model=schemas.EnvInventorySummaryM)
-def env_inventory_summary(pid: str, db: Session = Depends(get_db)):
-    if not db.query(models.Project).filter_by(id=pid).first():
+def env_inventory_summary(
+    pid: str, db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("project:read")),
+):
+    if not db.query(models.Project).filter_by(id=pid, tenant_id=ctx.tenant_id).first():
         raise HTTPException(status_code=404, detail="项目不存在")
     # 仅统计非 removed 的条目（removed 为历史失效项）
     entries = (
@@ -127,11 +136,14 @@ def env_inventory_summary(pid: str, db: Session = Depends(get_db)):
 # ============ 触发扫描 ============
 
 @router.post("/projects/{pid}/env-inventory/scan", response_model=schemas.EnvInventoryScanM)
-def trigger_scan(pid: str, body: schemas.EnvInventoryScanRequest, db: Session = Depends(get_db)):
-    p = db.query(models.Project).filter_by(id=pid).first()
+def trigger_scan(
+    pid: str, body: schemas.EnvInventoryScanRequest, db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("project:write")),
+):
+    p = db.query(models.Project).filter_by(id=pid, tenant_id=ctx.tenant_id).first()
     if not p:
         raise HTTPException(status_code=404, detail="项目不存在")
-    repo_path, _ = _resolve_repo(db, pid)
+    repo_path, _ = _resolve_repo(db, pid, ctx.tenant_id)
     if not repo_path:
         raise HTTPException(
             status_code=400,
@@ -289,8 +301,11 @@ def _run_incremental(db: Session, pid: str, scan_id: str, repo_path: str, now: s
 # ============ 扫描历史 ============
 
 @router.get("/projects/{pid}/env-inventory/scans", response_model=list[schemas.EnvInventoryScanM])
-def list_scans(pid: str, db: Session = Depends(get_db)):
-    if not db.query(models.Project).filter_by(id=pid).first():
+def list_scans(
+    pid: str, db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("project:read")),
+):
+    if not db.query(models.Project).filter_by(id=pid, tenant_id=ctx.tenant_id).first():
         raise HTTPException(status_code=404, detail="项目不存在")
     return (
         db.query(models.EnvInventoryScan)
@@ -301,7 +316,12 @@ def list_scans(pid: str, db: Session = Depends(get_db)):
 
 
 @router.get("/projects/{pid}/env-inventory/scans/{scan_id}")
-def get_scan_detail(pid: str, scan_id: str, db: Session = Depends(get_db)):
+def get_scan_detail(
+    pid: str, scan_id: str, db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("project:read")),
+):
+    if not db.query(models.Project).filter_by(id=pid, tenant_id=ctx.tenant_id).first():
+        raise HTTPException(status_code=404, detail="项目不存在")
     scan = db.query(models.EnvInventoryScan).filter_by(id=scan_id, project_id=pid).first()
     if not scan:
         raise HTTPException(status_code=404, detail="扫描记录不存在")
@@ -328,7 +348,12 @@ def get_scan_detail(pid: str, scan_id: str, db: Session = Depends(get_db)):
 # ============ 条目更新（P0 留空实现：仅备注类）============
 
 @router.patch("/projects/{pid}/env-inventory/entries/{eid}", response_model=schemas.EnvInventoryEntryM)
-def update_entry(pid: str, eid: str, body: dict = Body(...), db: Session = Depends(get_db)):
+def update_entry(
+    pid: str, eid: str, body: dict = Body(...), db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("project:write")),
+):
+    if not db.query(models.Project).filter_by(id=pid, tenant_id=ctx.tenant_id).first():
+        raise HTTPException(status_code=404, detail="项目不存在")
     entry = db.query(models.EnvInventoryEntry).filter_by(id=eid, project_id=pid).first()
     if not entry:
         raise HTTPException(status_code=404, detail="配置条目不存在")
