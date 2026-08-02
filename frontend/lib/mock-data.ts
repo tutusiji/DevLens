@@ -212,11 +212,16 @@ export const developerDetails: Record<string, DeveloperDetail> = {
       { name: '赵磊', username: 'zhaolei', sharedCommits: 31, reviewCount: 22 },
       { name: '吴婷', username: 'wuting', sharedCommits: 18, reviewCount: 15 },
     ],
+    projects: [
+      { projectId: 'p1', projectName: '用户中心', projectScore: 88, projectStatus: 'completed', role: '主导贡献', commits: 156, reviews: 62, ownership: 72, moduleCount: 4, lastActiveAt: '2小时前' },
+      { projectId: 'p8', projectName: '消息推送', projectScore: 74, projectStatus: 'pending', role: '架构支持', commits: 78, reviews: 26, ownership: 38, moduleCount: 1, lastActiveAt: '1天前' },
+      { projectId: 'p5', projectName: '内容引擎', projectScore: 92, projectStatus: 'completed', role: '跨组协作', commits: 44, reviews: 18, ownership: 22, moduleCount: 0, lastActiveAt: '5天前' },
+    ],
     modules: [
-      { module: 'auth-service', commits: 156, ownership: 72, complexity: 68 },
-      { module: 'user-core', commits: 134, ownership: 65, complexity: 55 },
-      { module: 'session-mgr', commits: 89, ownership: 80, complexity: 42 },
-      { module: 'permission', commits: 33, ownership: 45, complexity: 38 },
+      { module: 'auth-service', projectId: 'p1', projectName: '用户中心', commits: 156, ownership: 72, complexity: 68 },
+      { module: 'user-core', projectId: 'p1', projectName: '用户中心', commits: 134, ownership: 65, complexity: 55 },
+      { module: 'session-mgr', projectId: 'p1', projectName: '用户中心', commits: 89, ownership: 80, complexity: 42 },
+      { module: 'permission', projectId: 'p1', projectName: '用户中心', commits: 33, ownership: 45, complexity: 38 },
     ],
     aiSuggestion: '架构能力突出（92 分，团队前 10%），建议参与跨组架构评审会。安全意识（80）略低于架构水平，可补强安全 review 参与度。主导 auth-service 模块（72% 归属），建议培养备份负责人降低 Bus Factor。',
   },
@@ -243,10 +248,14 @@ export const developerDetails: Record<string, DeveloperDetail> = {
       { name: '周杰', username: 'zhoujie', sharedCommits: 76, reviewCount: 42 },
       { name: '陈思', username: 'chensi', sharedCommits: 35, reviewCount: 21 },
     ],
+    projects: [
+      { projectId: 'p5', projectName: '内容引擎', projectScore: 92, projectStatus: 'completed', role: '主导贡献', commits: 242, reviews: 91, ownership: 78, moduleCount: 3, lastActiveAt: '4小时前' },
+      { projectId: 'p1', projectName: '用户中心', projectScore: 88, projectStatus: 'completed', role: '跨组协作', commits: 67, reviews: 18, ownership: 25, moduleCount: 0, lastActiveAt: '3天前' },
+    ],
     modules: [
-      { module: 'design-system', commits: 148, ownership: 78, complexity: 52 },
-      { module: 'content-renderer', commits: 121, ownership: 68, complexity: 65 },
-      { module: 'mobile-shell', commits: 86, ownership: 72, complexity: 58 },
+      { module: 'design-system', projectId: 'p5', projectName: '内容引擎', commits: 148, ownership: 78, complexity: 52 },
+      { module: 'content-renderer', projectId: 'p5', projectName: '内容引擎', commits: 121, ownership: 68, complexity: 65 },
+      { module: 'mobile-shell', projectId: 'p5', projectName: '内容引擎', commits: 86, ownership: 72, complexity: 58 },
     ],
     aiSuggestion: '已达到前端工程师 E3 资深工程师标准。UI 质量（93）和响应式（90）是明显优势，适合主导设计系统和复杂交互。若未来冲刺 D 级高阶能力层，建议加强跨端架构决策、前端安全治理与组织级技术影响力。',
   },
@@ -272,17 +281,33 @@ export const developerDetails: Record<string, DeveloperDetail> = {
       { name: '陈思', username: 'chensi', sharedCommits: 42, reviewCount: 35 },
       { name: '张敏', username: 'zhangmin', sharedCommits: 28, reviewCount: 19 },
     ],
+    projects: [
+      { projectId: 'p2', projectName: '订单系统', projectScore: 90, projectStatus: 'completed', role: '主导贡献', commits: 198, reviews: 78, ownership: 68, moduleCount: 3, lastActiveAt: '1小时前' },
+      { projectId: 'p4', projectName: '支付平台', projectScore: 65, projectStatus: 'analyzing', role: '架构协作', commits: 102, reviews: 45, ownership: 34, moduleCount: 0, lastActiveAt: '2天前' },
+    ],
     modules: [
-      { module: 'order-core', commits: 198, ownership: 68, complexity: 72 },
-      { module: 'payment-gw', commits: 142, ownership: 55, complexity: 65 },
-      { module: 'inventory', commits: 88, ownership: 60, complexity: 48 },
+      { module: 'order-core', projectId: 'p2', projectName: '订单系统', commits: 198, ownership: 68, complexity: 72 },
+      { module: 'payment-gw', projectId: 'p2', projectName: '订单系统', commits: 142, ownership: 55, complexity: 65 },
+      { module: 'inventory', projectId: 'p2', projectName: '订单系统', commits: 88, ownership: 60, complexity: 48 },
     ],
     aiSuggestion: '全面均衡型开发者，7 维均在 84+，协作能力（90）尤为突出。Review 参与度高（198 次），是团队的知识传递者。建议承担新人 mentor 角色。',
   },
 };
 
 export function getDeveloperDetail(id: string): DeveloperDetail {
-  const base = developerDetails[id] || developerDetails.d1;
+  const known = developerDetails[id];
+  const developer = developers.find((item) => item.id === id) || developers[0];
+  const base: DeveloperDetail = known || {
+    ...developer,
+    capability: { code_quality: developer.overall, architecture: developer.overall - 3, stability: developer.overall - 5, efficiency: developer.overall - 2, collaboration: developer.overall - 1, security_aware: developer.overall - 6, test_coverage: developer.overall - 4, growth_velocity: developer.overall - 8 },
+    teamCapabilityAvg: { code_quality: 80, architecture: 80, stability: 78, efficiency: 80, collaboration: 80, security_aware: 76, test_coverage: 76 },
+    growthCurve: [],
+    behaviorEvidence: [],
+    partners: [],
+    modules: [],
+    projects: [],
+    aiSuggestion: '该开发者的项目参与明细将在完成更多仓库贡献归集后展示。',
+  };
   // 动态注入 roleStandard（避免模块顶层 TDZ）
   if (!base.roleStandard) {
     base.roleStandard = getRoleStandard(base.roleType, base.level);

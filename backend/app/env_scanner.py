@@ -89,11 +89,33 @@ def _file_mtime(path: Path) -> str:
         return ""
 
 
-def discover_config_files(repo_path: str) -> list[str]:
-    """发现候选配置文件，包含显式 glob 和文本关键词补充识别。"""
+def _skill_values(scan_skills: list[dict[str, Any]] | None, key: str) -> list[str]:
+    if scan_skills is None:
+        return []
+    values: list[str] = []
+    for skill in scan_skills:
+        for value in skill.get(key, []) or []:
+            value = str(value or "").strip().replace("\\", "/").lstrip("/")
+            if value and value not in values:
+                values.append(value)
+    return values
+
+
+def discover_config_files(
+    repo_path: str,
+    scan_skills: list[dict[str, Any]] | None = None,
+) -> list[str]:
+    """发现候选配置文件；有 Skill 时范围由 Skill 资产控制。"""
     root = Path(repo_path)
     if not root.is_dir():
         return []
+    skill_patterns = _skill_values(scan_skills, "file_patterns")
+    skill_keywords = _skill_values(scan_skills, "keywords")
+    patterns = skill_patterns if scan_skills is not None else CONFIG_GLOBS
+    keyword_re = (
+        re.compile("|".join(re.escape(word) for word in skill_keywords), re.I)
+        if skill_keywords else CONTENT_KEYWORD_RE
+    )
     found: list[str] = []
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [name for name in dirnames if name not in EXCLUDE_DIRS]
@@ -105,8 +127,10 @@ def discover_config_files(repo_path: str) -> list[str]:
                 continue
             if _is_excluded(rel_path) or full.stat().st_size > MAX_FILE_BYTES:
                 continue
-            if any(_glob_match(pattern, rel_path) for pattern in CONFIG_GLOBS):
+            if any(_glob_match(pattern, rel_path) for pattern in patterns):
                 found.append(rel_path)
+                continue
+            if scan_skills is not None and not skill_keywords:
                 continue
             if full.suffix.lower() in SOURCE_DOC_EXTS or full.suffix.lower() not in CONFIG_TEXT_EXTS:
                 continue
@@ -114,7 +138,7 @@ def discover_config_files(repo_path: str) -> list[str]:
                 content = full.read_text(encoding="utf-8", errors="ignore")
             except OSError:
                 continue
-            if CONTENT_KEYWORD_RE.search(content):
+            if keyword_re.search(content):
                 found.append(rel_path)
     return sorted(set(found))
 
@@ -742,15 +766,20 @@ def extract_entries(content: str, rel_path: str, file_mtime: str) -> list[RawEnt
     return list(deduped.values())
 
 
-def scan_repo(repo_path: str, only_files: Optional[set[str]] = None) -> tuple[int, list[RawEntry]]:
-    """扫描仓库；增量模式仅重扫 ``only_files`` 中仍存在的相对路径。"""
+def scan_repo(
+    repo_path: str,
+    only_files: Optional[set[str]] = None,
+    scan_skills: list[dict[str, Any]] | None = None,
+) -> tuple[int, list[RawEntry]]:
+    """扫描仓库；全量范围由启用的环境盘点 Skill 控制。"""
     root = Path(repo_path)
     if not root.is_dir():
         return 0, []
     if only_files is None:
-        targets = discover_config_files(repo_path)
+        targets = discover_config_files(repo_path, scan_skills=scan_skills)
     else:
-        targets = sorted(path for path in only_files if (root / path).is_file())
+        allowed = set(discover_config_files(repo_path, scan_skills=scan_skills))
+        targets = sorted(path for path in only_files if path in allowed and (root / path).is_file())
 
     entries: list[RawEntry] = []
     scanned = 0

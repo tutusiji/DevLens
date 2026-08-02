@@ -261,6 +261,22 @@ class ModuleContribution(CamelModel):
     commits: int
     ownership: int
     complexity: int
+    project_id: Optional[str] = None
+    project_name: str = ""
+
+
+class DeveloperProjectContribution(CamelModel):
+    """开发者在一个项目中的可追溯参与记录。"""
+    project_id: str
+    project_name: str = ""
+    project_score: int = 0
+    project_status: str = ""
+    role: str = "参与贡献"
+    commits: int = 0
+    reviews: int = 0
+    ownership: int = 0
+    module_count: int = 0
+    last_active_at: str = ""
 
 
 class DeveloperDetail(Developer):
@@ -271,6 +287,7 @@ class DeveloperDetail(Developer):
     behavior_evidence: list[BehaviorEvidence] = []
     partners: list[CollaborationPartner] = []
     modules: list[ModuleContribution] = []
+    projects: list[DeveloperProjectContribution] = []
     ai_suggestion: str = ""
 
 
@@ -643,6 +660,8 @@ class EnvInventoryScanM(CamelModel):
     removed: int = 0
     unchanged: int = 0
     message: str = ""
+    skill_ids: list[str] = []
+    skill_snapshot: dict[str, Any] = {}
 
 
 class EnvInventorySummaryM(CamelModel):
@@ -656,6 +675,44 @@ class EnvInventorySummaryM(CamelModel):
 
 class EnvInventoryScanRequest(CamelModel):
     scan_type: str = "full"  # full | incremental
+    skill_ids: Optional[list[str]] = None
+
+
+class EnvInventorySkillM(CamelModel):
+    id: str
+    slug: str = ""
+    name: str
+    description: str = ""
+    file_patterns: list[str] = []
+    keywords: list[str] = []
+    tool_types: list[str] = []
+    ai_instruction: str = ""
+    enabled: int = 1
+    built_in: int = 0
+    created_by: str = ""
+    created_at: str = ""
+    updated_at: str = ""
+    tenant_id: str = "tenant-default"
+
+
+class EnvInventorySkillCreateRequest(CamelModel):
+    name: str
+    description: str = ""
+    file_patterns: list[str] = []
+    keywords: list[str] = []
+    tool_types: list[str] = []
+    ai_instruction: str = ""
+    enabled: int = 1
+
+
+class EnvInventorySkillUpdateRequest(CamelModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    file_patterns: Optional[list[str]] = None
+    keywords: Optional[list[str]] = None
+    tool_types: Optional[list[str]] = None
+    ai_instruction: Optional[str] = None
+    enabled: Optional[int] = None
 
 
 # ============ 开发者能力实测评估 ============

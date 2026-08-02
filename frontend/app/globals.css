@@ -1,7 +1,12 @@
 @import 'tailwindcss';
 @import '@heroui/styles';
 
-/* DevLens 只保留布局与字体扩展；颜色、控件状态与深浅主题交给 HeroUI 官方主题。 */
+/*
+ * DevLens 在 HeroUI 官方主题之上只校准可读性与控件边界：
+ * - 正文保持 HeroUI 前景色；
+ * - 辅助文字固定到足够可读的层级，禁止再被 /50 /60 /70 二次冲淡；
+ * - 表单字段显式启用 1px 边框，避免 HeroUI 默认“无边框字段”在数据后台中难以识别。
+ */
 
 @custom-variant dark (&:is(.dark *));
 
@@ -59,7 +64,9 @@
  * HeroUI 默认主题同时提供 :root 与 .dark 两套 token。
  * 下面仅为项目中既有的 CSS/SVG 变量提供别名，所有实际色值均来自 HeroUI。
  */
-:root {
+:root,
+.dark,
+[data-theme='dark'] {
   --card: var(--surface);
   --card-foreground: var(--surface-foreground);
   --popover: var(--overlay);
@@ -70,13 +77,32 @@
   --secondary-foreground: var(--surface-secondary-foreground);
   --destructive: var(--danger);
   /*
-   * 辅助文字采用“前景色 70% + 背景色 30%”的可读层级，而非 HeroUI 的装饰性
-   * muted。该 token 只供 DevLens 页面里的副标题、路径、表头等信息使用。
+   * 可读性基线（浅 / 深色主题共用公式）。
+   * 辅助文字约为正文的 72% 对比层级；该值用于副标题、表头、时间、路径和说明，
+   * 不把实际工作信息降到 HeroUI 默认 muted 的装饰性灰度。
    */
-  --app-secondary-foreground: color-mix(in oklch, var(--foreground) 70%, var(--background));
+  --app-secondary-foreground: color-mix(in oklch, var(--foreground) 72%, var(--background));
+  --app-placeholder-foreground: color-mix(in oklch, var(--foreground) 55%, var(--background));
   --muted-foreground: var(--app-secondary-foreground);
-  --surface-muted: var(--background-secondary);
-  --input: var(--field-background);
+  /*
+   * 次级表面和分隔线均稍增强，使信息块、表格行和卡片边界在两种主题下都可辨。
+   * --input 供现有 border-input 工具类使用，因此必须映射到“字段边框”而不是字段背景。
+   */
+  --surface-muted: color-mix(in oklch, var(--background) 93%, var(--foreground));
+  --border: color-mix(in oklch, var(--foreground) 18%, var(--background));
+  --separator: color-mix(in oklch, var(--foreground) 13%, var(--background));
+  --input: var(--field-border);
+
+  /*
+   * HeroUI 默认 field 是无边框（field-border: transparent / field-border-width: 0）。
+   * DevLens 属于高密度数据产品，输入框、选择框、文本域必须有稳定、可见的边界。
+   */
+  --field-border-width: 1px;
+  --field-border: color-mix(in oklch, var(--foreground) 24%, var(--field-background));
+  --field-border-hover: color-mix(in oklch, var(--foreground) 38%, var(--field-background));
+  --field-border-focus: var(--accent);
+  --field-placeholder: var(--app-placeholder-foreground);
+  --field-shadow: 0 1px 2px oklch(0 0 0 / 0.04);
   --ring: var(--focus);
   --chart-1: var(--accent);
   --chart-2: var(--success);
@@ -106,9 +132,46 @@
     font-feature-settings: 'cv11', 'ss01';
   }
 
+  /*
+   * 统一原生表单边界。绝大多数既有表单使用 border-input，
+   * 该变量已指向 --field-border；这里补齐未显式写 border-input 的原生控件。
+   */
+  input:not([type='checkbox']):not([type='radio']),
+  textarea,
+  select {
+    border-color: var(--field-border);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--field-placeholder);
+    opacity: 1;
+  }
+
   /* 数值等宽对齐，dashboard 必备 */
   .tabular-nums {
     font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  /*
+   * 历史页面中大量使用 text-muted-foreground/50、/60、/70。
+   * 这些透明度会在已是辅助色的基础上再次降低对比度，是“灰字看不清”的主要来源。
+   * 统一钳制到 DevLens 的辅助文字 token，避免逐页写覆盖样式。
+   */
+  .text-muted-foreground\/50,
+  .text-muted-foreground\/60,
+  .text-muted-foreground\/70 {
+    color: var(--app-secondary-foreground) !important;
+  }
+
+  /*
+   * 保证所有沿用 border-input 的自定义 input / select / textarea
+   * 都得到与 HeroUI Input 一致的可见边框。
+   */
+  .border-input {
+    border-color: var(--field-border) !important;
   }
 }
 

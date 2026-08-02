@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Popover } from '@heroui/react/popover';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { CommandPalette } from '@/components/command-palette';
+import { TenantSwitcher } from '@/components/tenant-switcher';
 import { useTeamSpace } from '@/components/team-space-provider';
 import { riskAlerts } from '@/lib/mock-data';
 import { Badge } from './ui/badge';
@@ -215,8 +216,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </span>
           </div>
 
-          {/* 团队空间选择器 */}
-          <div className="hidden ml-auto md:block">
+          {/* 组织空间（租户）选择器 + 团队空间选择器 */}
+          <div className="hidden md:flex items-center gap-2 ml-auto">
+            <TenantSwitcher />
             {activeLargeTeam ? (
               <Popover isOpen={teamMenuOpen} onOpenChange={setTeamMenuOpen}>
                 <Popover.Trigger

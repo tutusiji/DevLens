@@ -18,10 +18,11 @@ import type {
   ActiveProject, ActiveDeveloper, ActiveTeam, CapabilityGap, IdentityMatch, Repository, LargeTeam,
   SkillSource, Skill, SkillGroup, SkillGroupPreview, ExtractResult,
   SkillSourceCreateRequest, SkillCreateRequest, SkillGroupCreateRequest,
-  EnvInventoryEntry, EnvInventoryScan, EnvInventorySummary, EnvName, EnvToolType,
+  EnvInventoryEntry, EnvInventoryScan, EnvInventorySummary, EnvInventorySkill,
+  EnvInventorySkillPayload, EnvName, EnvToolType,
   CapabilityMeta, CapabilityRoleInfo, CapabilitySaveRequest, Role,
   DeveloperEvaluation, EvaluateDeveloperRequest, TriggerDeveloperEvaluationResponse,
-  ProjectComparisonResponse, ProjectTrendResponse, CurrentTenantContext, TenantMembership,
+  ProjectComparisonResponse, ProjectTrendResponse, CurrentTenantContext, Tenant, TenantMembership,
   TenantRole,
   ProjectCodeGraph, ArchitectureDesign, ArchitectureDesignListResponse,
 } from './types';
@@ -31,11 +32,20 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 const USE_MOCK = !process.env.NEXT_PUBLIC_API_URL;
 
 /** 真实 fetch 封装 */
+function identityHeaders(): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+  const headers: Record<string, string> = {};
+  const tenantId = localStorage.getItem('devlens-tenant-id');
+  if (!tenantId) return {}; // 无租户身份时保持无头，后端回退默认租户（原行为）
+  headers['X-DevLens-Tenant-Id'] = tenantId;
+  // 本地模式：有租户身份但缺用户身份时，回退到本地默认管理员，
+  // 否则后端因"只有一个身份头"返回 401（生产由网关注入，不经 localStorage）
+  headers['X-DevLens-User-Id'] = localStorage.getItem('devlens-user-id') || 'usr-local-admin';
+  return headers;
+}
+
 async function fetchAPI<T>(path: string, init?: RequestInit): Promise<T> {
-  const tenantHeaders = typeof window === 'undefined' ? {} : {
-    ...(localStorage.getItem('devlens-user-id') ? { 'X-DevLens-User-Id': localStorage.getItem('devlens-user-id')! } : {}),
-    ...(localStorage.getItem('devlens-tenant-id') ? { 'X-DevLens-Tenant-Id': localStorage.getItem('devlens-tenant-id')! } : {}),
-  };
+  const tenantHeaders = identityHeaders();
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: { 'Content-Type': 'application/json', ...tenantHeaders, ...init?.headers },
@@ -45,10 +55,7 @@ async function fetchAPI<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 async function downloadAPI(path: string): Promise<{ blob: Blob; filename: string }> {
-  const tenantHeaders = typeof window === 'undefined' ? {} : {
-    ...(localStorage.getItem('devlens-user-id') ? { 'X-DevLens-User-Id': localStorage.getItem('devlens-user-id')! } : {}),
-    ...(localStorage.getItem('devlens-tenant-id') ? { 'X-DevLens-Tenant-Id': localStorage.getItem('devlens-tenant-id')! } : {}),
-  };
+  const tenantHeaders = identityHeaders();
   const res = await fetch(`${API_BASE}${path}`, { headers: tenantHeaders });
   if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
   const disposition = res.headers.get('content-disposition') || '';
@@ -190,6 +197,17 @@ let mockTenantMembers: TenantMembership[] = [
   },
 ];
 
+const mockTenants: Tenant[] = [
+  {
+    id: 'tenant-default', name: 'DevLens 本地工作区', slug: 'local',
+    status: 'active', createdAt: '2026-08-01T00:00:00Z', updatedAt: '2026-08-01T00:00:00Z',
+  },
+  {
+    id: 'tenant-test', name: 'DevLens 测试组织', slug: 'test',
+    status: 'active', createdAt: '2026-08-01T00:00:00Z', updatedAt: '2026-08-01T00:00:00Z',
+  },
+];
+
 // ============ Skill 管理模块 mock 数据（可变，支持全链路 mock）============
 const mockSkillSources: SkillSource[] = [
   {
@@ -244,6 +262,33 @@ const mockEnvEntries: EnvInventoryEntry[] = [
   { id: 'einv-seed-7', projectId: 'p1', scanId: 'einv-scan-seed-p1', env: 'prod', toolType: 'nacos', toolName: 'nacos', key: 'spring.cloud.nacos.server-addr', value: 'nacos-prod:8848 · user=nacos', isSecret: 0, host: 'nacos-prod', port: '8848', username: 'nacos', fingerprint: 'einv-mock-nacos-prod', detail: { namespace: 'prod', group: 'DEFAULT_GROUP' }, sourceFile: 'src/main/resources/application-prod.yml', sourceLine: 31, updatedAt: '2026-08-01T08:00:00Z', status: 'active' },
   { id: 'einv-seed-8', projectId: 'p1', scanId: 'einv-scan-seed-p1', env: 'dev', toolType: 'database', toolName: 'mysql', key: 'spring.datasource.url', value: 'jdbc:mysql://127.0.0.1:3306/user_center_dev?useSSL=false', isSecret: 1, host: '127.0.0.1', port: '3306', username: 'dev_app', database: 'user_center_dev', fingerprint: 'einv-mock-mysql-dev', sourceFile: 'src/main/resources/application-dev.yml', sourceLine: 12, updatedAt: '2026-08-01T08:00:00Z', status: 'active' },
   { id: 'einv-seed-10', projectId: 'p1', scanId: 'einv-scan-seed-p1', env: 'dev', toolType: 'redis', toolName: 'redis', key: 'spring.redis.host', value: '127.0.0.1:6379', isSecret: 0, host: '127.0.0.1', port: '6379', database: '0', fingerprint: 'einv-mock-redis-dev', sourceFile: 'src/main/resources/application-dev.yml', sourceLine: 22, updatedAt: '2026-08-01T08:00:00Z', status: 'active' },
+];
+
+let mockEnvInventorySkills: EnvInventorySkill[] = [
+  {
+    id: 'eisk-tenant-default-runtime-config', slug: 'runtime-config', name: '运行配置与密钥来源',
+    description: '定位运行环境、连接配置、凭据引用与敏感字段来源；输出时始终脱敏。',
+    filePatterns: ['.env', '.env.*', '*.env', 'env/*', 'application*.yml', 'application*.yaml', 'config/*.yml'],
+    keywords: ['host', 'url', 'port', 'username', 'password', 'token', 'secret', 'key', 'database'],
+    toolTypes: ['database', 'redis', 'nacos', 'third_party', 'other'], aiInstruction: '识别运行环境、连接配置、凭据引用和敏感字段。只输出脱敏后的值、来源文件和行号，不得输出密码、Token、Secret 或私钥明文。',
+    enabled: 1, builtIn: 1, createdBy: 'system', createdAt: '2026-08-01T08:00:00+00:00', updatedAt: '2026-08-01T08:00:00+00:00', tenantId: 'tenant-default',
+  },
+  {
+    id: 'eisk-tenant-default-middleware-connections', slug: 'middleware-connections', name: '中间件与数据服务连接',
+    description: '提取数据库、缓存、注册中心、消息队列与搜索服务的非敏感连接元数据。',
+    filePatterns: ['application*.yml', 'application*.yaml', 'application*.properties', 'bootstrap*.yml', 'config/*', 'env/*', '*.properties'],
+    keywords: ['mysql', 'postgres', 'redis', 'nacos', 'kafka', 'rabbitmq', 'rocketmq', 'elasticsearch', 'mongodb', 'jdbc', 'datasource'],
+    toolTypes: ['database', 'redis', 'nacos', 'mq', 'kafka', 'es'], aiInstruction: '识别数据库、缓存、注册中心、消息队列和搜索引擎连接；按资产类型归类，仅提取 host、port、database、namespace、topic 等非敏感元数据。',
+    enabled: 1, builtIn: 1, createdBy: 'system', createdAt: '2026-08-01T08:00:00+00:00', updatedAt: '2026-08-01T08:00:00+00:00', tenantId: 'tenant-default',
+  },
+  {
+    id: 'eisk-tenant-default-deployment-topology', slug: 'deployment-topology', name: '部署与入口拓扑',
+    description: '提取镜像、服务入口、网关、反向代理及 K8s 部署拓扑。',
+    filePatterns: ['docker-compose*.yml', 'docker-compose*.yaml', 'Dockerfile', 'k8s/*.yaml', 'k8s/*.yml', 'deploy/*.yaml', 'deploy/*.yml', 'values*.yaml', 'nginx.conf', '*.conf'],
+    keywords: ['image', 'services', 'proxy_pass', 'ingress', 'gateway', 'replicas', 'host'],
+    toolTypes: ['gateway', 'third_party', 'other'], aiInstruction: '识别部署镜像、服务入口、反向代理、网关、Kubernetes 服务及依赖拓扑；不读取、不展示、不推断任何 Secret 明文。',
+    enabled: 1, builtIn: 1, createdBy: 'system', createdAt: '2026-08-01T08:00:00+00:00', updatedAt: '2026-08-01T08:00:00+00:00', tenantId: 'tenant-default',
+  },
 ];
 let mockEnvScanSeq = 100;
 const mockEnvScanId = () => `einv-scan-mock-${++mockEnvScanSeq}`;
@@ -380,6 +425,8 @@ export const api = {
   // 租户/RBAC：真实环境由网关注入身份头；本地可在设置页选择测试成员。
   getCurrentTenantContext: (): Promise<CurrentTenantContext> =>
     USE_MOCK ? mockDelay(clone(mockTenantContext)) : fetchAPI<CurrentTenantContext>('/auth/me'),
+  listTenants: (): Promise<Tenant[]> =>
+    USE_MOCK ? mockDelay(clone(mockTenants)) : fetchAPI<Tenant[]>('/tenants'),
   getTenantMembers: (): Promise<TenantMembership[]> =>
     USE_MOCK ? mockDelay(clone(mockTenantMembers)) : fetchAPI<TenantMembership[]>('/tenants/current/members'),
   addTenantMember: (body: { email: string; name: string; role: TenantRole }): Promise<TenantMembership> =>
@@ -618,8 +665,37 @@ export const api = {
   },
   getEnvInventorySummary: (projectId: string): Promise<EnvInventorySummary> =>
     USE_MOCK ? mockDelay(buildEnvSummary(mockEnvEntries.filter((e) => e.projectId === projectId), mockEnvScans.filter((s) => s.projectId === projectId))) : fetchAPI<EnvInventorySummary>(`/projects/${projectId}/env-inventory/summary`),
-  scanEnvInventory: (projectId: string, scanType: 'full' | 'incremental'): Promise<EnvInventoryScan> => {
-    if (!USE_MOCK) return fetchAPI<EnvInventoryScan>(`/projects/${projectId}/env-inventory/scan`, { method: 'POST', body: JSON.stringify({ scanType }) });
+  getEnvInventorySkills: (): Promise<EnvInventorySkill[]> =>
+    USE_MOCK
+      ? mockDelay(clone(mockEnvInventorySkills))
+      : fetchAPI<EnvInventorySkill[]>('/env-inventory/skills'),
+  createEnvInventorySkill: (body: EnvInventorySkillPayload): Promise<EnvInventorySkill> => {
+    if (!USE_MOCK) return fetchAPI<EnvInventorySkill>('/env-inventory/skills', { method: 'POST', body: JSON.stringify(body) });
+    const now = new Date().toISOString();
+    const skill: EnvInventorySkill = {
+      ...clone(body), id: `eisk-mock-${Date.now()}`, slug: `custom-${Date.now()}`,
+      builtIn: 0, createdBy: 'usr-local-admin', createdAt: now, updatedAt: now, tenantId: 'tenant-default',
+    };
+    mockEnvInventorySkills = [...mockEnvInventorySkills, skill];
+    return mockDelay(clone(skill));
+  },
+  updateEnvInventorySkill: (skillId: string, body: Partial<EnvInventorySkillPayload>): Promise<EnvInventorySkill> => {
+    if (!USE_MOCK) return fetchAPI<EnvInventorySkill>(`/env-inventory/skills/${skillId}`, { method: 'PATCH', body: JSON.stringify(body) });
+    const index = mockEnvInventorySkills.findIndex((skill) => skill.id === skillId);
+    if (index < 0) return Promise.reject(new Error('环境盘点 Skill 不存在'));
+    const skill = { ...mockEnvInventorySkills[index], ...clone(body), updatedAt: new Date().toISOString() };
+    mockEnvInventorySkills = mockEnvInventorySkills.map((item, i) => i === index ? skill : item);
+    return mockDelay(clone(skill));
+  },
+  deleteEnvInventorySkill: (skillId: string): Promise<{ ok: boolean; id: string }> => {
+    if (!USE_MOCK) return fetchAPI<{ ok: boolean; id: string }>(`/env-inventory/skills/${skillId}`, { method: 'DELETE' });
+    const skill = mockEnvInventorySkills.find((item) => item.id === skillId);
+    if (skill?.builtIn) return Promise.reject(new Error('默认 Skill 不可删除，可停用或编辑'));
+    mockEnvInventorySkills = mockEnvInventorySkills.filter((item) => item.id !== skillId);
+    return mockDelay({ ok: true, id: skillId });
+  },
+  scanEnvInventory: (projectId: string, scanType: 'full' | 'incremental', skillIds?: string[]): Promise<EnvInventoryScan> => {
+    if (!USE_MOCK) return fetchAPI<EnvInventoryScan>(`/projects/${projectId}/env-inventory/scan`, { method: 'POST', body: JSON.stringify({ scanType, skillIds }) });
     // mock：模拟一次扫描，full 重建 / incremental 产生少量变化
     const now = new Date().toISOString();
     const scan: EnvInventoryScan = {
@@ -628,6 +704,11 @@ export const api = {
       added: 0, changed: scanType === 'incremental' ? 1 : 0,
       removed: 0, unchanged: scanType === 'incremental' ? 4 : 0,
       message: scanType === 'full' ? '全量扫描完成，已重建配置条目' : '增量扫描完成',
+      skillIds: (skillIds ?? mockEnvInventorySkills.filter((skill) => skill.enabled).map((skill) => skill.id)),
+      skillSnapshot: Object.fromEntries(
+        mockEnvInventorySkills.filter((skill) => (skillIds ?? mockEnvInventorySkills.filter((item) => item.enabled).map((item) => item.id)).includes(skill.id))
+          .map((skill) => [skill.id, clone(skill)]),
+      ),
     };
     mockEnvScans.unshift(scan);
     if (scanType === 'incremental') {

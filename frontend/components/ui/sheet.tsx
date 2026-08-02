@@ -87,17 +87,17 @@ function Sheet({
     <DrawerRoot isOpen={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side={side}
-        className={cn(widthClass[width], className)}
+        className={cn('text-foreground', widthClass[width], className)}
         aria-label={title ?? '侧边抽屉'}
       >
         {(title || description) && (
           <DrawerHeader className="border-b border-border pb-4 pr-10">
             {title && <DrawerHeading className="font-mono text-lg font-semibold">{title}</DrawerHeading>}
-            {description && <p className="text-sm text-muted-foreground">{description}</p>}
+            {description && <p className="text-sm text-foreground/70">{description}</p>}
           </DrawerHeader>
         )}
         <DrawerCloseTrigger aria-label="关闭" />
-        <DrawerBody className="pt-5">{children}</DrawerBody>
+        <DrawerBody className="pt-5 text-foreground">{children}</DrawerBody>
       </SheetContent>
     </DrawerRoot>
   );

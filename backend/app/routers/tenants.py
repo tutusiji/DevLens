@@ -6,9 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
-from ..access import ROLE_PERMISSIONS, TenantContext, require_permission
+from ..access import ROLE_PERMISSIONS, TenantContext, get_tenant_context, require_permission
 from ..capability import ALL_LEVELS, ROLE_DIMENSIONS, default_thresholds
 from ..db import get_db
+from ..seed import ensure_default_env_inventory_skills
 
 
 router = APIRouter(tags=["tenants-rbac"])
@@ -102,6 +103,10 @@ def create_tenant(
                 updated_at=now,
             ))
     db.commit()
+    # 环境盘点规则同样是每个租户独立管理的资产；新租户创建后立即获得
+    # 可编辑的默认扫描 Skill，避免首次进入环境盘点时出现空规则状态。
+    ensure_default_env_inventory_skills(db, tenant.id)
+    db.refresh(tenant)
     return tenant
 
 
@@ -116,6 +121,29 @@ def get_current_context(
         raise HTTPException(status_code=404, detail="当前租户或用户不存在")
     permissions = sorted(ROLE_PERMISSIONS.get(ctx.role, set()))
     return {"tenant": tenant, "user": user, "role": ctx.role, "permissions": permissions}
+
+
+@router.get("/tenants", response_model=list[schemas.TenantM])
+def list_my_tenants(
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(get_tenant_context),
+):
+    """当前用户所属的全部租户（组织空间），供前端切换器使用。"""
+    memberships = (
+        db.query(models.TenantMembership)
+        .filter_by(user_id=ctx.user_id)
+        .all()
+    )
+    tenant_ids = [membership.tenant_id for membership in memberships]
+    if not tenant_ids:
+        return []
+    tenants = (
+        db.query(models.Tenant)
+        .filter(models.Tenant.id.in_(tenant_ids))
+        .order_by(models.Tenant.created_at.asc())
+        .all()
+    )
+    return tenants
 
 
 @router.get("/tenants/current/members", response_model=list[schemas.TenantMembershipM])

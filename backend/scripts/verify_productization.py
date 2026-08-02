@@ -23,6 +23,8 @@ from app.git_collect import _parse_imports  # noqa: E402
 from app.main import app  # noqa: E402
 from app.routers.portfolio import comparison_data  # noqa: E402
 from app.routers.reports import render_project_comparison_html  # noqa: E402
+from app.seed import ensure_default_env_inventory_skills  # noqa: E402
+from app.env_scanner import scan_repo  # noqa: E402
 
 
 def verify_models_and_comparison() -> None:
@@ -79,9 +81,60 @@ def verify_rbac_and_routes() -> None:
         "/api/v1/auth/me",
         "/api/v1/tenants/current/members",
         "/api/v1/tenants",
+        "/api/v1/env-inventory/skills",
+        "/api/v1/env-inventory/skills/{skill_id}",
     }
     assert expected.issubset(paths), expected - set(paths)
     assert app.openapi()["paths"]["/api/v1/graph"]["get"]["deprecated"] is True
+
+
+def verify_env_inventory_skill_assets() -> None:
+    """环境盘点规则按租户隔离，且扫描记录可冻结规则资产快照。"""
+    engine = create_engine("sqlite:///:memory:", future=True)
+    session = sessionmaker(bind=engine, future=True)()
+    Base.metadata.create_all(engine)
+    try:
+        session.add_all([
+            models.Tenant(id="tenant-a", name="Tenant A", slug="tenant-a", status="active", created_at="", updated_at=""),
+            models.Tenant(id="tenant-b", name="Tenant B", slug="tenant-b", status="active", created_at="", updated_at=""),
+        ])
+        session.commit()
+        ensure_default_env_inventory_skills(session, "tenant-a")
+        ensure_default_env_inventory_skills(session, "tenant-b")
+        tenant_a_skills = session.query(models.EnvInventorySkill).filter_by(tenant_id="tenant-a").all()
+        tenant_b_skills = session.query(models.EnvInventorySkill).filter_by(tenant_id="tenant-b").all()
+        assert len(tenant_a_skills) == 3 and len(tenant_b_skills) == 3
+        assert {skill.slug for skill in tenant_a_skills} == {
+            "runtime-config", "middleware-connections", "deployment-topology",
+        }
+        assert not set(skill.id for skill in tenant_a_skills).intersection(skill.id for skill in tenant_b_skills)
+
+        session.add(models.Project(id="env-project-a", tenant_id="tenant-a", name="环境验证项目", language="Python"))
+        snapshot = {
+            skill.id: {
+                "name": skill.name,
+                "file_patterns": skill.file_patterns,
+                "ai_instruction": skill.ai_instruction,
+            } for skill in tenant_a_skills
+        }
+        session.add(models.EnvInventoryScan(
+            id="env-scan-a", project_id="env-project-a", status="completed",
+            skill_ids=[skill.id for skill in tenant_a_skills], skill_snapshot=snapshot,
+        ))
+        session.commit()
+        scan = session.query(models.EnvInventoryScan).filter_by(id="env-scan-a").one()
+        assert len(scan.skill_ids) == 3 and len(scan.skill_snapshot) == 3
+
+        with TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            (repo / "application.yml").write_text("spring:\n  redis:\n    host: cache\n", encoding="utf-8")
+            (repo / "Dockerfile").write_text("FROM python:3.13\n", encoding="utf-8")
+            runtime_only = [{"file_patterns": ["application*.yml"], "keywords": []}]
+            scanned, entries = scan_repo(str(repo), scan_skills=runtime_only)
+            assert scanned == 1 and entries and all(item.source_file == "application.yml" for item in entries)
+    finally:
+        session.close()
+        engine.dispose()
 
 
 def verify_project_graph_and_architecture_design() -> None:
@@ -166,6 +219,7 @@ def verify_internal_import_parser() -> None:
 if __name__ == "__main__":
     verify_models_and_comparison()
     verify_rbac_and_routes()
+    verify_env_inventory_skill_assets()
     verify_project_graph_and_architecture_design()
     verify_internal_import_parser()
-    print("可售化验证通过：租户隔离、RBAC、项目组合快照、报告、项目代码图谱与架构设计方案均正常。")
+    print("可售化验证通过：租户隔离、RBAC、规则资产/扫描快照、项目组合快照、报告、项目代码图谱与架构设计方案均正常。")

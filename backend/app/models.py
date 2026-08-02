@@ -70,6 +70,7 @@ class Developer(Base):
     behavior_evidence = Column(JSON)       # BehaviorEvidence[]
     partners = Column(JSON)                # CollaborationPartner[]
     modules = Column(JSON)                 # ModuleContribution[]
+    project_contributions = Column(JSON, default=list)  # DeveloperProjectContribution[]
     ai_suggestion = Column(Text)
     # 组织隔离：旧数据迁移至 tenant-default，新写入数据必须归属租户。
     tenant_id = Column(String, default="tenant-default", index=True)
@@ -395,6 +396,32 @@ class EnvInventoryScan(Base):
     removed = Column(Integer, default=0)           # 增量：失效条目数
     unchanged = Column(Integer, default=0)         # 增量：无变化条目数
     message = Column(Text, default="")
+    # 本次扫描实际采用的环境盘点规则；快照保证结果可解释、可追溯。
+    skill_ids = Column(JSON, default=list)
+    skill_snapshot = Column(JSON, default=dict)
+
+
+class EnvInventorySkill(Base):
+    """环境盘点规则资产：定义扫描范围、关键词与 AI 提取边界。"""
+    __tablename__ = "env_inventory_skills"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "slug", name="uq_env_inventory_skill_tenant_slug"),
+    )
+
+    id = Column(String, primary_key=True)
+    slug = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    description = Column(Text, default="")
+    file_patterns = Column(JSON, default=list)
+    keywords = Column(JSON, default=list)
+    tool_types = Column(JSON, default=list)
+    ai_instruction = Column(Text, default="")
+    enabled = Column(Integer, default=1)
+    built_in = Column(Integer, default=0)
+    created_by = Column(String, default="")
+    created_at = Column(String)
+    updated_at = Column(String)
+    tenant_id = Column(String, default="tenant-default", index=True)
 
 
 class EnvInventoryEntry(Base):

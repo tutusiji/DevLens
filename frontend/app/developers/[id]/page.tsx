@@ -9,6 +9,7 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   AlertTriangle, ArrowLeft, CheckCircle2, ClipboardCheck, Database, Download, Eye, FileText,
   GitCommit, LoaderCircle, Sparkles, TrendingUp, Users2, XCircle, Box,
+  FolderKanban, ArrowUpRight,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -689,6 +690,54 @@ export default function DeveloperDetailPage() {
         </Card>
       </div>
 
+      {/* ============ 参与项目：模块归属的事实入口 ============ */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FolderKanban className="h-4 w-4 text-primary" />
+            参与项目
+          </CardTitle>
+          <CardDescription>以项目贡献事实为来源；一个开发者可同时参与多个项目，主导模块将在下方标明所属项目。</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {(detail.projects ?? []).length ? (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {(detail.projects ?? []).map((project) => (
+                <button
+                  type="button"
+                  key={project.projectId}
+                  onClick={() => router.push(`/projects/${project.projectId}`)}
+                  className="group rounded-xl border border-border bg-muted/15 p-4 text-left transition-colors hover:border-primary/35 hover:bg-primary/[0.04]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-semibold text-foreground">{project.projectName}</span>
+                        <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                        <Badge variant={project.ownership >= 60 ? 'success' : 'secondary'}>{project.role}</Badge>
+                        {project.lastActiveAt ? <span>最近活跃 {project.lastActiveAt}</span> : null}
+                      </div>
+                    </div>
+                    {project.projectScore ? <ScoreRing score={project.projectScore} size={36} stroke={4} /> : null}
+                  </div>
+                  <div className="mt-4 grid grid-cols-3 gap-2 border-t border-border/70 pt-3 text-xs">
+                    <div><div className="text-muted-foreground">提交</div><div className="mt-0.5 font-mono font-semibold text-foreground">{project.commits}</div></div>
+                    <div><div className="text-muted-foreground">评审</div><div className="mt-0.5 font-mono font-semibold text-foreground">{project.reviews}</div></div>
+                    <div><div className="text-muted-foreground">模块</div><div className="mt-0.5 font-mono font-semibold text-foreground">{project.moduleCount}</div></div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">
+              暂未归集到项目参与记录。完成仓库 Git 作者映射及项目贡献聚合后，这里会展示该开发者参与的全部项目。
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* ============ 主导模块 + 协作伙伴 ============ */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
@@ -697,13 +746,24 @@ export default function DeveloperDetailPage() {
               <Box className="h-4 w-4 text-primary" />
               主导模块
             </CardTitle>
-            <CardDescription>按归属占比排序</CardDescription>
+            <CardDescription>按归属占比排序，并明确标注模块所在项目</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {detail.modules.map((m) => (
-              <div key={m.module} className="space-y-1">
+              <div key={`${m.projectId || 'unassigned'}-${m.module}`} className="space-y-1 rounded-lg border border-border/60 bg-muted/10 p-3">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-sm">{m.module}</span>
+                  <div className="min-w-0">
+                    <div className="font-mono text-sm text-foreground">{m.module}</div>
+                    {m.projectName ? (
+                      <button
+                        type="button"
+                        onClick={() => m.projectId && router.push(`/projects/${m.projectId}`)}
+                        className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                      >
+                        <FolderKanban className="h-3 w-3" />所属项目：{m.projectName}
+                      </button>
+                    ) : <div className="mt-0.5 text-xs text-muted-foreground">所属项目待归集</div>}
+                  </div>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <span>{m.commits} commits</span>
                     <span style={{ color: scoreColor(m.complexity) }}>复杂度 {m.complexity}</span>

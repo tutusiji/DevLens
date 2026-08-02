@@ -1,21 +1,51 @@
 """初始化基础数据 -- 从 frontend/lib/mock-data.ts 移植
 
 JSON 字段统一用 camelCase key（与前端类型一致），Pydantic 读取后原样输出。
+
+所有种子数据写入 SEED_TENANT_ID（测试租户），默认租户保持干净，
+真实组织数据不会被演示数据污染。
 """
+from sqlalchemy import event
 from sqlalchemy.orm import Session
+import uuid
 
 from .db import SessionLocal, Base, engine
 from . import models
 
 
+# 种子数据专属租户：演示/测试数据一律进独立测试组织空间
+SEED_TENANT_ID = "tenant-test"
+
+
+def _make_seed_session() -> Session:
+    """创建种子专用 session：新插入对象若带 tenant_id 自动挂到测试租户。"""
+    db = SessionLocal()
+
+    @event.listens_for(db, "before_flush")
+    def _apply_tenant(session, flush_context, instances):
+        for obj in session.new:
+            if hasattr(obj, "tenant_id") and not obj.tenant_id:
+                obj.tenant_id = SEED_TENANT_ID
+
+    return db
+
+
 def _clear(db: Session) -> None:
+    """仅清理测试租户的旧种子数据，绝不触碰其他租户（含默认租户）的真实数据。"""
+    # 子表按 project 归属清理：先取测试租户的项目 id
+    project_ids = [
+        pid for (pid,) in db.query(models.Project.id)
+        .filter_by(tenant_id=SEED_TENANT_ID).all()
+    ]
+    if project_ids:
+        for t in [models.FixPriority, models.ModuleRisk, models.Insight, models.AnalysisRun]:
+            db.query(t).filter(t.project_id.in_(project_ids)).delete(synchronize_session=False)
     for t in [
-        models.FixPriority, models.ModuleRisk, models.Insight,
-        models.AnalysisRun, models.Repository, models.Project,
+        models.Repository, models.Project,
         models.CapabilityGap, models.IdentityMatch, models.Developer,
         models.Team, models.TeamGroup, models.TeamSpace, models.LargeTeam,
     ]:
-        db.query(t).delete()
+        db.query(t).filter_by(tenant_id=SEED_TENANT_ID).delete(synchronize_session=False)
     db.commit()
 
 
@@ -53,7 +83,7 @@ _DEV_DETAILS = {
 
 def seed() -> None:
     Base.metadata.create_all(engine)
-    db = SessionLocal()
+    db = _make_seed_session()
     _clear(db)
 
     # ---- LargeTeams ----
@@ -236,7 +266,7 @@ def _seed_project_detail_p2(db: Session) -> None:
 def seed_config() -> None:
     """初始化 LLM/向量配置（真实 deepseek 配置 + 向量库 mock 状态）"""
     Base.metadata.create_all(engine)
-    db = SessionLocal()
+    db = _make_seed_session()
     if db.query(models.ModelProvider).count() > 0:
         db.close()
         return
@@ -267,7 +297,7 @@ def seed_config() -> None:
 def seed_skills() -> None:
     """初始化 Skill 管理模块种子数据：2 来源 + 8 规则 + 2 编组（仅当 skills 表为空时调用）"""
     Base.metadata.create_all(engine)
-    db = SessionLocal()
+    db = _make_seed_session()
     if db.query(models.Skill).count() > 0:
         db.close()
         return
@@ -401,7 +431,7 @@ def seed_capability() -> None:
     from .capability import ALL_LEVELS, ROLE_DIMENSIONS, default_thresholds
 
     Base.metadata.create_all(engine)
-    db = SessionLocal()
+    db = _make_seed_session()
     if db.query(models.CapabilityRole).count() > 0:
         db.close()
         return
@@ -460,7 +490,7 @@ def seed_env_inventory() -> None:
     database/redis/nacos 三类工具的示例条目 + 1 条全量扫描记录。
     """
     Base.metadata.create_all(engine)
-    db = SessionLocal()
+    db = _make_seed_session()
     if db.query(models.EnvInventoryEntry).count() > 0:
         db.close()
         return
@@ -515,6 +545,140 @@ def seed_env_inventory() -> None:
     db.commit()
     db.close()
     print("✓ seed_env_inventory 完成")
+
+
+SEED_PROJECT_CONTRIBUTORS: dict[str, list[dict]] = {
+    "p3": [
+        {"name": "赵磊", "username": "zhaolei", "commits": 238, "reviews": 96, "ownership": 67},
+        {"name": "吴婷", "username": "wuting", "commits": 177, "reviews": 58, "ownership": 52},
+    ],
+    "p4": [
+        {"name": "赵磊", "username": "zhaolei", "commits": 186, "reviews": 72, "ownership": 46},
+        {"name": "刘洋", "username": "liuyang", "commits": 104, "reviews": 39, "ownership": 35},
+        {"name": "张敏", "username": "zhangmin", "commits": 83, "reviews": 24, "ownership": 28},
+    ],
+    "p5": [
+        {"name": "王琳", "username": "wanglin", "commits": 242, "reviews": 91, "ownership": 78},
+        {"name": "周杰", "username": "zhoujie", "commits": 161, "reviews": 52, "ownership": 57},
+        {"name": "陈思", "username": "chensi", "commits": 44, "reviews": 18, "ownership": 22},
+    ],
+    "p6": [
+        {"name": "赵磊", "username": "zhaolei", "commits": 188, "reviews": 77, "ownership": 63},
+        {"name": "吴婷", "username": "wuting", "commits": 142, "reviews": 46, "ownership": 51},
+    ],
+    "p7": [
+        {"name": "刘洋", "username": "liuyang", "commits": 194, "reviews": 62, "ownership": 71},
+        {"name": "陈思", "username": "chensi", "commits": 78, "reviews": 26, "ownership": 38},
+    ],
+    "p8": [
+        {"name": "陈思", "username": "chensi", "commits": 78, "reviews": 26, "ownership": 38},
+        {"name": "刘洋", "username": "liuyang", "commits": 58, "reviews": 19, "ownership": 31},
+    ],
+}
+
+
+def ensure_seed_project_contributors(db, tenant_id: str) -> None:
+    """补齐演示项目的 Git 贡献归集，供开发者画像按项目追溯参与关系。"""
+    changed = False
+    for project_id, contributors in SEED_PROJECT_CONTRIBUTORS.items():
+        project = db.query(models.Project).filter_by(id=project_id, tenant_id=tenant_id).first()
+        if project and not project.contributor_list:
+            project.contributor_list = contributors
+            changed = True
+    if changed:
+        db.commit()
+
+
+DEFAULT_ENV_INVENTORY_SKILLS = [
+    {
+        "slug": "runtime-config",
+        "name": "运行配置与密钥来源",
+        "description": "定位运行环境、连接配置、凭据引用与敏感字段来源；输出时始终脱敏。",
+        "file_patterns": [
+            ".env", ".env.*", "*.env", "env/*", "config/env*",
+            "application*.yml", "application*.yaml", "application*.properties",
+            "bootstrap*.yml", "bootstrap*.yaml", "bootstrap*.properties",
+            "config/*.yml", "config/*.yaml", "config/*.properties",
+        ],
+        "keywords": ["host", "url", "port", "username", "password", "token", "secret", "key", "database"],
+        "tool_types": ["database", "redis", "nacos", "third_party", "other"],
+        "ai_instruction": (
+            "识别运行环境、连接配置、凭据引用和敏感字段。只输出脱敏后的值、来源文件和行号，"
+            "不得输出密码、Token、Secret 或私钥明文。"
+        ),
+    },
+    {
+        "slug": "middleware-connections",
+        "name": "中间件与数据服务连接",
+        "description": "提取数据库、缓存、注册中心、消息队列与搜索服务的非敏感连接元数据。",
+        "file_patterns": [
+            "application*.yml", "application*.yaml", "application*.properties",
+            "bootstrap*.yml", "bootstrap*.yaml", "bootstrap*.properties",
+            "config/*", "env/*", "*.properties",
+        ],
+        "keywords": [
+            "mysql", "postgres", "redis", "nacos", "kafka", "rabbitmq", "rocketmq",
+            "elasticsearch", "mongodb", "jdbc", "datasource",
+        ],
+        "tool_types": ["database", "redis", "nacos", "mq", "kafka", "es"],
+        "ai_instruction": (
+            "识别数据库、缓存、注册中心、消息队列和搜索引擎连接；按资产类型归类，"
+            "仅提取 host、port、database、namespace、topic 等非敏感元数据。"
+        ),
+    },
+    {
+        "slug": "deployment-topology",
+        "name": "部署与入口拓扑",
+        "description": "提取镜像、服务入口、网关、反向代理及 K8s 部署拓扑。",
+        "file_patterns": [
+            "docker-compose*.yml", "docker-compose*.yaml", "Dockerfile",
+            "k8s/*.yaml", "k8s/*.yml", "deploy/*.yaml", "deploy/*.yml",
+            "values*.yaml", "values*.yml", "nginx.conf", "*.conf",
+        ],
+        "keywords": ["image", "services", "proxy_pass", "ingress", "gateway", "replicas", "host"],
+        "tool_types": ["gateway", "third_party", "other"],
+        "ai_instruction": (
+            "识别部署镜像、服务入口、反向代理、网关、Kubernetes 服务及依赖拓扑；"
+            "不读取、不展示、不推断任何 Secret 明文。"
+        ),
+    },
+]
+
+
+def ensure_default_env_inventory_skills(db, tenant_id: str) -> None:
+    """为每个租户补齐默认盘点 Skill；只补缺失项，不覆盖用户后续编辑。"""
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
+    existing_slugs = {
+        slug for (slug,) in db.query(models.EnvInventorySkill.slug)
+        .filter_by(tenant_id=tenant_id)
+        .all()
+    }
+    created = False
+    for item in DEFAULT_ENV_INVENTORY_SKILLS:
+        if item["slug"] in existing_slugs:
+            continue
+        db.add(models.EnvInventorySkill(
+            # 主键需要跨租户全局唯一；slug 仍以 (tenant_id, slug) 约束保证每租户一份。
+            id=f"eisk-{uuid.uuid5(uuid.NAMESPACE_URL, f'devlens://{tenant_id}/{item["slug"]}').hex[:20]}",
+            slug=item["slug"],
+            name=item["name"],
+            description=item["description"],
+            file_patterns=item["file_patterns"],
+            keywords=item["keywords"],
+            tool_types=item["tool_types"],
+            ai_instruction=item["ai_instruction"],
+            enabled=1,
+            built_in=1,
+            created_by="system",
+            created_at=now,
+            updated_at=now,
+            tenant_id=tenant_id,
+        ))
+        created = True
+    if created:
+        db.commit()
 
 
 if __name__ == "__main__":

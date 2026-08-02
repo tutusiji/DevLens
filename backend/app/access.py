@@ -62,7 +62,7 @@ def local_admin_enabled() -> bool:
 
 
 def ensure_bootstrap_tenant(db: Session) -> None:
-    """确保空安装也拥有一个可登录、可迁移历史数据的默认组织。"""
+    """确保空安装也拥有一个可登录、可迁移历史数据的默认组织，以及独立的测试组织空间。"""
     now = _now()
     tenant = db.query(models.Tenant).filter_by(id=DEFAULT_TENANT_ID).first()
     if not tenant:
@@ -70,6 +70,18 @@ def ensure_bootstrap_tenant(db: Session) -> None:
             id=DEFAULT_TENANT_ID,
             name="DevLens 本地工作区",
             slug="local",
+            status="active",
+            created_at=now,
+            updated_at=now,
+        ))
+    # 测试组织空间：种子/演示数据统一存放于此，与真实数据隔离
+    from .seed import SEED_TENANT_ID
+    test_tenant = db.query(models.Tenant).filter_by(id=SEED_TENANT_ID).first()
+    if not test_tenant:
+        db.add(models.Tenant(
+            id=SEED_TENANT_ID,
+            name="DevLens 测试组织",
+            slug="test",
             status="active",
             created_at=now,
             updated_at=now,
@@ -84,20 +96,24 @@ def ensure_bootstrap_tenant(db: Session) -> None:
             created_at=now,
             updated_at=now,
         ))
-    membership = (
-        db.query(models.TenantMembership)
-        .filter_by(tenant_id=DEFAULT_TENANT_ID, user_id=DEFAULT_USER_ID)
-        .first()
-    )
-    if not membership:
-        db.add(models.TenantMembership(
-            id="tmem-local-owner",
-            tenant_id=DEFAULT_TENANT_ID,
-            user_id=DEFAULT_USER_ID,
-            role="owner",
-            created_at=now,
-            updated_at=now,
-        ))
+    for (tenant_id, membership_id) in [
+        (DEFAULT_TENANT_ID, "tmem-local-owner"),
+        (SEED_TENANT_ID, "tmem-test-owner"),
+    ]:
+        membership = (
+            db.query(models.TenantMembership)
+            .filter_by(tenant_id=tenant_id, user_id=DEFAULT_USER_ID)
+            .first()
+        )
+        if not membership:
+            db.add(models.TenantMembership(
+                id=membership_id,
+                tenant_id=tenant_id,
+                user_id=DEFAULT_USER_ID,
+                role="owner",
+                created_at=now,
+                updated_at=now,
+            ))
     db.commit()
 
 

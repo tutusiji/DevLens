@@ -10,12 +10,14 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   AlertCircle, ArrowLeft, CheckCircle2, Cloud, Database, Eye, EyeOff,
   HardDrive, History, Loader2, Network, Plug, RefreshCw, Search, Server,
-  Settings2, ShieldCheck, XCircle, Zap,
+  Settings2, ShieldCheck, XCircle, Zap, Bot, FileSearch, Pencil, Plus, Save, Trash2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Segmented } from '@/components/ui/segmented';
+import { Sheet } from '@/components/ui/sheet';
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { EmptyState } from '@/components/filter-bar';
 import { PageHeader } from '@/components/widgets';
@@ -23,7 +25,7 @@ import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import type {
   EnvInventoryEntry, EnvInventoryScan, EnvInventorySummary,
-  EnvName, EnvToolType, EnvEntryStatus,
+  EnvInventorySkill, EnvInventorySkillPayload, EnvName, EnvToolType, EnvEntryStatus,
 } from '@/lib/types';
 
 // ============ 元数据映射 ============
@@ -263,6 +265,252 @@ function ConfirmDialog({ open, title, description, onConfirm, onCancel, loading 
   );
 }
 
+// ============ 环境盘点 Skill 编辑器 ============
+const EMPTY_ENV_SKILL: EnvInventorySkillPayload = {
+  name: '',
+  description: '',
+  filePatterns: [],
+  keywords: [],
+  toolTypes: [],
+  aiInstruction: '',
+  enabled: 1,
+};
+
+function splitRuleValues(value: string): string[] {
+  return value.split(/[\n,，]/).map((item) => item.trim()).filter(Boolean);
+}
+
+function joinRuleValues(values: string[]): string {
+  return (values || []).join('\n');
+}
+
+function toEnvSkillPayload(skill?: EnvInventorySkill | null): EnvInventorySkillPayload {
+  if (!skill) return { ...EMPTY_ENV_SKILL, filePatterns: [], keywords: [], toolTypes: [] };
+  return {
+    name: skill.name,
+    description: skill.description,
+    filePatterns: skill.filePatterns,
+    keywords: skill.keywords,
+    toolTypes: skill.toolTypes,
+    aiInstruction: skill.aiInstruction,
+    enabled: skill.enabled,
+  };
+}
+
+function EnvInventorySkillSheet({
+  open, skills, onClose, onSave, onDelete,
+}: {
+  open: boolean;
+  skills: EnvInventorySkill[];
+  onClose: () => void;
+  onSave: (skill: EnvInventorySkill | null, payload: EnvInventorySkillPayload) => Promise<void>;
+  onDelete: (skill: EnvInventorySkill) => Promise<void>;
+}) {
+  const [selectedId, setSelectedId] = React.useState<string | 'new'>('new');
+  const selected = selectedId === 'new' ? null : skills.find((skill) => skill.id === selectedId) ?? null;
+  const [form, setForm] = React.useState<EnvInventorySkillPayload>(EMPTY_ENV_SKILL);
+  const [saving, setSaving] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const initial = selectedId === 'new' ? skills[0] ?? null : skills.find((skill) => skill.id === selectedId) ?? null;
+    if (initial) setSelectedId(initial.id);
+    setForm(toEnvSkillPayload(initial));
+    // 只在打开时用首条默认规则初始化，避免列表刷新打断正在编辑的表单。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const choose = (skill: EnvInventorySkill | null) => {
+    setSelectedId(skill?.id ?? 'new');
+    setForm(toEnvSkillPayload(skill));
+  };
+  const toggleToolType = (toolType: EnvToolType) => {
+    setForm((current) => ({
+      ...current,
+      toolTypes: current.toolTypes.includes(toolType)
+        ? current.toolTypes.filter((item) => item !== toolType)
+        : [...current.toolTypes, toolType],
+    }));
+  };
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      await onSave(selected, form);
+      if (!selected) choose(skills[0] ?? null);
+    } finally {
+      setSaving(false);
+    }
+  };
+  const remove = async () => {
+    if (!selected || selected.builtIn || !window.confirm(`删除「${selected.name}」？后续扫描将不再使用这条规则。`)) return;
+    setDeleting(true);
+    try {
+      await onDelete(selected);
+      choose(null);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title="环境盘点 Skills"
+      description="规则即资产：用文件模式、关键词和 AI 提取边界控制后续扫描范围；每次扫描都会冻结当前规则快照。"
+      width="lg"
+      className="max-w-5xl"
+    >
+      <div className="grid min-h-[560px] gap-5 lg:grid-cols-[230px_minmax(0,1fr)]">
+        <aside className="flex min-h-0 flex-col rounded-xl border border-border bg-muted/15 p-2">
+          <Button variant="outline" size="sm" className="mb-2 w-full justify-start" onClick={() => choose(null)}>
+            <Plus className="h-4 w-4" />新建 Skill
+          </Button>
+          <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
+            {skills.map((skill) => {
+              const active = selected?.id === skill.id;
+              return (
+                <button
+                  key={skill.id}
+                  type="button"
+                  onClick={() => choose(skill)}
+                  className={cn(
+                    'w-full rounded-lg px-3 py-2.5 text-left transition-colors',
+                    active ? 'bg-primary/12 text-foreground ring-1 ring-primary/30' : 'text-foreground hover:bg-muted/70',
+                  )}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{skill.name}</span>
+                    {skill.builtIn ? <Badge variant="secondary" className="shrink-0 text-[10px]">默认</Badge> : null}
+                  </div>
+                  <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span className={skill.enabled ? 'text-success' : 'text-muted-foreground'}>{skill.enabled ? '已启用' : '已停用'}</span>
+                    <span>·</span><span>{skill.filePatterns.length} 个模式</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <p className="border-t border-border px-2 pt-3 text-xs leading-5 text-muted-foreground">
+            默认规则可编辑或停用；自定义规则可删除。原始配置不会发送给模型，敏感值始终脱敏。
+          </p>
+        </aside>
+
+        <form onSubmit={submit} className="space-y-5">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4">
+            <div>
+              <h3 className="text-base font-semibold text-foreground">{selected ? `编辑 · ${selected.name}` : '新建环境盘点 Skill'}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">配置扫描范围与 AI 提取边界。提交后，下一次扫描才会使用新的规则。</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setForm((current) => ({ ...current, enabled: current.enabled ? 0 : 1 }))}
+              className={cn(
+                'inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-medium transition-colors',
+                form.enabled ? 'border-success/35 bg-success/10 text-success' : 'border-border bg-muted/30 text-foreground',
+              )}
+              aria-pressed={Boolean(form.enabled)}
+            >
+              {form.enabled ? '已启用' : '已停用'}
+            </button>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Skill 名称 <span className="text-destructive">*</span></label>
+              <Input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="例如：部署与入口拓扑" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">展示说明</label>
+              <Input value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="说明这条规则解决什么问题" />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground"><FileSearch className="h-4 w-4 text-primary" />文件模式 <span className="text-destructive">*</span></label>
+            <textarea
+              value={joinRuleValues(form.filePatterns)}
+              onChange={(event) => setForm({ ...form, filePatterns: splitRuleValues(event.target.value) })}
+              rows={4}
+              placeholder={'一行一个，例如：\napplication*.yml\nconfig/*.yaml\ndocker-compose*.yml'}
+              className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            <p className="text-xs text-muted-foreground">支持单层通配符 <code className="font-mono text-foreground">*</code>；路径相对于仓库根目录。</p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">关键词补充匹配</label>
+              <textarea
+                value={joinRuleValues(form.keywords)}
+                onChange={(event) => setForm({ ...form, keywords: splitRuleValues(event.target.value) })}
+                rows={4}
+                placeholder={'一行一个，例如：\nredis\njdbc\nproxy_pass'}
+                className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              />
+              <p className="text-xs text-muted-foreground">用于从未明确命名的文本配置文件中补充发现候选文件。</p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">重点资产类型</label>
+              <div className="flex flex-wrap gap-2">
+                {(Object.keys(TOOL_META) as EnvToolType[]).map((toolType) => {
+                  const checked = form.toolTypes.includes(toolType);
+                  return (
+                    <button
+                      key={toolType}
+                      type="button"
+                      onClick={() => toggleToolType(toolType)}
+                      className={cn(
+                        'rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors',
+                        checked ? 'border-primary/40 bg-primary/12 text-primary' : 'border-border bg-background text-foreground hover:bg-muted/60',
+                      )}
+                      aria-pressed={checked}
+                    >
+                      {TOOL_META[toolType].label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs leading-5 text-muted-foreground">为 AI 提取结果提供分类重点；静态扫描始终对敏感字段脱敏。</p>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground"><Bot className="h-4 w-4 text-primary" />AI 提取指令</label>
+            <textarea
+              value={form.aiInstruction}
+              onChange={(event) => setForm({ ...form, aiInstruction: event.target.value })}
+              rows={5}
+              placeholder="告诉 AI 应识别的资产、应输出的元数据与敏感信息边界。"
+              className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            <p className="text-xs leading-5 text-muted-foreground">该指令随扫描快照固化，供后续基于脱敏摘要的 AI 架构解释使用；不会将密码、Token 或 Secret 明文发送给模型。</p>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
+            <div>
+              {selected && !selected.builtIn ? (
+                <Button type="button" variant="destructive" size="sm" onClick={remove} disabled={deleting || saving}>
+                  <Trash2 className="h-4 w-4" />{deleting ? '删除中…' : '删除'}
+                </Button>
+              ) : selected?.builtIn ? <span className="text-xs text-muted-foreground">默认 Skill 可编辑、可停用，但不可删除。</span> : null}
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={onClose}>关闭</Button>
+              <Button type="submit" variant="default" disabled={saving || !form.name.trim() || !form.filePatterns.length}>
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {selected ? '保存规则' : '创建规则'}
+              </Button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </Sheet>
+  );
+}
+
 // ============ 主页面 ============
 export default function EnvInventoryPage() {
   const params = useParams();
@@ -281,6 +529,8 @@ export default function EnvInventoryPage() {
   const [query, setQuery] = React.useState('');
   const [revealed, setRevealed] = React.useState<Set<string>>(new Set());
   const [confirmFull, setConfirmFull] = React.useState(false);
+  const [skills, setSkills] = React.useState<EnvInventorySkill[]>([]);
+  const [skillSheetOpen, setSkillSheetOpen] = React.useState(false);
 
   const reload = React.useCallback(async () => {
     const [s, e, sc] = await Promise.all([
@@ -292,7 +542,11 @@ export default function EnvInventoryPage() {
   }, [pid]);
 
   React.useEffect(() => {
-    Promise.all([reload(), api.getProjectDetail(pid).then((p) => setProjectName(p?.name || ''))])
+    Promise.all([
+      reload(),
+      api.getEnvInventorySkills().then(setSkills),
+      api.getProjectDetail(pid).then((p) => setProjectName(p?.name || '')),
+    ])
       .catch(() => undefined)
       .finally(() => setLoading(false));
   }, [reload, pid]);
@@ -308,7 +562,12 @@ export default function EnvInventoryPage() {
   const doScan = async (scanType: 'full' | 'incremental') => {
     setScanning(scanType);
     try {
-      const scan = await api.scanEnvInventory(pid, scanType);
+      const enabledSkillIds = skills.filter((skill) => skill.enabled).map((skill) => skill.id);
+      if (!enabledSkillIds.length) {
+        show('请先在「盘点 Skills」中启用至少一条规则', 'error');
+        return;
+      }
+      const scan = await api.scanEnvInventory(pid, scanType, enabledSkillIds);
       await reload();
       if (scan.status === 'failed') {
         show(`扫描失败：${scan.message || '未知错误'}`, 'error');
@@ -321,6 +580,32 @@ export default function EnvInventoryPage() {
       show('扫描请求失败', 'error');
     } finally {
       setScanning(null);
+    }
+  };
+
+  const saveSkill = async (skill: EnvInventorySkill | null, payload: EnvInventorySkillPayload) => {
+    try {
+      const saved = skill
+        ? await api.updateEnvInventorySkill(skill.id, payload)
+        : await api.createEnvInventorySkill(payload);
+      setSkills((current) => skill
+        ? current.map((item) => item.id === saved.id ? saved : item)
+        : [...current, saved]);
+      show(skill ? '环境盘点 Skill 已保存' : '环境盘点 Skill 已创建', 'success');
+    } catch (error) {
+      show(error instanceof Error ? error.message : '保存 Skill 失败', 'error');
+      throw error;
+    }
+  };
+
+  const deleteSkill = async (skill: EnvInventorySkill) => {
+    try {
+      await api.deleteEnvInventorySkill(skill.id);
+      setSkills((current) => current.filter((item) => item.id !== skill.id));
+      show('环境盘点 Skill 已删除', 'success');
+    } catch (error) {
+      show(error instanceof Error ? error.message : '删除 Skill 失败', 'error');
+      throw error;
     }
   };
 
@@ -376,6 +661,9 @@ export default function EnvInventoryPage() {
         description="自动盘点项目配置文件中的基础设施依赖（数据库 / Redis / Nacos / MQ …），每个条目带来源文件、行号与更新时间，敏感字段已脱敏。"
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setSkillSheetOpen(true)}>
+              <Pencil className="h-4 w-4" />盘点 Skills
+            </Button>
             <Button variant="outline" size="sm" onClick={() => doScan('incremental')} disabled={!!scanning}>
               {scanning === 'incremental' ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               按此历史更新
@@ -387,6 +675,22 @@ export default function EnvInventoryPage() {
           </div>
         }
       />
+
+      <Card className="mb-4 border-primary/20 bg-primary/[0.04]">
+        <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <Zap className="h-4 w-4 text-primary" />
+            本次扫描将使用
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {skills.filter((skill) => skill.enabled).map((skill) => (
+              <Badge key={skill.id} variant="secondary">{skill.name}</Badge>
+            ))}
+            {!skills.some((skill) => skill.enabled) && <span className="text-sm font-medium text-destructive">暂无启用规则，请先配置盘点 Skills</span>}
+          </div>
+          <span className="text-xs text-muted-foreground">规则会随扫描记录固化，确保结果可解释、可追溯。</span>
+        </CardContent>
+      </Card>
 
       {/* 概览卡片：按 toolType 计数（点击过滤）+ 最近扫描 */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -474,6 +778,13 @@ export default function EnvInventoryPage() {
         loading={scanning === 'full'}
         onCancel={() => setConfirmFull(false)}
         onConfirm={() => { setConfirmFull(false); doScan('full'); }}
+      />
+      <EnvInventorySkillSheet
+        open={skillSheetOpen}
+        skills={skills}
+        onClose={() => setSkillSheetOpen(false)}
+        onSave={saveSkill}
+        onDelete={deleteSkill}
       />
       {node}
     </>

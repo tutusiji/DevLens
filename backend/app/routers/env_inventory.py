@@ -25,6 +25,7 @@ TOOL_LIST = [
     "database", "redis", "nacos", "mq", "kafka", "es", "oss",
     "gateway", "third_party", "other",
 ]
+ENV_SKILL_TOOL_TYPES = set(TOOL_LIST)
 
 
 def _now() -> str:
@@ -52,6 +53,155 @@ def _resolve_repo(
         if c and os.path.isdir(c):
             return c, p
     return None, p
+
+
+def _clean_values(values: list[str] | None) -> list[str]:
+    """规整编辑器输入，避免空字符串/重复项污染规则资产。"""
+    output: list[str] = []
+    for value in values or []:
+        cleaned = str(value or "").strip()
+        if cleaned and cleaned not in output:
+            output.append(cleaned)
+    return output
+
+
+def _skill_to_scan_config(skill: models.EnvInventorySkill) -> dict:
+    """扫描器只接受必要字段，AI 指令仍完整写进本次快照。"""
+    return {
+        "id": skill.id,
+        "slug": skill.slug,
+        "name": skill.name,
+        "description": skill.description or "",
+        "file_patterns": list(skill.file_patterns or []),
+        "keywords": list(skill.keywords or []),
+        "tool_types": list(skill.tool_types or []),
+        "ai_instruction": skill.ai_instruction or "",
+        "enabled": int(skill.enabled or 0),
+        "built_in": int(skill.built_in or 0),
+        "updated_at": skill.updated_at or "",
+    }
+
+
+def _resolve_scan_skills(
+    db: Session,
+    tenant_id: str,
+    requested_ids: list[str] | None,
+) -> list[models.EnvInventorySkill]:
+    """未指定时采用本租户全部已启用 Skill；指定时仍只接受已启用的本租户规则。"""
+    query = db.query(models.EnvInventorySkill).filter_by(tenant_id=tenant_id, enabled=1)
+    if requested_ids is not None:
+        ids = _clean_values(requested_ids)
+        if not ids:
+            return []
+        query = query.filter(models.EnvInventorySkill.id.in_(ids))
+    return query.order_by(models.EnvInventorySkill.created_at, models.EnvInventorySkill.name).all()
+
+
+# ============ 环境盘点 Skill 资产 ============
+
+@router.get("/env-inventory/skills", response_model=list[schemas.EnvInventorySkillM])
+def list_env_inventory_skills(
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:read")),
+):
+    return (
+        db.query(models.EnvInventorySkill)
+        .filter_by(tenant_id=ctx.tenant_id)
+        .order_by(models.EnvInventorySkill.built_in.desc(), models.EnvInventorySkill.created_at)
+        .all()
+    )
+
+
+@router.post("/env-inventory/skills", response_model=schemas.EnvInventorySkillM)
+def create_env_inventory_skill(
+    body: schemas.EnvInventorySkillCreateRequest,
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:write")),
+):
+    name = body.name.strip()
+    patterns = _clean_values(body.file_patterns)
+    if not name:
+        raise HTTPException(status_code=422, detail="Skill 名称不能为空")
+    if not patterns:
+        raise HTTPException(status_code=422, detail="请至少配置一个文件模式")
+    now = _now()
+    skill = models.EnvInventorySkill(
+        id=f"eisk-{uuid.uuid4().hex[:10]}",
+        slug=f"custom-{uuid.uuid4().hex[:8]}",
+        name=name,
+        description=(body.description or "").strip(),
+        file_patterns=patterns,
+        keywords=_clean_values(body.keywords),
+        tool_types=[tool for tool in _clean_values(body.tool_types) if tool in ENV_SKILL_TOOL_TYPES],
+        ai_instruction=(body.ai_instruction or "").strip(),
+        enabled=1 if body.enabled else 0,
+        built_in=0,
+        created_by=ctx.user_id,
+        created_at=now,
+        updated_at=now,
+        tenant_id=ctx.tenant_id,
+    )
+    db.add(skill)
+    db.commit()
+    db.refresh(skill)
+    return skill
+
+
+@router.patch("/env-inventory/skills/{skill_id}", response_model=schemas.EnvInventorySkillM)
+def update_env_inventory_skill(
+    skill_id: str,
+    body: schemas.EnvInventorySkillUpdateRequest,
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:write")),
+):
+    skill = db.query(models.EnvInventorySkill).filter_by(
+        id=skill_id, tenant_id=ctx.tenant_id,
+    ).first()
+    if not skill:
+        raise HTTPException(status_code=404, detail="环境盘点 Skill 不存在")
+    changes = body.model_dump(exclude_unset=True)
+    if "name" in changes:
+        name = (changes["name"] or "").strip()
+        if not name:
+            raise HTTPException(status_code=422, detail="Skill 名称不能为空")
+        skill.name = name
+    if "description" in changes:
+        skill.description = (changes["description"] or "").strip()
+    if "file_patterns" in changes:
+        patterns = _clean_values(changes["file_patterns"])
+        if not patterns:
+            raise HTTPException(status_code=422, detail="请至少配置一个文件模式")
+        skill.file_patterns = patterns
+    if "keywords" in changes:
+        skill.keywords = _clean_values(changes["keywords"])
+    if "tool_types" in changes:
+        skill.tool_types = [tool for tool in _clean_values(changes["tool_types"]) if tool in ENV_SKILL_TOOL_TYPES]
+    if "ai_instruction" in changes:
+        skill.ai_instruction = (changes["ai_instruction"] or "").strip()
+    if "enabled" in changes:
+        skill.enabled = 1 if changes["enabled"] else 0
+    skill.updated_at = _now()
+    db.commit()
+    db.refresh(skill)
+    return skill
+
+
+@router.delete("/env-inventory/skills/{skill_id}")
+def delete_env_inventory_skill(
+    skill_id: str,
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("rules:write")),
+):
+    skill = db.query(models.EnvInventorySkill).filter_by(
+        id=skill_id, tenant_id=ctx.tenant_id,
+    ).first()
+    if not skill:
+        raise HTTPException(status_code=404, detail="环境盘点 Skill 不存在")
+    if skill.built_in:
+        raise HTTPException(status_code=400, detail="默认 Skill 不可删除，可停用或编辑")
+    db.delete(skill)
+    db.commit()
+    return {"ok": True, "id": skill_id}
 
 
 # ============ 条目列表 ============
@@ -151,11 +301,17 @@ def trigger_scan(
         )
 
     scan_type = body.scan_type if body.scan_type in ("full", "incremental") else "full"
+    scan_skills = _resolve_scan_skills(db, ctx.tenant_id, body.skill_ids)
+    if not scan_skills:
+        raise HTTPException(status_code=422, detail="请至少启用一条环境盘点 Skill 后再发起扫描")
+    skill_configs = [_skill_to_scan_config(skill) for skill in scan_skills]
     now = _now()
     scan = models.EnvInventoryScan(
         id=f"einv-scan-{uuid.uuid4().hex[:8]}",
         project_id=pid, scan_type=scan_type, status="scanning",
         trigger="manual", started_at=now,
+        skill_ids=[skill.id for skill in scan_skills],
+        skill_snapshot={skill.id: config for skill, config in zip(scan_skills, skill_configs)},
     )
     db.add(scan)
     db.commit()
@@ -163,9 +319,9 @@ def trigger_scan(
 
     try:
         if scan_type == "full":
-            stats = _run_full(db, pid, scan.id, repo_path, now)
+            stats = _run_full(db, pid, scan.id, repo_path, now, skill_configs)
         else:
-            stats = _run_incremental(db, pid, scan.id, repo_path, now)
+            stats = _run_incremental(db, pid, scan.id, repo_path, now, skill_configs)
         scan.status = "completed"
         scan.finished_at = _now()
         for k, v in stats.items():
@@ -194,9 +350,12 @@ def _entry_from_raw(raw: RawEntry, pid: str, scan_id: str, now: str, status: str
     )
 
 
-def _run_full(db: Session, pid: str, scan_id: str, repo_path: str, now: str) -> dict:
+def _run_full(
+    db: Session, pid: str, scan_id: str, repo_path: str, now: str,
+    scan_skills: list[dict],
+) -> dict:
     """全量：删除旧条目，重建全部新条目（status=active）"""
-    files_scanned, raw_entries = scan_repo(repo_path)
+    files_scanned, raw_entries = scan_repo(repo_path, scan_skills=scan_skills)
     db.query(models.EnvInventoryEntry).filter_by(project_id=pid).delete()
     db.commit()
     for raw in raw_entries:
@@ -209,7 +368,10 @@ def _run_full(db: Session, pid: str, scan_id: str, repo_path: str, now: str) -> 
     }
 
 
-def _run_incremental(db: Session, pid: str, scan_id: str, repo_path: str, now: str) -> dict:
+def _run_incremental(
+    db: Session, pid: str, scan_id: str, repo_path: str, now: str,
+    scan_skills: list[dict],
+) -> dict:
     """增量：取上次来源文件清单重扫 -> 与现有条目 diff
 
     - 文件删除/条目消失 -> status=removed
@@ -220,7 +382,9 @@ def _run_incremental(db: Session, pid: str, scan_id: str, repo_path: str, now: s
     current = db.query(models.EnvInventoryEntry).filter_by(project_id=pid).all()
     # 历史来源文件清单（仍存在的才重扫）
     history_files = {e.source_file for e in current if e.status != "removed"}
-    files_scanned, raw_entries = scan_repo(repo_path, only_files=history_files or None)
+    files_scanned, raw_entries = scan_repo(
+        repo_path, only_files=history_files or None, scan_skills=scan_skills,
+    )
 
     # 现有条目按 (source_file, key, source_line) 索引
     # （含 source_line：URL 内嵌提取会产生同文件多个 key="url" 条目，需按行区分）

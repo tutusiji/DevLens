@@ -350,6 +350,21 @@ export interface ModuleContribution {
   commits: number;
   ownership: number; // 0-100，归属占比
   complexity: number; // 0-100
+  projectId?: string;
+  projectName?: string;
+}
+
+export interface DeveloperProjectContribution {
+  projectId: string;
+  projectName: string;
+  projectScore: number;
+  projectStatus: ProjectStatus | string;
+  role: string;
+  commits: number;
+  reviews: number;
+  ownership: number;
+  moduleCount: number;
+  lastActiveAt: string;
 }
 
 export interface DeveloperDetail extends Developer {
@@ -360,6 +375,8 @@ export interface DeveloperDetail extends Developer {
   behaviorEvidence: BehaviorEvidence[];
   partners: CollaborationPartner[];
   modules: ModuleContribution[];
+  /** 以项目贡献事实为来源，展示开发者参与的全部项目。 */
+  projects?: DeveloperProjectContribution[];
   aiSuggestion: string;
 }
 
@@ -769,6 +786,9 @@ export interface EnvInventoryScan {
   removed: number;
   unchanged: number;
   message?: string;
+  /** 本次扫描冻结的生效规则，确保范围与 AI 指令可追溯。 */
+  skillIds?: string[];
+  skillSnapshot?: Record<string, unknown>;
 }
 
 /** 概览：各环境×工具统计 + 最近扫描 */
@@ -779,6 +799,34 @@ export interface EnvInventorySummary {
   byToolType: Record<EnvToolType, number>;
   lastScanAt?: string;
   lastScanType?: 'full' | 'incremental';
+}
+
+/** 环境盘点 Skill：扫描范围与 AI 提取边界均作为可编辑规则资产。 */
+export interface EnvInventorySkill {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  filePatterns: string[];
+  keywords: string[];
+  toolTypes: EnvToolType[];
+  aiInstruction: string;
+  enabled: number;
+  builtIn: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  tenantId: string;
+}
+
+export interface EnvInventorySkillPayload {
+  name: string;
+  description: string;
+  filePatterns: string[];
+  keywords: string[];
+  toolTypes: EnvToolType[];
+  aiInstruction: string;
+  enabled: number;
 }
 
 // ============ 开发者能力实测评估 ============

@@ -65,6 +65,43 @@ def ensure_migrate():
             {"empty_detail": "{}"},
         )
         conn.commit()
+        # Env Inventory v2：扫描规则资产化，扫描记录保存生效 Skill 快照以便审计追溯。
+        env_scan_columns = {
+            "skill_ids": "JSON",
+            "skill_snapshot": "JSON",
+        }
+        cols = {c["name"] for c in insp.get_columns("env_inventory_scans")}
+        for name, column_type in env_scan_columns.items():
+            if name not in cols:
+                conn.execute(
+                    text(f"ALTER TABLE env_inventory_scans ADD COLUMN {name} {column_type}")
+                )
+                conn.commit()
+        conn.execute(
+            text("UPDATE env_inventory_scans SET skill_ids = :empty_list WHERE skill_ids IS NULL"),
+            {"empty_list": "[]"},
+        )
+        conn.execute(
+            text("UPDATE env_inventory_scans SET skill_snapshot = :empty_snapshot WHERE skill_snapshot IS NULL"),
+            {"empty_snapshot": "{}"},
+        )
+        conn.commit()
+
+        # Developer v2：保存可审计的项目参与贡献快照；旧数据先回填为空数组，
+        # 详情接口仍会根据项目 contributor_list 派生项目归属。
+        developer_columns = {"project_contributions": "JSON"}
+        cols = {c["name"] for c in insp.get_columns("developers")}
+        for name, column_type in developer_columns.items():
+            if name not in cols:
+                conn.execute(
+                    text(f"ALTER TABLE developers ADD COLUMN {name} {column_type}")
+                )
+                conn.commit()
+        conn.execute(
+            text("UPDATE developers SET project_contributions = :empty_list WHERE project_contributions IS NULL"),
+            {"empty_list": "[]"},
+        )
+        conn.commit()
 
         # Capability Standards：新表由 create_all 建立；以下补列逻辑兼容内测期间
         # 已存在但字段不完整的数据库，避免部署升级后角色配置/阈值接口不可用。
@@ -154,8 +191,13 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     ensure_bootstrap_tenant(db)
     db.close()
+    # 每个租户拥有独立、可编辑的默认环境盘点规则；只补缺失项，不覆盖用户修改。
     db = SessionLocal()
-    if db.query(models.LargeTeam).count() == 0:
+    for (tenant_id,) in db.query(models.Tenant.id).all():
+        seed.ensure_default_env_inventory_skills(db, tenant_id)
+    db.close()
+    db = SessionLocal()
+    if db.query(models.LargeTeam).filter_by(tenant_id=seed.SEED_TENANT_ID).count() == 0:
         db.close()
         seed.seed()
     elif db.query(models.ModelProvider).count() == 0:
@@ -163,23 +205,38 @@ async def lifespan(app: FastAPI):
         seed.seed_config()
     else:
         db.close()
-    # Skill 种子数据：仅当 skills 表为空时（独立于主 seed，避免回归已有部署）
+    # Skill 种子数据：仅当测试租户 skills 为空时（独立于主 seed，避免回归已有部署）
     db = SessionLocal()
-    if db.query(models.Skill).count() == 0:
+    if db.query(models.Skill).filter_by(tenant_id=seed.SEED_TENANT_ID).count() == 0:
         db.close()
         seed.seed_skills()
     else:
         db.close()
-    # Env Inventory 种子数据：仅当 env_inventory_entries 表为空时
+    # 开发者画像的项目参与关系来自项目 contributor_list；为历史测试数据补齐
+    # 尚未归集的项目贡献，不覆盖已经存在的真实/演示贡献清单。
     db = SessionLocal()
-    if db.query(models.EnvInventoryEntry).count() == 0:
+    seed.ensure_seed_project_contributors(db, seed.SEED_TENANT_ID)
+    db.close()
+    # Env Inventory 种子数据：仅当测试租户 env_inventory_entries 为空时
+    # （env 条目无 tenant_id 列，通过 project_id 归属，故按测试租户项目子查询判断）
+    db = SessionLocal()
+    test_project_ids = [
+        pid for (pid,) in db.query(models.Project.id)
+        .filter_by(tenant_id=seed.SEED_TENANT_ID).all()
+    ]
+    env_count = 0
+    if test_project_ids:
+        env_count = db.query(models.EnvInventoryEntry).filter(
+            models.EnvInventoryEntry.project_id.in_(test_project_ids)
+        ).count()
+    if env_count == 0:
         db.close()
         seed.seed_env_inventory()
     else:
         db.close()
     # 能力标准种子：Skill 组已先完成初始化，因此前端/后端角色可默认关联对应规则组。
     db = SessionLocal()
-    if db.query(models.CapabilityRole).count() == 0:
+    if db.query(models.CapabilityRole).filter_by(tenant_id=seed.SEED_TENANT_ID).count() == 0:
         db.close()
         seed.seed_capability()
     else:

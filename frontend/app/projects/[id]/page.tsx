@@ -474,7 +474,58 @@ function FixesTab({ fixes, insights, onSelectFix, onUpdateStatus }: { fixes: Fix
 }
 
 function FixSheet({ fix, insight, onClose, onViewInsight, onUpdateStatus }: { fix: FixPriority | null; insight?: AIReviewInsight; onClose: () => void; onViewInsight: () => void; onUpdateStatus: (fixId: string, status: InsightStatus) => void }) {
-  return <Sheet open={Boolean(fix)} onClose={onClose} title={fix?.title} description={fix ? `${fix.priority} · ${fix.module}` : undefined} width="md">{fix && <div className="space-y-6"><div className="flex flex-wrap gap-2"><Badge variant={fix.priority === 'P0' ? 'danger' : fix.priority === 'P1' ? 'warning' : 'secondary'}>{fix.priority}</Badge><SeverityBadge severity={fix.severity} /><StatusBadge status={fix.status} /></div><div className="grid grid-cols-2 gap-3">{[['预估成本', fix.effort], ['预期收益', `+${fix.expectedGain} 健康度`], ['责任人', fix.assignee || '未分配'], ['截止日期', fix.dueDate || '未排期']].map(([label, value]) => <div key={label} className="rounded-lg border border-border/60 p-3"><div className="text-xs text-muted-foreground">{label}</div><div className="mt-1 text-sm font-medium">{value}</div></div>)}</div><section className="space-y-2"><h3 className="text-sm font-semibold">预期影响</h3><p className="text-sm leading-6 text-muted-foreground">{fix.impact}</p></section><section className="space-y-2 rounded-lg border border-border/60 p-4"><h3 className="flex items-center gap-2 text-sm font-semibold"><Wrench className="h-4 w-4" />整改状态</h3><div className="flex flex-wrap items-center gap-2"><span className="text-xs text-muted-foreground">状态流转：</span>{INSIGHT_TRANSITIONS[fix.status].map((next) => <Button key={next} size="sm" variant={next === 'resolved' ? 'default' : 'outline'} onClick={() => onUpdateStatus(fix.id, next)}>{STATUS_META[next].label}</Button>)}</div></section>{insight && <Button variant="outline" className="w-full" onClick={onViewInsight}>查看关联 AI Review 证据</Button>}</div>}</Sheet>;
+  return (
+    <Sheet open={Boolean(fix)} onClose={onClose} title={fix?.title} description={fix ? `${fix.priority} · ${fix.module}` : undefined} width="md">
+      {fix && (
+        <div className="space-y-5 text-foreground">
+          <div className="flex flex-wrap gap-2">
+            <Badge variant={fix.priority === 'P0' ? 'danger' : fix.priority === 'P1' ? 'warning' : 'secondary'}>{fix.priority}</Badge>
+            <SeverityBadge severity={fix.severity} />
+            <StatusBadge status={fix.status} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              ['预估成本', fix.effort],
+              ['预期收益', `+${fix.expectedGain} 健康度`],
+              ['责任人', fix.assignee || '未分配'],
+              ['截止日期', fix.dueDate || '未排期'],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-xl border border-border/80 bg-muted/35 p-3">
+                <div className="text-xs font-medium text-foreground/70">{label}</div>
+                <div className="mt-1 text-sm font-semibold text-foreground">{value}</div>
+              </div>
+            ))}
+          </div>
+
+          <section className="space-y-2">
+            <h3 className="text-sm font-semibold text-foreground">预期影响</h3>
+            <p className="rounded-xl border border-border/70 bg-muted/25 p-3 text-sm leading-6 text-foreground/85">{fix.impact}</p>
+          </section>
+
+          <section className="space-y-3 rounded-xl border border-border/80 bg-muted/25 p-4">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Wrench className="h-4 w-4 text-primary" />整改状态
+            </h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-foreground/70">状态流转：</span>
+              {INSIGHT_TRANSITIONS[fix.status].map((next) => (
+                <Button key={next} size="sm" variant={next === 'resolved' ? 'default' : 'outline'} onClick={() => onUpdateStatus(fix.id, next)}>
+                  {STATUS_META[next].label}
+                </Button>
+              ))}
+            </div>
+          </section>
+
+          {insight && (
+            <Button variant="outline" className="w-full text-foreground" onClick={onViewInsight}>
+              查看关联 AI Review 证据
+            </Button>
+          )}
+        </div>
+      )}
+    </Sheet>
+  );
 }
 
 export default function ProjectDetailPage() {
