@@ -130,7 +130,7 @@ function InsightSheet({ insight, onClose, onUpdate }: { insight: AIReviewInsight
   return (
     <Sheet open={Boolean(insight)} onClose={onClose} title={insight?.title} description={insight ? `${insight.source} · 最后发现于 ${insight.lastSeenAt}` : undefined} width="lg">
       {insight && (
-        <div className="space-y-6">
+        <div className="space-y-5">
           <div className="flex flex-wrap gap-2">
             <SeverityBadge severity={insight.severity} />
             <CategoryBadge category={insight.category} />
@@ -140,7 +140,7 @@ function InsightSheet({ insight, onClose, onUpdate }: { insight: AIReviewInsight
           </div>
           <section className="space-y-2">
             <h3 className="text-sm font-semibold">定位</h3>
-            <div className="rounded-lg border border-border bg-muted/30 p-3 font-mono text-xs leading-6">
+            <div className="rounded-md border border-border/70 bg-muted/30 p-3 font-mono text-xs leading-6">
               <div>{insight.filePath}{insight.startLine ? `:${insight.startLine}-${insight.endLine}` : ''}</div>
               {insight.symbol && <div className="text-muted-foreground">{insight.symbol}</div>}
             </div>
@@ -155,16 +155,16 @@ function InsightSheet({ insight, onClose, onUpdate }: { insight: AIReviewInsight
             <h3 className="text-sm font-semibold">发现说明</h3>
             <p className="text-sm leading-6 text-muted-foreground">{insight.evidence}</p>
           </section>
-          <section className="rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+          <section className="rounded-md border border-destructive/25 bg-destructive/5 p-4">
             <h3 className="text-sm font-semibold text-destructive">影响范围</h3>
             <p className="mt-1 text-sm leading-6">{insight.impact}</p>
           </section>
-          <section className="rounded-lg border border-success/20 bg-success/5 p-4">
+          <section className="rounded-md border border-success/25 bg-success/5 p-4">
             <h3 className="flex items-center gap-2 text-sm font-semibold text-success"><CheckCircle2 className="h-4 w-4" />建议修复</h3>
             <p className="mt-1 text-sm leading-6">{insight.action}</p>
             <p className="mt-3 border-t border-success/15 pt-3 text-xs text-muted-foreground">验证方式：{insight.verification}</p>
           </section>
-          <section className="space-y-3 rounded-lg border border-border/60 p-4">
+          <section className="space-y-3 rounded-md border border-border/70 p-4">
             <h3 className="flex items-center gap-2 text-sm font-semibold"><Wrench className="h-4 w-4" />整改状态</h3>
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs text-muted-foreground">状态流转：</span>
@@ -197,7 +197,7 @@ function ModuleSheet({ module, onClose, onViewReview }: { module: ModuleRisk | n
   return (
     <Sheet open={Boolean(module)} onClose={onClose} title={module?.name} description={module?.path} width="md">
       {module && (
-        <div className="space-y-6">
+        <div className="space-y-5">
           <div className="flex flex-wrap gap-2">
             <SeverityBadge severity={module.severity} />
             <Badge variant="outline">风险分 {module.score}</Badge>
@@ -208,7 +208,7 @@ function ModuleSheet({ module, onClose, onViewReview }: { module: ModuleRisk | n
               ['复杂度', module.complexity], ['债务负载', module.debtLoad],
               ['归属集中度', module.ownership], ['高危问题', module.criticalCount],
             ].map(([label, value]) => (
-              <div key={label as string} className="rounded-lg border border-border/60 p-3">
+              <div key={label as string} className="rounded-md border border-border/70 p-3">
                 <div className="text-xs text-muted-foreground">{label}</div>
                 <div className="mt-1 font-mono text-xl font-semibold">{value}{label === '归属集中度' ? '%' : ''}</div>
               </div>
@@ -244,7 +244,7 @@ function OverviewTab({ detail, fixes, onSelectInsight, onSelectFix, onOpenReview
 }) {
   const previewInsights = detail.aiInsights.filter((insight) => insight.status !== 'resolved').slice(0, 3);
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="高危问题" value={detail.reviewSummary.critical + detail.aiInsights.filter((item) => item.severity === 'high' && item.status !== 'resolved').length} unit="项" delta={detail.reviewSummary.newSinceLastScan} icon={AlertTriangle} />
         <StatCard label="待处理" value={fixes.filter((fix) => !['resolved', 'false_positive', 'accepted_risk'].includes(fix.status)).length} unit="项" delta={-1} icon={CircleDot} />
@@ -291,7 +291,7 @@ function OverviewTab({ detail, fixes, onSelectInsight, onSelectFix, onOpenReview
           <CardHeader><CardTitle className="flex items-center gap-2"><Wrench className="h-4 w-4 text-primary" />优先修复</CardTitle><CardDescription>按影响与成本综合排序</CardDescription></CardHeader>
           <CardContent className="space-y-3">
             {fixes.slice(0, 3).map((fix) => (
-              <button key={fix.id} onClick={() => onSelectFix(fix)} className="flex w-full items-center gap-3 rounded-lg border border-border/60 p-3 text-left transition-colors hover:bg-muted/50">
+              <button key={fix.id} type="button" onClick={() => onSelectFix(fix)} className="flex w-full items-center gap-3 rounded-lg border border-border/60 p-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60">
                 <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><Badge variant={fix.priority === 'P0' ? 'danger' : fix.priority === 'P1' ? 'warning' : 'secondary'}>{fix.priority}</Badge><span className="truncate font-mono text-sm">{fix.module}</span></div><p className="mt-1 text-xs text-muted-foreground">{fix.title}</p></div>
                 <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
               </button>
@@ -357,7 +357,20 @@ function ReviewTab({ detail, insights, onSelectInsight }: { detail: ProjectDetai
             <div className="space-y-3">{filtered.map((insight) => <InsightPreview key={insight.id} insight={insight} onSelect={() => onSelectInsight(insight)} />)}</div>
           ) : (
             <Table className="min-w-[1000px]"><TableHeader><TableRow><TableHead>严重性</TableHead><TableHead>问题</TableHead><TableHead>模块 / 文件</TableHead><TableHead>类别</TableHead><TableHead className="text-right">风险 / 置信度</TableHead><TableHead>状态</TableHead><TableHead>责任人</TableHead><TableHead>最近发现</TableHead></TableRow></TableHeader><TableBody>{filtered.map((insight) => (
-              <TableRow key={insight.id} tabIndex={0} role="button" onClick={() => onSelectInsight(insight)} onKeyDown={(event) => { if (event.key === 'Enter') onSelectInsight(insight); }} className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <TableRow
+                key={insight.id}
+                tabIndex={0}
+                role="button"
+                aria-label={`查看洞察：${insight.title}`}
+                onClick={() => onSelectInsight(insight)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onSelectInsight(insight);
+                  }
+                }}
+                className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+              >
                 <TableCell><SeverityBadge severity={insight.severity} /></TableCell><TableCell><div className="max-w-[220px] font-medium">{insight.title}</div><div className="mt-1 line-clamp-1 max-w-[220px] text-xs text-muted-foreground">{insight.evidence}</div></TableCell><TableCell><div className="font-mono text-xs">{insight.module}</div><div className="mt-1 max-w-[180px] truncate text-xs text-muted-foreground">{insight.filePath}</div></TableCell><TableCell><CategoryBadge category={insight.category} /></TableCell><TableCell className="text-right"><div className="font-mono font-semibold" style={{ color: insight.riskScore >= 80 ? 'var(--destructive)' : 'var(--warning)' }}>{insight.riskScore}</div><div className="text-xs text-muted-foreground">{Math.round(insight.confidence * 100)}%</div></TableCell><TableCell><StatusBadge status={insight.status} /></TableCell><TableCell>{insight.assignee || <span className="text-muted-foreground">未分配</span>}</TableCell><TableCell className="text-muted-foreground">{insight.lastSeenAt}</TableCell>
               </TableRow>
             ))}</TableBody></Table>
@@ -375,7 +388,7 @@ function ModulesTab({ detail, onSelectModule }: { detail: ProjectDetail; onSelec
   });
   const uncovered = detail.moduleRisks.filter((module) => !module.owner || !module.backupOwner).length;
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="风险模块" value={detail.moduleRisks.filter((module) => module.issueCount > 0).length} unit="个" delta={1} icon={Layers3} />
         <StatCard label="覆盖缺口" value={uncovered} unit="个" delta={uncovered} icon={UserRound} />
@@ -386,7 +399,22 @@ function ModulesTab({ detail, onSelectModule }: { detail: ProjectDetail; onSelec
         <Card className="xl:col-span-3">
           <CardHeader><CardTitle>模块风险优先级</CardTitle><CardDescription>风险、复杂度、债务和 Owner 覆盖共同决定处置顺序。</CardDescription></CardHeader>
           <CardContent><Table className="min-w-[820px]"><TableHeader><TableRow><TableHead>模块</TableHead><TableHead>风险</TableHead><TableHead className="text-right">问题</TableHead><TableHead className="text-right">复杂度</TableHead><TableHead className="text-right">债务</TableHead><TableHead>Owner 覆盖</TableHead><TableHead>最近变更</TableHead></TableRow></TableHeader><TableBody>{detail.moduleRisks.slice().sort((a, b) => b.score - a.score).map((module) => (
-            <TableRow key={module.id} tabIndex={0} role="button" onClick={() => onSelectModule(module)} onKeyDown={(event) => { if (event.key === 'Enter') onSelectModule(module); }} className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><TableCell><div className="font-mono text-sm">{module.name}</div><div className="text-xs text-muted-foreground">{module.path}</div></TableCell><TableCell><SeverityBadge severity={module.severity} /></TableCell><TableCell className="text-right font-mono">{module.issueCount}</TableCell><TableCell className="text-right font-mono">{module.complexity}</TableCell><TableCell className="text-right font-mono">{module.debtLoad}</TableCell><TableCell><div className="text-xs">{module.owner || '缺 Owner'}{module.backupOwner ? ` / ${module.backupOwner}` : ' / 缺备份'}</div><ProgressBar value={module.ownership} showValue={false} indicatorClassName={module.backupOwner ? 'bg-success' : 'bg-warning'} /></TableCell><TableCell className="text-muted-foreground">{module.lastChanged}</TableCell></TableRow>
+            <TableRow
+              key={module.id}
+              tabIndex={0}
+              role="button"
+              aria-label={`查看模块：${module.name}`}
+              onClick={() => onSelectModule(module)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onSelectModule(module);
+                }
+              }}
+              className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+            >
+              <TableCell><div className="font-mono text-sm">{module.name}</div><div className="text-xs text-muted-foreground">{module.path}</div></TableCell><TableCell><SeverityBadge severity={module.severity} /></TableCell><TableCell className="text-right font-mono">{module.issueCount}</TableCell><TableCell className="text-right font-mono">{module.complexity}</TableCell><TableCell className="text-right font-mono">{module.debtLoad}</TableCell><TableCell><div className="text-xs">{module.owner || '缺 Owner'}{module.backupOwner ? ` / ${module.backupOwner}` : ' / 缺备份'}</div><ProgressBar value={module.ownership} showValue={false} indicatorClassName={module.backupOwner ? 'bg-success' : 'bg-warning'} /></TableCell><TableCell className="text-muted-foreground">{module.lastChanged}</TableCell>
+            </TableRow>
           ))}</TableBody></Table></CardContent>
         </Card>
         <Card className="xl:col-span-2"><CardHeader><CardTitle>风险类别分布</CardTitle><CardDescription>Top 模块按问题类别聚合</CardDescription></CardHeader><CardContent><GroupedBars data={chartData} xKey="name" series={[{ key: 'security', name: '安全', color: 'var(--destructive)' }, { key: 'quality', name: '质量', color: 'var(--primary)' }, { key: 'performance', name: '性能', color: 'var(--warning)' }, { key: 'maintainability', name: '维护性', color: 'var(--chart-4)' }]} height={300} /></CardContent></Card>
@@ -405,7 +433,7 @@ function CodeGraphTab({
   error: string;
 }) {
   if (loading) {
-    return <div className="grid gap-4 lg:grid-cols-4"><div className="h-96 skeleton rounded-xl lg:col-span-3" /><div className="h-96 skeleton rounded-xl" /></div>;
+    return <div className="grid gap-4 lg:grid-cols-4"><div className="h-96 skeleton rounded-lg lg:col-span-3" /><div className="h-96 skeleton rounded-lg" /></div>;
   }
   if (error) {
     return <div className="rounded-lg border border-destructive/35 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>;
@@ -437,7 +465,7 @@ function CodeGraphTab({
           </div>
         </CardHeader>
         <CardContent>
-          {!nodes.length ? <div className="rounded-lg border border-dashed border-border p-10 text-center text-sm text-muted-foreground">当前项目尚未解析到代码模块。</div> : <div className="rounded-xl border border-border/60 bg-muted/15 p-2"><GraphCanvas nodes={nodes} links={graph.edges} height={480} /></div>}
+          {!nodes.length ? <div className="rounded-lg border border-dashed border-border p-10 text-center text-sm text-muted-foreground">当前项目尚未解析到代码模块。</div> : <div className="rounded-lg border border-border/60 bg-muted/15 p-2"><GraphCanvas nodes={nodes} links={graph.edges} height={480} /></div>}
         </CardContent>
       </Card>
       <Card>
@@ -466,7 +494,7 @@ function FixesTab({ fixes, insights, onSelectFix, onUpdateStatus }: { fixes: Fix
         <CardHeader className="flex-row items-start justify-between gap-4 space-y-0"><div><CardTitle>修复计划</CardTitle><CardDescription>状态变更实时写入整改 API，随项目快照持久化。</CardDescription></div><Segmented size="sm" value={filter} onChange={setFilter} options={[{ value: 'all', label: '全部' }, { value: 'open', label: '待处理' }, { value: 'in_progress', label: '处理中' }, { value: 'resolved', label: '已解决' }]} /></CardHeader>
         <CardContent>{!visible.length ? <EmptyState icon={ClipboardCheck} title="没有对应修复项" description="切换筛选查看其他治理状态。" /> : <Table className="min-w-[960px]"><TableHeader><TableRow><TableHead>优先级</TableHead><TableHead>修复项</TableHead><TableHead>模块</TableHead><TableHead>责任人</TableHead><TableHead>成本 / 收益</TableHead><TableHead>截止日期</TableHead><TableHead>状态</TableHead><TableHead className="text-right">操作</TableHead></TableRow></TableHeader><TableBody>{visible.map((fix) => {
           const insight = insights.find((item) => item.id === fix.insightId);
-          return <TableRow key={fix.id}><TableCell><Badge variant={fix.priority === 'P0' ? 'danger' : fix.priority === 'P1' ? 'warning' : 'secondary'}>{fix.priority}</Badge></TableCell><TableCell><button onClick={() => onSelectFix(fix)} className="text-left font-medium hover:text-primary">{fix.title}</button>{insight && <div className="mt-1 max-w-[220px] truncate text-xs text-muted-foreground">关联：{insight.title}</div>}</TableCell><TableCell className="font-mono text-xs">{fix.module}</TableCell><TableCell>{fix.assignee || '未分配'}</TableCell><TableCell><div>{fix.effort}</div><div className="text-xs text-success">+{fix.expectedGain} 健康度</div></TableCell><TableCell>{fix.dueDate || '未排期'}</TableCell><TableCell><StatusBadge status={fix.status} /></TableCell><TableCell className="text-right"><div className="flex justify-end gap-1">{fix.status === 'open' || fix.status === 'acknowledged' ? <Button size="sm" variant="outline" onClick={() => onUpdateStatus(fix.id, 'in_progress')}>开始</Button> : null}{fix.status === 'in_progress' ? <Button size="sm" onClick={() => onUpdateStatus(fix.id, 'resolved')}>验证完成</Button> : null}</div></TableCell></TableRow>;
+          return <TableRow key={fix.id}><TableCell><Badge variant={fix.priority === 'P0' ? 'danger' : fix.priority === 'P1' ? 'warning' : 'secondary'}>{fix.priority}</Badge></TableCell><TableCell><button type="button" onClick={() => onSelectFix(fix)} className="text-left font-medium hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60">{fix.title}</button>{insight && <div className="mt-1 max-w-[220px] truncate text-xs text-muted-foreground">关联：{insight.title}</div>}</TableCell><TableCell className="font-mono text-xs">{fix.module}</TableCell><TableCell>{fix.assignee || '未分配'}</TableCell><TableCell><div>{fix.effort}</div><div className="text-xs text-success">+{fix.expectedGain} 健康度</div></TableCell><TableCell>{fix.dueDate || '未排期'}</TableCell><TableCell><StatusBadge status={fix.status} /></TableCell><TableCell className="text-right"><div className="flex justify-end gap-1">{fix.status === 'open' || fix.status === 'acknowledged' ? <Button size="sm" variant="outline" onClick={() => onUpdateStatus(fix.id, 'in_progress')}>开始</Button> : null}{fix.status === 'in_progress' ? <Button size="sm" onClick={() => onUpdateStatus(fix.id, 'resolved')}>验证完成</Button> : null}</div></TableCell></TableRow>;
         })}</TableBody></Table>}</CardContent>
       </Card>
     </div>
@@ -491,7 +519,7 @@ function FixSheet({ fix, insight, onClose, onViewInsight, onUpdateStatus }: { fi
               ['责任人', fix.assignee || '未分配'],
               ['截止日期', fix.dueDate || '未排期'],
             ].map(([label, value]) => (
-              <div key={label} className="rounded-xl border border-border/80 bg-muted/35 p-3">
+              <div key={label} className="rounded-md border border-border/80 bg-muted/35 p-3">
                 <div className="text-xs font-medium text-foreground/70">{label}</div>
                 <div className="mt-1 text-sm font-semibold text-foreground">{value}</div>
               </div>
@@ -500,10 +528,10 @@ function FixSheet({ fix, insight, onClose, onViewInsight, onUpdateStatus }: { fi
 
           <section className="space-y-2">
             <h3 className="text-sm font-semibold text-foreground">预期影响</h3>
-            <p className="rounded-xl border border-border/70 bg-muted/25 p-3 text-sm leading-6 text-foreground/85">{fix.impact}</p>
+            <p className="rounded-md border border-border/70 bg-muted/25 p-3 text-sm leading-6 text-foreground/85">{fix.impact}</p>
           </section>
 
-          <section className="space-y-3 rounded-xl border border-border/80 bg-muted/25 p-4">
+          <section className="space-y-3 rounded-md border border-border/80 bg-muted/25 p-4">
             <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <Wrench className="h-4 w-4 text-primary" />整改状态
             </h3>
@@ -593,7 +621,7 @@ export default function ProjectDetailPage() {
     window.setTimeout(() => setRefreshing(false), 900);
   };
 
-  if (loading) return <div className="space-y-6"><div className="h-8 w-64 skeleton rounded" /><div className="grid gap-4 lg:grid-cols-3"><div className="h-64 skeleton rounded-xl" /><div className="h-64 skeleton rounded-xl lg:col-span-2" /></div></div>;
+  if (loading) return <div className="space-y-5"><div className="h-8 w-64 skeleton rounded-md" /><div className="grid gap-4 lg:grid-cols-3"><div className="h-64 skeleton rounded-lg" /><div className="h-64 skeleton rounded-lg lg:col-span-2" /></div></div>;
   if (!detail) return <div className="space-y-4"><Button variant="ghost" size="sm" onClick={() => router.push('/projects')}><ArrowLeft className="h-4 w-4" />返回项目列表</Button><EmptyState icon={FolderKanban} title="项目详情尚未生成" description="该项目还没有完成 Project Intelligence 分析，请先发起一次分析。" action={<Button onClick={() => router.push('/onboard')}>前往接入项目</Button>} /></div>;
 
   const reviewInsights = reviewModule ? detail.aiInsights.filter((insight) => insight.module === reviewModule) : detail.aiInsights;
@@ -601,10 +629,10 @@ export default function ProjectDetailPage() {
   const relatedInsight = activeFix?.insightId ? detail.aiInsights.find((insight) => insight.id === activeFix.insightId) : undefined;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="ghost" size="sm" onClick={() => router.push('/projects')}><ArrowLeft className="h-4 w-4" />返回项目列表</Button><Button variant="outline" size="sm" onClick={refresh} disabled={refreshing}><RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />{refreshing ? '分析中...' : '重新分析'}</Button></div>
-      <Card><CardContent className="p-6"><div className="flex flex-col items-start gap-6 lg:flex-row lg:items-center"><ScoreRing score={detail.score} size={140} stroke={10} label="健康度" sublabel={detail.analysisMeta.analysisVersion} /><div className="min-w-0 flex-1 space-y-3"><div className="flex flex-wrap items-center gap-2"><h1 className="font-mono text-2xl font-bold">{detail.name}</h1><Badge variant="outline" className="font-mono">{detail.language}</Badge><Badge variant={detail.status === 'completed' ? 'success' : 'warning'}>{detail.status === 'completed' ? '已分析' : detail.status}</Badge></div><div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"><span>{detail.group}</span><span>·</span><span>{detail.commits.toLocaleString()} commits</span><span>·</span><span>{detail.contributors} 贡献者</span><span>·</span><span>最近扫描 {detail.analysisMeta.scannedAt}</span></div><div className="flex flex-wrap gap-2 text-xs"><Badge variant="outline">分支 {detail.analysisMeta.branch}</Badge><Badge variant="outline">{detail.analysisMeta.commit}</Badge><Badge variant="outline">{detail.analysisMeta.filesScanned} 文件</Badge><Badge variant="outline">覆盖 {detail.analysisMeta.coverage}%</Badge><Badge variant="outline">置信度 {Math.round(detail.analysisMeta.confidence * 100)}%</Badge></div></div></div></CardContent></Card>
-      <div className="overflow-x-auto pb-1">
+      <Card className="border-border/80"><CardContent className="p-5 sm:p-6"><div className="flex flex-col items-start gap-6 lg:flex-row lg:items-center"><ScoreRing score={detail.score} size={140} stroke={10} label="健康度" sublabel={detail.analysisMeta.analysisVersion} /><div className="min-w-0 flex-1 space-y-3"><div className="flex flex-wrap items-center gap-2"><h1 className="font-mono text-2xl font-bold">{detail.name}</h1><Badge variant="outline" className="font-mono">{detail.language}</Badge><Badge variant={detail.status === 'completed' ? 'success' : 'warning'}>{detail.status === 'completed' ? '已分析' : detail.status}</Badge></div><div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"><span>{detail.group}</span><span>·</span><span>{detail.commits.toLocaleString()} commits</span><span>·</span><span>{detail.contributors} 贡献者</span><span>·</span><span>最近扫描 {detail.analysisMeta.scannedAt}</span></div><div className="flex flex-wrap gap-2 text-xs"><Badge variant="outline">分支 {detail.analysisMeta.branch}</Badge><Badge variant="outline">{detail.analysisMeta.commit}</Badge><Badge variant="outline">{detail.analysisMeta.filesScanned} 文件</Badge><Badge variant="outline">覆盖 {detail.analysisMeta.coverage}%</Badge><Badge variant="outline">置信度 {Math.round(detail.analysisMeta.confidence * 100)}%</Badge></div></div></div></CardContent></Card>
+      <div className="overflow-x-auto border-b border-border/70 pb-1">
         <Segmented
           value={tab}
           onChange={(value) => {

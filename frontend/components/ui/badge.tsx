@@ -2,15 +2,8 @@ import * as React from 'react';
 import { Chip } from '@heroui/react/chip';
 import { cn } from '@/lib/utils';
 
-/* ============================================
-   Badge 组件 - 基于 HeroUI Chip
-   保持原有 API：variant + className + children
-   内部映射到 HeroUI Chip 的 color + variant
-   ============================================ */
-
 type BadgeVariant = 'default' | 'secondary' | 'accent' | 'success' | 'warning' | 'danger' | 'outline';
 
-/** 旧 variant -> HeroUI Chip color + variant 映射 */
 const variantMap: Record<BadgeVariant, { color: 'default' | 'success' | 'danger' | 'accent' | 'warning'; variant: 'primary' | 'secondary' | 'tertiary' | 'soft' }> = {
   default: { color: 'default', variant: 'soft' },
   secondary: { color: 'default', variant: 'secondary' },
@@ -31,7 +24,7 @@ function Badge({ className, variant = 'default', children, color: _color, ...pro
     <Chip
       color={mapping.color as 'default' | 'warning' | 'success' | 'danger' | 'accent'}
       variant={mapping.variant}
-      className={cn('rounded-full cursor-default', className)}
+      className={cn('h-5 rounded-sm border-0 px-1.5 text-[11px] font-medium leading-5 cursor-default', className)}
       {...props}
     >
       {children}

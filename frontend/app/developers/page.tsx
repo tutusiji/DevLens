@@ -85,9 +85,9 @@ function InsightStat({
       : 'bg-primary/12 text-primary';
 
   return (
-    <Card className="group overflow-hidden border-border/70 bg-card/80 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-lg">
+    <Card className="group overflow-hidden border-border/80 bg-card transition-[border-color,box-shadow] duration-200 hover:border-primary/35 hover:shadow-sm">
       <CardContent className="flex items-center gap-3 p-4">
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${toneClass}`}>
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${toneClass}`}>
           <Icon className="h-4.5 w-4.5" />
         </div>
         <div className="min-w-0">
@@ -153,9 +153,21 @@ function ActivityLeaderboard({
                   type="button"
                   key={dev.id}
                   onClick={() => onSelect(dev.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+                      event.preventDefault();
+                      const next = developers[index + 1];
+                      if (next) onSelect(next.id);
+                    }
+                    if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+                      event.preventDefault();
+                      const previous = developers[index - 1];
+                      if (previous) onSelect(previous.id);
+                    }
+                  }}
                   role="option"
                   aria-selected={active}
-                  className={`group relative w-full cursor-pointer rounded-xl px-2.5 py-3 text-left transition-[background-color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 sm:px-3 ${active ? 'bg-primary/[0.09] shadow-sm ring-1 ring-primary/35' : 'hover:bg-muted/55'}`}
+                  className={`group relative w-full cursor-pointer rounded-lg px-2.5 py-3 text-left transition-[background-color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 sm:px-3 ${active ? 'bg-primary/[0.09] shadow-sm ring-1 ring-primary/35' : 'hover:bg-muted/55'}`}
                 >
                   <div className="flex items-center gap-3">
                     <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg font-mono text-xs font-bold ${index < 3 ? 'bg-primary/12 text-primary' : 'text-muted-foreground'}`}>
@@ -214,9 +226,10 @@ function ActivityLeaderboard({
                 </div>
                 <Link
                   href={`/developers/${detail.id}`}
+                  aria-label={`查看${detail.name}的开发者画像`}
                   className="inline-flex min-h-10 items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
                 >
-                  <Badge variant="outline" className="cursor-pointer gap-1 px-2.5 py-1.5 text-primary transition-colors hover:bg-primary/10">
+                  <Badge variant="outline" className="gap-1 px-2.5 py-1.5 text-primary transition-colors hover:bg-primary/10">
                     查看完整画像 <ArrowUpRight className="h-3.5 w-3.5" />
                   </Badge>
                 </Link>
@@ -230,7 +243,7 @@ function ActivityLeaderboard({
                   { label: '代码评审', value: detail.reviews, icon: Eye, tone: 'text-foreground' },
                   { label: '参与项目', value: detail.projects?.length ?? 0, icon: FolderKanban, tone: 'text-primary' },
                 ].map(({ label, value, icon: Icon, tone }) => (
-                  <div key={label} className="rounded-xl border border-border/70 bg-muted/15 p-3 transition-colors hover:border-primary/25 hover:bg-muted/25">
+                  <div key={label} className="rounded-lg border border-border/70 bg-muted/15 p-3 transition-colors hover:border-primary/25 hover:bg-muted/25">
                     <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                       <Icon className="h-3.5 w-3.5" />
                       {label}
@@ -248,7 +261,7 @@ function ActivityLeaderboard({
                 {(detail.projects ?? []).length ? (
                   <div className="space-y-2">
                     {(detail.projects ?? []).slice(0, 4).map((project) => (
-                      <Link key={project.projectId} href={`/projects/${project.projectId}`} className="group flex min-h-14 items-center gap-3 rounded-xl border border-border/70 bg-muted/10 p-3 transition-[background-color,border-color] duration-200 hover:border-primary/30 hover:bg-primary/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60">
+                      <Link key={project.projectId} href={`/projects/${project.projectId}`} className="group flex min-h-14 items-center gap-3 rounded-lg border border-border/70 bg-muted/10 p-3 transition-[background-color,border-color] duration-200 hover:border-primary/30 hover:bg-primary/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="truncate text-sm font-medium text-foreground">{project.projectName}</span>
@@ -279,7 +292,7 @@ function ActivityLeaderboard({
                 {(detail.modules ?? []).length ? (
                   <div className="grid gap-2 sm:grid-cols-2">
                     {detail.modules.slice(0, 6).map((module) => (
-                      <div key={`${module.projectId || 'unknown'}-${module.module}`} className="rounded-xl border border-border/70 p-3 transition-colors hover:border-primary/25 hover:bg-muted/15">
+                      <div key={`${module.projectId || 'unknown'}-${module.module}`} className="rounded-md border border-border/70 p-3 transition-colors hover:border-primary/25 hover:bg-muted/15">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <div className="truncate font-mono text-sm font-medium text-foreground">{module.module}</div>
@@ -307,9 +320,9 @@ function ActivityLeaderboard({
 function DeveloperCard({ dev }: { dev: Developer }) {
   return (
     <motion.div variants={cardItem}>
-      <Link href={`/developers/${dev.id}`} className="group block h-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60">
-        <Card className="h-full overflow-hidden border-border/70 transition-[border-color,box-shadow,transform] duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/40 group-hover:shadow-lg">
-          <div className="h-0.5 bg-gradient-to-r from-primary via-primary/55 to-transparent" />
+      <Link href={`/developers/${dev.id}`} className="group block h-full rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60">
+        <Card className="h-full overflow-hidden border-border/80 transition-[border-color,box-shadow] duration-200 group-hover:border-primary/40 group-hover:shadow-sm">
+          <div className="h-0.5 bg-primary/70" />
           <CardContent className="p-3">
             <div className="flex items-start gap-3">
               <DiceBearAvatar seed={dev.username} size={44} />
@@ -430,10 +443,10 @@ export default function DevelopersPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-5">
         <div className="h-8 w-48 skeleton rounded" />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="h-48 skeleton rounded-xl" />)}
+          {[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="h-48 skeleton rounded-lg" />)}
         </div>
       </div>
     );

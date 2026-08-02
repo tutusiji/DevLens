@@ -53,25 +53,25 @@ export function FilterBar({
   className?: string;
 }) {
   return (
-    <div className={cn('mb-4 space-y-3', className)}>
+    <div className={cn('mb-5 space-y-3', className)}>
       {/* 汇总统计条 */}
       {summary && (
-        <div className="flex items-center gap-4 rounded-lg border border-border bg-muted/20 px-4 py-2 text-sm">
+        <div className="flex min-h-9 items-center gap-4 border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
           {summary}
         </div>
       )}
 
       {/* 筛选控件行 */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border pb-4">
         {/* 搜索 */}
         {onSearchChange && (
-          <div className="relative flex-1 min-w-[180px]">
+          <div className="relative min-w-[200px] flex-1">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               value={searchValue || ''}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder={searchPlaceholder}
-              className="w-full rounded-md border border-input bg-background py-1.5 pl-8 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-9 w-full rounded-md border border-input bg-card py-1.5 pl-8 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20"
             />
           </div>
         )}
@@ -82,7 +82,7 @@ export function FilterBar({
             <select
               value={filterValues?.[f.key] || 'all'}
               onChange={(e) => onFilterChange?.(f.key, e.target.value)}
-              className="appearance-none rounded-md border border-input bg-background py-1.5 pl-3 pr-8 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
+              className="h-9 appearance-none rounded-md border border-input bg-card py-1.5 pl-3 pr-8 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 cursor-pointer"
             >
               <option value="all">{f.label}: 全部</option>
               {f.options.map((opt) => (
@@ -102,7 +102,7 @@ export function FilterBar({
             <select
               value={sortValue}
               onChange={(e) => onSortChange?.(e.target.value)}
-              className="appearance-none rounded-md border border-input bg-background py-1.5 pl-7 pr-8 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
+              className="h-9 appearance-none rounded-md border border-input bg-card py-1.5 pl-7 pr-8 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 cursor-pointer"
             >
               {sortOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -142,9 +142,9 @@ export function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
-      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-        <Icon className="h-6 w-6 text-muted-foreground" />
+    <div className="flex flex-col items-center justify-center border border-dashed border-border bg-card py-14 text-center">
+      <div className="mb-3 flex h-10 w-10 items-center justify-center bg-muted">
+        <Icon className="h-5 w-5 text-muted-foreground" />
       </div>
       <h3 className="text-sm font-medium">{title}</h3>
       <p className="mt-1 max-w-xs text-xs text-muted-foreground">{description}</p>

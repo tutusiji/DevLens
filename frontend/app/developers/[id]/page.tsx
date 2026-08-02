@@ -239,8 +239,8 @@ export default function DeveloperDetailPage() {
       <div className="space-y-6">
         <div className="h-8 w-64 skeleton rounded" />
         <div className="grid gap-4 lg:grid-cols-3">
-          <div className="h-64 skeleton rounded-xl lg:col-span-2" />
-          <div className="h-64 skeleton rounded-xl" />
+          <div className="h-64 skeleton rounded-lg lg:col-span-2" />
+          <div className="h-64 skeleton rounded-lg" />
         </div>
       </div>
     );
@@ -256,7 +256,7 @@ export default function DeveloperDetailPage() {
       </div>
 
       {/* ============ 头部：头像 + 基本信息 + 综合评分 ============ */}
-      <Card className="mb-6">
+      <Card className="mb-5">
         <CardContent className="p-6">
           <div className="flex flex-col items-start gap-6 md:flex-row md:items-center">
             <DiceBearAvatar seed={detail.username} size={80} />
@@ -298,7 +298,7 @@ export default function DeveloperDetailPage() {
         const standard = detail.roleStandard || getRoleStandard(detail.roleType, detail.level);
         const passRate = calcPassRate(detail.capability, standard);
         return (
-      <div className="mb-6 grid gap-4 lg:grid-cols-5">
+      <div className="mb-5 grid gap-4 lg:grid-cols-5">
         <Card className="lg:col-span-3">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -409,7 +409,7 @@ export default function DeveloperDetailPage() {
       })()}
 
       {/* ============ 能力实测评估：真实 git 作者代码 + LLM 评分 ============ */}
-      <Card className="mb-6">
+      <Card className="mb-5">
         <CardHeader>
           <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <div>
@@ -573,7 +573,7 @@ export default function DeveloperDetailPage() {
                       const passed = target === undefined || current >= target;
                       const gap = target === undefined ? 0 : Math.max(0, target - current);
                       return (
-                        <div key={dimension} className="rounded-lg border border-border/70 p-3">
+                        <div key={dimension} className="rounded-md border border-border/70 p-3">
                           <div className="truncate text-[11px] text-muted-foreground">
                             {DIMENSION_LABELS[dimension] || dimension}
                           </div>
@@ -611,13 +611,13 @@ export default function DeveloperDetailPage() {
                   </div>
                 )}
 
-                <details className="rounded-lg border border-border/70">
+                <details className="rounded-md border border-border/70">
                   <summary className="cursor-pointer px-4 py-3 text-sm font-medium marker:text-muted-foreground">
                     查看各维度评估证据与规则命中情况（{evaluation.evidence.length}）
                   </summary>
                   <div className="space-y-3 border-t border-border p-4">
                     {evaluation.evidence.map((item, index) => (
-                      <div key={`${item.dimension}-${index}`} className="rounded-lg bg-muted/35 p-3">
+                      <div key={`${item.dimension}-${index}`} className="rounded-md bg-muted/35 p-3">
                         <div className="text-sm font-medium">
                           {DIMENSION_LABELS[item.dimension] || item.dimension}
                         </div>
@@ -637,7 +637,7 @@ export default function DeveloperDetailPage() {
                 </details>
 
                 {evaluation.summary && (
-                  <div className="rounded-lg border border-border/70 bg-muted/25 p-4">
+                  <div className="rounded-md border border-border/70 bg-muted/25 p-4">
                     <div className="mb-1 text-sm font-medium">整体评价</div>
                     <p className="text-sm leading-relaxed text-muted-foreground">{evaluation.summary}</p>
                   </div>
@@ -657,7 +657,7 @@ export default function DeveloperDetailPage() {
       </Card>
 
       {/* ============ 成长曲线 + AI 建议 ============ */}
-      <div className="mb-6 grid gap-4 lg:grid-cols-5">
+      <div className="mb-5 grid gap-4 lg:grid-cols-5">
         <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle>成长曲线</CardTitle>
@@ -691,7 +691,7 @@ export default function DeveloperDetailPage() {
       </div>
 
       {/* ============ 参与项目：模块归属的事实入口 ============ */}
-      <Card className="mb-6">
+      <Card className="mb-5">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FolderKanban className="h-4 w-4 text-primary" />
@@ -707,7 +707,7 @@ export default function DeveloperDetailPage() {
                   type="button"
                   key={project.projectId}
                   onClick={() => router.push(`/projects/${project.projectId}`)}
-                  className="group rounded-xl border border-border bg-muted/15 p-4 text-left transition-colors hover:border-primary/35 hover:bg-primary/[0.04]"
+                  className="group rounded-lg border border-border bg-muted/15 p-4 text-left transition-colors hover:border-primary/35 hover:bg-primary/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -758,7 +758,7 @@ export default function DeveloperDetailPage() {
                       <button
                         type="button"
                         onClick={() => m.projectId && router.push(`/projects/${m.projectId}`)}
-                        className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                        className="mt-0.5 inline-flex items-center gap-1 rounded-sm text-xs font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
                       >
                         <FolderKanban className="h-3 w-3" />所属项目：{m.projectName}
                       </button>

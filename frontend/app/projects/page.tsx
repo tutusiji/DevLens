@@ -8,6 +8,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Plus, GitCommit, Users, Clock, LayoutGrid, Table as TableIcon, FolderGit2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -35,9 +36,12 @@ function ProjectCard({ project }: { project: Project }) {
   const status = STATUS_CONFIG[project.status];
   return (
     <motion.div variants={cardItem}>
-      <Link href={`/projects/${project.id}`}>
-        <Card className="cursor-pointer overflow-hidden transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5">
-          <CardContent className="p-5">
+      <Link
+        href={`/projects/${project.id}`}
+        className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2"
+      >
+        <Card className="cursor-pointer overflow-hidden border-border/80 transition-[border-color,box-shadow] hover:border-primary/40 hover:shadow-sm">
+          <CardContent className="p-4 sm:p-5">
             {/* 顶部：项目名 + 状态 + 健康度 */}
             <div className="flex items-start justify-between">
               <div className="space-y-1.5">
@@ -54,7 +58,7 @@ function ProjectCard({ project }: { project: Project }) {
               <div className="flex items-baseline gap-1">
                 <span
                   className="font-mono font-bold text-3xl"
-                  style={{ color: scoreColor(project.score), textShadow: `0 0 20px ${scoreColor(project.score)}30` }}
+                  style={{ color: scoreColor(project.score) }}
                 >
                   {project.score}
                 </span>
@@ -70,7 +74,7 @@ function ProjectCard({ project }: { project: Project }) {
             </div>
 
             {/* 底部：统计信息 */}
-            <div className="mt-4 flex flex-wrap items-center gap-4 pt-3 text-xs text-muted-foreground/80" style={{ borderTop: '1px solid color-mix(in oklch, var(--muted-foreground) 8%, transparent)' }}>
+            <div className="mt-4 flex flex-wrap items-center gap-4 pt-3 text-xs text-muted-foreground/80" style={{ borderTop: '1px solid var(--separator)' }}>
               <span className="flex items-center gap-1.5">
                 <GitCommit className="h-3.5 w-3.5" />
                 <span className="font-mono tabular-nums font-medium">{project.commits.toLocaleString()}</span> commits
@@ -91,9 +95,12 @@ function ProjectCard({ project }: { project: Project }) {
 }
 
 function ProjectTableView({ projects }: { projects: Project[] }) {
+  const router = useRouter();
+  const navigateToProject = (id: string) => router.push(`/projects/${id}`);
+
   return (
-    <Card>
-      <Table>
+    <Card className="overflow-hidden border-border/80">
+      <Table className="min-w-[900px]">
         <TableHeader>
           <TableRow>
             <TableHead>项目</TableHead>
@@ -111,12 +118,25 @@ function ProjectTableView({ projects }: { projects: Project[] }) {
           {projects.map((p) => {
             const status = STATUS_CONFIG[p.status];
             return (
-              <TableRow key={p.id} onClick={() => window.location.href = `/projects/${p.id}`} className="cursor-pointer">
+              <TableRow
+                key={p.id}
+                tabIndex={0}
+                role="link"
+                aria-label={`查看项目：${p.name}`}
+                onClick={() => navigateToProject(p.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    navigateToProject(p.id);
+                  }
+                }}
+                className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+              >
                 <TableCell className="font-mono font-semibold">{p.name}</TableCell>
                 <TableCell className="text-muted-foreground/80">{p.group}</TableCell>
                 <TableCell><Badge variant="outline" className="font-mono">{p.language}</Badge></TableCell>
                 <TableCell className="text-right">
-                  <span className="font-mono font-bold tabular-nums text-lg" style={{ color: scoreColor(p.score), textShadow: `0 0 12px ${scoreColor(p.score)}20` }}>{p.score}</span>
+                  <span className="font-mono font-bold tabular-nums text-lg" style={{ color: scoreColor(p.score) }}>{p.score}</span>
                 </TableCell>
                 <TableCell className="text-right font-mono tabular-nums font-medium">{p.quality}</TableCell>
                 <TableCell className="text-right font-mono tabular-nums font-medium">{p.security}</TableCell>
@@ -127,8 +147,9 @@ function ProjectTableView({ projects }: { projects: Project[] }) {
             );
           })}
         </TableBody>
-      </Table>
+        </Table>
     </Card>
+
   );
 }
 
@@ -169,10 +190,10 @@ export default function ProjectsPage() {
 
   if (loading) {
     return (
-      <div className="space-y-8">
-        <div className="h-10 w-52 skeleton rounded-2xl" />
-        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="h-72 skeleton rounded-2xl" />)}
+      <div className="space-y-6">
+        <div className="h-10 w-52 skeleton rounded-lg" />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="h-72 skeleton rounded-lg" />)}
         </div>
       </div>
     );
@@ -244,7 +265,7 @@ export default function ProjectsPage() {
           variants={staggerContainer}
           initial="hidden"
           animate="show"
-          className="grid gap-5 md:grid-cols-2 lg:grid-cols-3"
+          className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
         >
           {filtered.map((p) => (
             <ProjectCard key={p.id} project={p} />

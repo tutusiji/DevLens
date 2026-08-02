@@ -78,8 +78,11 @@ function useToast() {
     setTimeout(() => setMsg(null), 3500);
   };
   const node = msg ? (
-    <div className={cn(
-      'fixed bottom-6 right-6 z-[60] flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium shadow-2xl',
+    <div
+      role="status"
+      aria-live="polite"
+      className={cn(
+      'fixed bottom-6 right-6 z-[60] flex items-center gap-2 rounded-md px-4 py-3 text-sm font-medium shadow-xl',
       msg.type === 'success' && 'bg-success/15 text-success border border-success/30',
       msg.type === 'error' && 'bg-destructive/15 text-destructive border border-destructive/30',
       msg.type === 'info' && 'bg-muted text-foreground border border-border',
@@ -117,7 +120,13 @@ function SecretValue({ entry, revealed, onToggle }: { entry: EnvInventoryEntry; 
   return (
     <div className="flex items-center gap-1.5">
       <span className="font-mono text-xs break-all">{revealed ? entry.value : '••••••'}</span>
-      <button onClick={onToggle} className="text-muted-foreground hover:text-foreground cursor-pointer shrink-0" aria-label={revealed ? '隐藏' : '显示'}>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+        aria-label={revealed ? '隐藏敏感值' : '显示敏感值'}
+        aria-pressed={revealed}
+      >
         {revealed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
       </button>
     </div>
@@ -139,7 +148,7 @@ function ToolGroupTable({ entries, revealedSet, onToggleReveal }: { entries: Env
         </CardTitle>
       </CardHeader>
       <CardContent className="px-0 pb-0">
-        <Table className="min-w-[1240px]">
+          <Table className="min-w-[1240px]">
           <TableHeader>
             <TableRow>
               <TableHead className="pl-6 w-[240px] min-w-[200px]">配置键</TableHead>
@@ -243,13 +252,19 @@ function ConfirmDialog({ open, title, description, onConfirm, onCancel, loading 
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4" onClick={onCancel}>
-      <div className="w-full max-w-md rounded-xl border border-border bg-background p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-full-title"
+        className="w-full max-w-md rounded-lg border border-border bg-background p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive/10">
             <AlertCircle className="h-5 w-5 text-destructive" />
           </div>
           <div className="min-w-0 flex-1 space-y-1">
-            <h3 className="font-semibold">{title}</h3>
+            <h3 id="confirm-full-title" className="font-semibold">{title}</h3>
             <p className="text-sm text-muted-foreground">{description}</p>
           </div>
         </div>
@@ -364,7 +379,7 @@ function EnvInventorySkillSheet({
       className="max-w-5xl"
     >
       <div className="grid min-h-[560px] gap-5 lg:grid-cols-[230px_minmax(0,1fr)]">
-        <aside className="flex min-h-0 flex-col rounded-xl border border-border bg-muted/15 p-2">
+        <aside className="flex min-h-0 flex-col rounded-lg border border-border bg-muted/15 p-2">
           <Button variant="outline" size="sm" className="mb-2 w-full justify-start" onClick={() => choose(null)}>
             <Plus className="h-4 w-4" />新建 Skill
           </Button>
@@ -640,10 +655,10 @@ export default function EnvInventoryPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="h-8 w-64 skeleton rounded" />
-        <div className="grid gap-4 lg:grid-cols-4"><div className="h-28 skeleton rounded-xl" /><div className="h-28 skeleton rounded-xl" /><div className="h-28 skeleton rounded-xl" /><div className="h-28 skeleton rounded-xl" /></div>
-        <div className="h-96 skeleton rounded-xl" />
+      <div className="space-y-5">
+        <div className="h-8 w-64 skeleton rounded-md" />
+        <div className="grid gap-4 lg:grid-cols-4"><div className="h-28 skeleton rounded-lg" /><div className="h-28 skeleton rounded-lg" /><div className="h-28 skeleton rounded-lg" /><div className="h-28 skeleton rounded-lg" /></div>
+        <div className="h-96 skeleton rounded-lg" />
       </div>
     );
   }
@@ -704,7 +719,14 @@ export default function EnvInventoryPage() {
           const Icon = meta.icon;
           const active = toolFilter === t;
           return (
-            <button key={t} onClick={() => setToolFilter(active ? null : t)} className="cursor-pointer">
+            <button
+              key={t}
+              type="button"
+              onClick={() => setToolFilter(active ? null : t)}
+              aria-pressed={active}
+              aria-label={`按${meta.label}筛选，当前 ${count} 条`}
+              className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+            >
               <Badge variant={active ? 'default' : 'secondary'} className="gap-1">
                 <Icon className="h-3 w-3" style={{ color: active ? undefined : meta.color }} />
                 {meta.label} {count}
@@ -725,7 +747,9 @@ export default function EnvInventoryPage() {
         <Segmented value={envFilter} onChange={(v) => setEnvFilter(v as EnvName | 'all')} options={ENV_OPTIONS} />
         <div className="relative ml-auto min-w-[220px]">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <label htmlFor="env-inventory-search" className="sr-only">搜索环境配置</label>
           <input
+            id="env-inventory-search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="搜索 key / 值 / 文件..."
