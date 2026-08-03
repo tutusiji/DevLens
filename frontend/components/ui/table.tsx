@@ -2,18 +2,15 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 /* ============================================
-   数据表格组件
-   使用稳定分隔线、紧凑行高和可键盘访问的横向滚动容器。
+   去框化表格组件
+   完全无可见边框，用行间距和 hover 背景区分
+   大圆角表头，行高宽松
    ============================================ */
 
 const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
   ({ className, ...props }, ref) => (
-    <div
-      className="table-scroll relative w-full overflow-x-auto overscroll-x-contain"
-      tabIndex={0}
-      aria-label="表格内容，支持横向滚动"
-    >
-      <table ref={ref} className={cn('min-w-max w-full caption-bottom text-sm borderless-table', className)} {...props} />
+    <div className="relative w-full overflow-auto">
+      <table ref={ref} className={cn('w-full caption-bottom text-sm borderless-table', className)} {...props} />
     </div>
   )
 );
@@ -38,7 +35,7 @@ const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTML
     <tr
       ref={ref}
       className={cn(
-        'border-b border-border transition-colors duration-150 hover:bg-muted/45 even:bg-muted/15',
+        'border-0 transition-all duration-150 hover:bg-muted/30 even:bg-muted/10',
         className
       )}
       {...props}

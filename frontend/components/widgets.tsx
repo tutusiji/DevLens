@@ -6,7 +6,7 @@
 'use client';
 
 import * as React from 'react';
-import { motion, useInView, useMotionValue, useReducedMotion, useSpring, useTransform, type Variants } from 'framer-motion';
+import { motion, useInView, useMotionValue, useSpring, useTransform, type Variants } from 'framer-motion';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { Card, CardAccent } from '@/components/ui/card';
 import { cn, scoreColor } from '@/lib/utils';
@@ -28,17 +28,16 @@ export function CountUp({
 }) {
   const ref = React.useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, margin: '-20px' });
-  const prefersReducedMotion = useReducedMotion();
   const motionValue = useMotionValue(0);
   const spring = useSpring(motionValue, { duration: duration * 1000, bounce: 0 });
-  const display = useTransform(prefersReducedMotion ? motionValue : spring, (v) => v.toFixed(decimals));
+  const display = useTransform(spring, (v) => v.toFixed(decimals));
 
   React.useEffect(() => {
     if (inView) motionValue.set(value);
   }, [inView, value, motionValue]);
 
   return (
-    <span ref={ref} className={cn('tabular-nums', glow && !prefersReducedMotion && 'glow-text')}>
+    <span ref={ref} className={cn('tabular-nums', glow && 'glow-text')}>
       <motion.span>{display}</motion.span>
       {suffix}
     </span>
@@ -51,28 +50,22 @@ export const staggerContainer: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
-    transition: { staggerChildren: 0.04, delayChildren: 0.04 },
+    transition: { staggerChildren: 0.08, delayChildren: 0.1 },
   },
 };
 
 export const cardItem: Variants = {
-  hidden: { opacity: 0, y: 4 },
+  hidden: { opacity: 0, y: 10 },
   show: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] },
+    transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
   },
 };
 
 export function MotionCard({ children, className }: { children: React.ReactNode; className?: string }) {
-  const prefersReducedMotion = useReducedMotion();
-
   return (
-    <motion.div
-      variants={cardItem}
-      initial={prefersReducedMotion ? false : undefined}
-      transition={prefersReducedMotion ? { duration: 0 } : undefined}
-    >
+    <motion.div variants={cardItem}>
       <Card className={className}>{children}</Card>
     </motion.div>
   );
@@ -89,20 +82,18 @@ export function PageHeader({
   description?: string;
   actions?: React.ReactNode;
 }) {
-  const prefersReducedMotion = useReducedMotion();
-
   return (
     <motion.div
-      initial={prefersReducedMotion ? false : { opacity: 0, y: -4 }}
+      initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-      className="mb-6 flex flex-col gap-3 border-b border-border/70 pb-5 sm:flex-row sm:items-end sm:justify-between"
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
     >
       <div className="space-y-2">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{title}</h1>
-        {description && <p className="max-w-3xl text-sm leading-6 text-muted-foreground">{description}</p>}
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-primary">{title}</h1>
+        {description && <p className="text-sm sm:text-base text-muted-foreground">{description}</p>}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className="flex items-center gap-3">{actions}</div>}
     </motion.div>
   );
 }
@@ -129,20 +120,19 @@ export function StatCard({
   const deltaColor = isUp ? 'text-success' : isDown ? 'text-destructive' : 'text-muted-foreground';
   const DeltaIcon = isUp ? TrendingUp : isDown ? TrendingDown : Minus;
   const isFloat = !Number.isInteger(value);
-  const prefersReducedMotion = useReducedMotion();
 
   return (
-    <Card className="border-border/80 p-4 sm:p-5">
+    <Card className="p-5">
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">{label}</span>
         {Icon && (
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted text-primary">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-secondary/10 shadow-lg shadow-primary/8">
             <Icon className="h-5 w-5 text-primary" />
           </div>
         )}
       </div>
       <div className="mt-3 flex items-baseline gap-1">
-        <span className="font-mono text-2xl font-bold text-foreground sm:text-3xl">
+        <span className="font-mono text-2xl sm:text-3xl font-bold text-primary">
           <CountUp value={value} decimals={isFloat ? 1 : 0} />
         </span>
         {unit && <span className="text-sm text-muted-foreground">{unit}</span>}
@@ -167,10 +157,10 @@ export function StatCard({
             return (
               <motion.div
                 key={i}
-                initial={prefersReducedMotion ? false : { height: 0 }}
+                initial={{ height: 0 }}
                 animate={{ height: h }}
-                transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.25, delay: i * 0.03, ease: 'easeOut' }}
-                className="flex-1 rounded-sm bg-primary/50"
+                transition={{ duration: 0.5, delay: i * 0.05, ease: 'easeOut' }}
+                className="flex-1 rounded-xl bg-primary/50 shadow-sm"
               />
             );
           })}
@@ -188,7 +178,7 @@ export function ScoreRing({
   stroke = 10,
   label,
   sublabel,
-  glow = false,
+  glow = true,
 }: {
   score: number;
   size?: number;
@@ -202,7 +192,6 @@ export function ScoreRing({
   const color = scoreColor(score);
   const ref = React.useRef<SVGSVGElement>(null);
   const inView = useInView(ref, { once: true, margin: '-20px' });
-  const prefersReducedMotion = useReducedMotion();
 
   const offset = circumference - (score / 100) * circumference;
   const initialOffset = circumference;
@@ -212,14 +201,14 @@ export function ScoreRing({
   return (
     <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
       {/* 外层光晕（弱化） */}
-      {glow && !prefersReducedMotion && (
+      {glow && (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 0.45 }}
-          transition={{ duration: 0.2 }}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
           className="absolute inset-0 rounded-full"
           style={{
-            boxShadow: `0 0 12px ${glowColor}20`,
+            boxShadow: `0 0 24px ${glowColor}25, 0 0 48px ${glowColor}10`,
           }}
         />
       )}
@@ -244,16 +233,16 @@ export function ScoreRing({
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={circumference}
-          initial={prefersReducedMotion ? false : { strokeDashoffset: initialOffset }}
-          animate={{ strokeDashoffset: prefersReducedMotion ? offset : inView ? offset : initialOffset }}
-          transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          initial={{ strokeDashoffset: initialOffset }}
+          animate={{ strokeDashoffset: inView ? offset : initialOffset }}
+          transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
           style={{
-            filter: glow && !prefersReducedMotion ? `drop-shadow(0 0 3px ${glowColor}30)` : undefined,
+            filter: glow ? `drop-shadow(0 0 6px ${glowColor}40)` : undefined,
           }}
         />
       </svg>
       <div className="absolute flex flex-col items-center">
-        <span className="font-mono text-xl sm:text-2xl font-bold" style={{ color, textShadow: glow && !prefersReducedMotion ? `0 0 6px ${glowColor}20` : undefined }}>
+        <span className="font-mono text-xl sm:text-2xl font-bold" style={{ color, textShadow: glow ? `0 0 12px ${glowColor}30` : undefined }}>
           <CountUp value={Math.round(score)} duration={1.2} />
         </span>
         {label && <span className="mt-0.5 text-xs text-muted-foreground">{label}</span>}
@@ -283,7 +272,14 @@ export function ProgressBar({
   glow?: boolean;
 }) {
   const pct = Math.min(100, (value / max) * 100);
-  const prefersReducedMotion = useReducedMotion();
+  const barColor = indicatorClassName?.includes('success')
+    ? 'var(--success)'
+    : indicatorClassName?.includes('warning')
+    ? 'var(--warning)'
+    : indicatorClassName?.includes('destructive') || indicatorClassName?.includes('danger')
+    ? 'var(--destructive)'
+    : 'var(--primary)';
+
   return (
     <div className="space-y-1.5">
       {label && (
@@ -297,15 +293,15 @@ export function ProgressBar({
           )}
         </div>
       )}
-      <div className="h-2 w-full overflow-hidden rounded-sm bg-muted/70">
+      <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted/30">
         <motion.div
-          initial={prefersReducedMotion ? false : { width: 0 }}
+          initial={{ width: 0 }}
           whileInView={{ width: `${pct}%` }}
           viewport={{ once: true }}
-          transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           className={cn('h-full rounded-full', indicatorClassName || 'bg-primary')}
           style={{
-            boxShadow: undefined,
+            boxShadow: glow ? `0 0 10px ${barColor}40` : undefined,
           }}
         />
       </div>
@@ -345,16 +341,17 @@ export function HeroStat({
   const DeltaIcon = isUp ? TrendingUp : isDown ? TrendingDown : Minus;
 
   return (
-    <Card className="relative overflow-hidden border-border/80 p-5 sm:p-6">
+    <Card className="relative overflow-hidden p-6">
       {/* 背景装饰光晕 - 极简 */}
-      <div className="absolute -right-12 -top-12 h-20 w-20 rounded-full opacity-0"
+      <div
+        className="absolute -right-12 -top-12 h-24 w-24 rounded-full opacity-10 blur-2xl"
         style={{
           background: variant === 'success' ? 'var(--success)' : variant === 'warning' ? 'var(--warning)' : 'var(--primary)',
         }}
       />
 
       {Icon && (
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-secondary/10">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary/10 shadow-lg shadow-primary/8">
           <Icon className="h-6 w-6 text-primary" />
         </div>
       )}
@@ -362,7 +359,7 @@ export function HeroStat({
       <div className="relative">
         <div className="flex items-baseline gap-1.5">
           <span className={cn('font-mono text-3xl sm:text-4xl font-bold', textColorClass)}>
-            <CountUp value={value} />
+            <CountUp value={value} glow />
           </span>
           {unit && <span className="text-base text-muted-foreground">{unit}</span>}
         </div>
@@ -396,19 +393,18 @@ export function HealthHero({
   const color = scoreColor(score);
   const isUp = trend && trend > 0;
   const isDown = trend && trend < 0;
-  const prefersReducedMotion = useReducedMotion();
 
   return (
     <CardAccent className="flex h-full flex-col items-center justify-center p-6 sm:p-8">
       {/* 背景装饰 - 极简微光 */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -right-16 -top-16 h-32 w-32 rounded-full bg-primary/0" />
-        <div className="absolute -bottom-12 -left-12 h-24 w-24 rounded-full bg-accent/[0]" />
+      <div className="absolute inset-0 overflow-hidden rounded-2xl">
+        <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-primary/8 blur-3xl" />
+        <div className="absolute -bottom-12 -left-12 h-32 w-32 rounded-full bg-accent/5 blur-3xl" />
       </div>
 
       <div className="relative z-10 flex flex-col items-center w-full">
         <div className="mb-4 sm:mb-6 flex items-center gap-2">
-          <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-md bg-muted text-primary">
+          <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-2xl bg-secondary/10">
             <svg className="h-4.5 w-4.5 sm:h-5 sm:w-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
             </svg>
@@ -420,7 +416,7 @@ export function HealthHero({
         <div className="relative">
           <span
             className="font-mono hero-number"
-            style={{ color, textShadow: undefined }}
+            style={{ color, textShadow: `0 0 32px ${color}30` }}
           >
             <CountUp value={Math.round(score)} duration={1.5} />
           </span>
@@ -454,6 +450,7 @@ export function HealthHero({
             max={100}
             showValue={false}
             indicatorClassName={score >= 85 ? 'bg-success' : score >= 70 ? 'bg-warning' : 'bg-destructive'}
+            glow
           />
           <div className="mt-2.5 flex justify-between text-xs text-muted-foreground/70">
             <span>当前 {score.toFixed(1)}</span>

@@ -15,15 +15,15 @@
   --font-sans: var(--font-fira-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-fira-code), ui-monospace, monospace;
 
-  /* 企业工作台采用 8 / 10 / 12px 圆角节奏。 */
-  --radius-sm: 8px;
-  --radius-md: 10px;
-  --radius-lg: 12px;
-  --radius-xl: 12px;
-  --radius-2xl: 12px;
-  --radius-3xl: 14px;
+  /* 与 HeroUI 官方 radius 保持一致 */
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.25);
+  --radius-2xl: calc(var(--radius) * 1.5);
+  --radius-3xl: calc(var(--radius) * 1.75);
 
-  /* Tailwind 语义类映射到 DevLens 的显式主题 token。 */
+  /* 历史 Tailwind 语义类映射到 HeroUI 官方 token，不再维护第二套色板。 */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -61,125 +61,62 @@
 }
 
 /*
- * DevLens 企业数据平台主题。
- * 显式定义实际色值，避免继续继承 HeroUI 的近黑霓虹默认色板。
+ * HeroUI 默认主题同时提供 :root 与 .dark 两套 token。
+ * 下面仅为项目中既有的 CSS/SVG 变量提供别名，所有实际色值均来自 HeroUI。
  */
-:root {
-  color-scheme: light;
-  --background: oklch(0.975 0.006 250);
-  --foreground: oklch(0.23 0.03 258);
-  --surface: oklch(1 0 0);
-  --surface-foreground: var(--foreground);
-  --surface-secondary: oklch(0.955 0.012 250);
-  --surface-secondary-foreground: var(--foreground);
-  --overlay: oklch(1 0 0);
-  --overlay-foreground: var(--foreground);
-  --accent: oklch(0.43 0.14 259);
-  --accent-foreground: oklch(0.99 0.003 250);
-  --success: oklch(0.52 0.12 158);
-  --warning: oklch(0.64 0.14 72);
-  --danger: oklch(0.54 0.19 28);
-  --focus: oklch(0.52 0.15 258);
-  --radius: 12px;
-  --card: var(--surface);
-  --card-foreground: var(--foreground);
-  --popover: var(--overlay);
-  --popover-foreground: var(--foreground);
-  --primary: var(--accent);
-  --primary-foreground: var(--accent-foreground);
-  --secondary: var(--surface-secondary);
-  --secondary-foreground: var(--surface-secondary-foreground);
-  --destructive: var(--danger);
-  --app-secondary-foreground: oklch(0.46 0.025 255);
-  --app-placeholder-foreground: oklch(0.58 0.018 255);
-  --muted-foreground: var(--app-secondary-foreground);
-  --surface-muted: oklch(0.955 0.01 250);
-  --border: oklch(0.87 0.015 252);
-  --separator: oklch(0.9 0.012 252);
-  --input: var(--field-border);
-  --field-background: oklch(1 0 0);
-  --field-border-width: 1px;
-  --field-border: oklch(0.79 0.022 252);
-  --field-border-hover: oklch(0.65 0.055 252);
-  --field-border-focus: var(--accent);
-  --field-placeholder: var(--app-placeholder-foreground);
-  --field-shadow: none;
-  --ring: var(--focus);
-  --chart-1: var(--accent);
-  --chart-2: oklch(0.55 0.12 185);
-  --chart-3: var(--warning);
-  --chart-4: var(--danger);
-  --chart-5: oklch(0.42 0.04 285);
-  --sidebar: oklch(0.985 0.004 250);
-  --sidebar-foreground: var(--foreground);
-  --sidebar-primary: var(--accent);
-  --sidebar-primary-foreground: var(--accent-foreground);
-  --sidebar-accent: oklch(0.94 0.018 252);
-  --sidebar-accent-foreground: var(--foreground);
-  --sidebar-border: var(--border);
-  --sidebar-ring: var(--focus);
-  --surface-shadow: 0 1px 2px oklch(0.25 0.03 258 / 0.05), 0 6px 18px oklch(0.25 0.03 258 / 0.04);
-  --surface-shadow-hover: 0 2px 4px oklch(0.25 0.03 258 / 0.07), 0 12px 26px oklch(0.25 0.03 258 / 0.08);
-  --glass-border: var(--border);
-  --glass-shadow: var(--surface-shadow);
-}
-
+:root,
 .dark,
 [data-theme='dark'] {
-  color-scheme: dark;
-  --background: oklch(0.18 0.02 255);
-  --foreground: oklch(0.93 0.012 250);
-  --surface: oklch(0.22 0.024 255);
-  --surface-foreground: var(--foreground);
-  --surface-secondary: oklch(0.27 0.027 255);
-  --surface-secondary-foreground: var(--foreground);
-  --overlay: oklch(0.25 0.026 255);
-  --overlay-foreground: var(--foreground);
-  --accent: oklch(0.72 0.13 252);
-  --accent-foreground: oklch(0.17 0.02 255);
-  --success: oklch(0.72 0.12 158);
-  --warning: oklch(0.78 0.13 78);
-  --danger: oklch(0.7 0.17 28);
-  --focus: oklch(0.76 0.12 252);
   --card: var(--surface);
-  --card-foreground: var(--foreground);
+  --card-foreground: var(--surface-foreground);
   --popover: var(--overlay);
-  --popover-foreground: var(--foreground);
+  --popover-foreground: var(--overlay-foreground);
   --primary: var(--accent);
   --primary-foreground: var(--accent-foreground);
   --secondary: var(--surface-secondary);
   --secondary-foreground: var(--surface-secondary-foreground);
   --destructive: var(--danger);
-  --app-secondary-foreground: oklch(0.74 0.02 250);
-  --app-placeholder-foreground: oklch(0.6 0.018 250);
+  /*
+   * 可读性基线（浅 / 深色主题共用公式）。
+   * 辅助文字约为正文的 72% 对比层级；该值用于副标题、表头、时间、路径和说明，
+   * 不把实际工作信息降到 HeroUI 默认 muted 的装饰性灰度。
+   */
+  --app-secondary-foreground: color-mix(in oklch, var(--foreground) 72%, var(--background));
+  --app-placeholder-foreground: color-mix(in oklch, var(--foreground) 55%, var(--background));
   --muted-foreground: var(--app-secondary-foreground);
-  --surface-muted: oklch(0.265 0.022 255);
-  --border: oklch(0.36 0.024 255);
-  --separator: oklch(0.32 0.022 255);
+  /*
+   * 次级表面和分隔线均稍增强，使信息块、表格行和卡片边界在两种主题下都可辨。
+   * --input 供现有 border-input 工具类使用，因此必须映射到“字段边框”而不是字段背景。
+   */
+  --surface-muted: color-mix(in oklch, var(--background) 93%, var(--foreground));
+  --border: color-mix(in oklch, var(--foreground) 18%, var(--background));
+  --separator: color-mix(in oklch, var(--foreground) 13%, var(--background));
   --input: var(--field-border);
-  --field-background: oklch(0.21 0.02 255);
+
+  /*
+   * HeroUI 默认 field 是无边框（field-border: transparent / field-border-width: 0）。
+   * DevLens 属于高密度数据产品，输入框、选择框、文本域必须有稳定、可见的边界。
+   */
   --field-border-width: 1px;
-  --field-border: oklch(0.42 0.03 255);
-  --field-border-hover: oklch(0.55 0.05 255);
+  --field-border: color-mix(in oklch, var(--foreground) 24%, var(--field-background));
+  --field-border-hover: color-mix(in oklch, var(--foreground) 38%, var(--field-background));
   --field-border-focus: var(--accent);
   --field-placeholder: var(--app-placeholder-foreground);
-  --field-shadow: none;
+  --field-shadow: 0 1px 2px oklch(0 0 0 / 0.04);
   --ring: var(--focus);
   --chart-1: var(--accent);
-  --chart-2: oklch(0.73 0.11 185);
+  --chart-2: var(--success);
   --chart-3: var(--warning);
   --chart-4: var(--danger);
-  --chart-5: oklch(0.78 0.03 280);
-  --sidebar: oklch(0.16 0.018 255);
-  --sidebar-foreground: var(--foreground);
+  --chart-5: var(--foreground);
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--surface-foreground);
   --sidebar-primary: var(--accent);
   --sidebar-primary-foreground: var(--accent-foreground);
-  --sidebar-accent: oklch(0.26 0.025 255);
-  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-accent: var(--surface-secondary);
+  --sidebar-accent-foreground: var(--surface-secondary-foreground);
   --sidebar-border: var(--border);
   --sidebar-ring: var(--focus);
-  --surface-shadow: 0 1px 2px oklch(0 0 0 / 0.18), 0 8px 22px oklch(0 0 0 / 0.14);
-  --surface-shadow-hover: 0 2px 6px oklch(0 0 0 / 0.24), 0 14px 30px oklch(0 0 0 / 0.2);
   --glass-border: var(--border);
   --glass-shadow: var(--surface-shadow);
 }
@@ -193,11 +130,6 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: 'cv11', 'ss01';
-  }
-
-  ::selection {
-    background: color-mix(in oklch, var(--primary) 22%, transparent);
-    color: var(--foreground);
   }
 
   /*
@@ -244,68 +176,112 @@
 }
 
 /* ============================================
-   共享表面工具类
-   保留历史 glass 类名，但使用不透明 token 表面，避免玻璃、渐变和发光装饰。
+   Glassmorphism 工具类
    ============================================ */
 
-.glass,
-.glass-light,
+.glass {
+  background: var(--card);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-light {
+  background: oklch(1 0 0 / 0.03);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid oklch(1 0 0 / 0.05);
+}
+
 .glass-strong {
   background: var(--card);
-  border: 1px solid var(--border);
-  box-shadow: var(--surface-shadow);
+  backdrop-filter: blur(20px) saturate(200%);
+  -webkit-backdrop-filter: blur(20px) saturate(200%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
 }
 
-/* 渐变边框兼容类：回退到稳定的语义边界。 */
-.gradient-border,
-.gradient-border-primary,
-.gradient-border-accent {
+/* 渐变边框工具 - 仅用于重点强调 */
+.gradient-border {
   position: relative;
-  border: 1px solid var(--border);
 }
-.gradient-border::before,
-.gradient-border-primary::before,
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, oklch(1 0 0 / 0.1), oklch(1 0 0 / 0.02));
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.gradient-border-primary::before {
+  background: linear-gradient(135deg, color-mix(in oklch, var(--primary) 30%, transparent), color-mix(in oklch, var(--secondary) 10%, transparent));
+}
+
 .gradient-border-accent::before {
-  content: none;
+  background: linear-gradient(135deg, color-mix(in oklch, var(--accent) 30%, transparent), transparent);
 }
 
-/* 发光兼容类：以轻量 token 阴影替代高亮光晕。 */
-.glow,
-.glow-strong,
-.glow-success,
-.glow-warning,
-.glow-destructive {
-  box-shadow: var(--surface-shadow);
+/* ============================================
+   光晕发光效果工具类（仅用于重点数据）
+   ============================================ */
+
+.glow {
+  box-shadow: 0 0 16px oklch(0.68 0.2 245 / 0.2);
 }
+
+.glow-strong {
+  box-shadow:
+    0 0 24px oklch(0.68 0.2 245 / 0.3),
+    0 0 48px oklch(0.68 0.2 245 / 0.15);
+}
+
 .glow-text {
-  text-shadow: none;
+  text-shadow: 0 0 16px oklch(0.68 0.2 245 / 0.3);
 }
 
-/* 卡片悬停效果 - 只提升边界层级，不移动布局。 */
+.glow-success {
+  box-shadow: 0 0 16px oklch(0.72 0.18 155 / 0.2);
+}
+
+.glow-warning {
+  box-shadow: 0 0 16px oklch(0.78 0.16 78 / 0.2);
+}
+
+.glow-destructive {
+  box-shadow: 0 0 16px oklch(0.68 0.22 25 / 0.25);
+}
+
+/* 卡片悬停效果 - 用阴影和透明度变化，不用 scale 位移 */
 .hover-lift {
-  transition: box-shadow 160ms ease, background-color 160ms ease, border-color 160ms ease;
+  transition: box-shadow 200ms ease, background-color 200ms ease;
 }
 .hover-lift:hover {
-  border-color: var(--field-border-hover);
-  box-shadow: var(--surface-shadow-hover);
-  background-color: var(--card);
+  box-shadow: 0 8px 32px oklch(0 0 0 / 0.2);
+  background-color: color-mix(in oklch, var(--card), oklch(1 0 0 / 0.02));
 }
-
 
 /* ============================================
    自定义滚动条
    ============================================ */
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: color-mix(in oklch, var(--foreground) 24%, transparent);
-  border-radius: 999px;
+  background: color-mix(in oklch, var(--muted-foreground) 20%, transparent);
+  border-radius: 2px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: color-mix(in oklch, var(--muted-foreground) 35%, transparent);
@@ -360,45 +336,62 @@
   animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* 尊重系统的减少动态效果偏好，保留静态内容与交互可用性。 */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
 /* ============================================
-   Bento Grid 兼容工具类
-   保留布局类名，统一为克制的共享卡片表面。
+   Bento Grid 专用工具类
    ============================================ */
 
-.bento-card,
-.bento-card-large,
-.bento-card-accent {
-  border-radius: var(--radius-lg);
+/* Bento 基础卡片 - 无硬边框，用背景色差异 + 软阴影 */
+.bento-card {
+  border-radius: calc(var(--radius) * 1.75);
   background: var(--card);
-  border: 1px solid var(--border);
-  box-shadow: var(--surface-shadow);
-  position: relative;
-  transition: box-shadow 160ms ease, background-color 160ms ease, border-color 160ms ease;
+  box-shadow: var(--glass-shadow);
+  transition: box-shadow 200ms ease, background-color 200ms ease, transform 200ms ease;
 }
+.bento-card:hover {
+  box-shadow: 0 8px 32px oklch(0 0 0 / 0.2);
+  background-color: color-mix(in oklch, var(--card), oklch(1 0 0 / 0.02));
+  transform: translateY(-2px);
+}
+
+/* Bento 大卡片 - 用于主角区域 */
+.bento-card-large {
+  border-radius: calc(var(--radius) * 1.75);
+  background: var(--card);
+  box-shadow: var(--glass-shadow);
+  transition: box-shadow 200ms ease, background-color 200ms ease, transform 200ms ease;
+}
+.bento-card-large:hover {
+  box-shadow: 0 12px 40px oklch(0 0 0 / 0.25);
+  background-color: color-mix(in oklch, var(--card), oklch(1 0 0 / 0.03));
+  transform: translateY(-2px);
+}
+
+/* Bento 强调卡片 - 带渐变边框光晕 */
 .bento-card-accent {
+  border-radius: calc(var(--radius) * 1.75);
+  background: var(--card);
+  box-shadow: var(--glass-shadow);
+  position: relative;
   overflow: hidden;
-}
-.bento-card:hover,
-.bento-card-large:hover,
-.bento-card-accent:hover {
-  border-color: var(--field-border-hover);
-  box-shadow: var(--surface-shadow-hover);
-  background-color: var(--card);
+  transition: box-shadow 200ms ease, transform 200ms ease;
 }
 .bento-card-accent::before {
-  content: none;
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, color-mix(in oklch, var(--primary) 40%, transparent), color-mix(in oklch, var(--secondary) 15%, transparent));
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.bento-card-accent:hover {
+  box-shadow: 0 12px 40px oklch(0.68 0.2 245 / 0.15);
+  transform: translateY(-2px);
 }
 
 /* Bento Grid 跨度工具类 - 使用 CSS Grid */
@@ -415,47 +408,22 @@
 }
 
 /* ============================================
-   数据表格
-   共享分隔线与悬停层级；横向溢出时显示清晰滚动条，容器可获得键盘焦点。
+   去框化表格 - 无边框，用行间距和 hover 区分
    ============================================ */
 
-.table-scroll {
-  scrollbar-color: color-mix(in oklch, var(--foreground) 28%, transparent) transparent;
-  scrollbar-width: thin;
-  border-radius: var(--radius-md);
-}
-.table-scroll:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
-}
-.table-scroll::-webkit-scrollbar {
-  height: 8px;
-}
-.table-scroll::-webkit-scrollbar-thumb {
-  background: color-mix(in oklch, var(--foreground) 28%, transparent);
-  border: 2px solid transparent;
-  border-radius: 999px;
-  background-clip: padding-box;
-}
-.table-scroll::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in oklch, var(--foreground) 42%, transparent);
-  background-clip: padding-box;
-}
-
 .borderless-table {
-  border-collapse: collapse;
   border-spacing: 0;
 }
 .borderless-table tr {
   transition: background-color 150ms ease;
 }
+.borderless-table tr:hover {
+  background: color-mix(in oklch, var(--surface-muted) 30%, transparent);
+}
 .borderless-table td,
 .borderless-table th {
-  padding: 12px 16px;
-}
-.borderless-table thead tr {
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-muted);
+  border: none;
+  padding: 14px 16px;
 }
 
 /* ============================================
@@ -464,6 +432,7 @@
 
 .risk-bar-high {
   border-left: 4px solid var(--destructive);
+  box-shadow: -4px 0 20px oklch(0.68 0.22 25 / 0.15);
 }
 
 .risk-bar-medium {
@@ -479,11 +448,11 @@
    ============================================ */
 
 .heatmap-cell {
-  transition: background-color 150ms ease, outline-color 150ms ease;
+  transition: all 150ms ease;
 }
 .heatmap-cell:hover {
-  outline: 1px solid var(--ring);
-  outline-offset: -1px;
+  transform: scale(1.05);
+  z-index: 10;
 }
 
 /* ============================================

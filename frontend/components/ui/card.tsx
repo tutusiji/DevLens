@@ -9,6 +9,13 @@ import {
 } from '@heroui/react/card';
 import { cn } from '@/lib/utils';
 
+/* ============================================
+   Card 组件 - 基于 HeroUI Card
+   保持原有导出 API，并保留 className 透传。
+   HeroUI 3.2 的 CardContent 即内容区语义组件，
+   对应设计中的 CardBody 映射。
+   ============================================ */
+
 type HeroUICardProps = React.ComponentProps<typeof HeroUICard>;
 type HeroUICardHeaderProps = React.ComponentProps<typeof HeroUICardHeader>;
 type HeroUICardTitleProps = React.ComponentProps<typeof HeroUICardTitle>;
@@ -17,35 +24,47 @@ type HeroUICardContentProps = React.ComponentProps<typeof HeroUICardContent>;
 type HeroUICardFooterProps = React.ComponentProps<typeof HeroUICardFooter>;
 
 function Card({ className, ...props }: HeroUICardProps) {
-  return <HeroUICard className={cn('rounded-md border border-border bg-card shadow-none', className)} {...props} />;
+  return <HeroUICard className={cn('rounded-2xl', className)} {...props} />;
 }
 
+/**
+ * 兼容历史紧凑卡片导出。使用 HeroUI secondary 表面层，
+ * 不再依赖旧的自写 bento-card 样式。
+ */
 function CardCompact({ className, ...props }: HeroUICardProps) {
-  return <HeroUICard variant="secondary" className={cn('rounded-md border border-border bg-muted shadow-none', className)} {...props} />;
+  return <HeroUICard variant="secondary" className={cn('rounded-2xl', className)} {...props} />;
 }
 
+/**
+ * 兼容历史强调卡片导出。使用 HeroUI tertiary 表面层，
+ * 以纯色层级替换旧的渐变强调边框。
+ */
 function CardAccent({ className, ...props }: HeroUICardProps) {
-  return <HeroUICard variant="tertiary" className={cn('rounded-md border border-primary/30 bg-card shadow-none', className)} {...props} />;
+  return <HeroUICard variant="tertiary" className={cn('rounded-2xl', className)} {...props} />;
 }
 
 function CardHeader({ className, ...props }: HeroUICardHeaderProps) {
-  return <HeroUICardHeader className={cn('border-b border-border px-4 py-3', className)} {...props} />;
+  return <HeroUICardHeader className={className} {...props} />;
 }
 
 function CardTitle({ className, ...props }: HeroUICardTitleProps) {
-  return <HeroUICardTitle className={cn('text-sm font-semibold tracking-tight', className)} {...props} />;
+  return <HeroUICardTitle className={className} {...props} />;
 }
 
 function CardDescription({ className, ...props }: HeroUICardDescriptionProps) {
-  return <HeroUICardDescription className={cn('text-xs text-muted-foreground', className)} {...props} />;
+  /*
+   * HeroUI 的 description 默认使用较弱的 muted 色。DevLens 的卡片副标题通常
+   * 承载评估口径、风险范围等工作信息，因此统一走项目定义的 70% 辅助文字色。
+   */
+  return <HeroUICardDescription className={cn('!text-muted-foreground', className)} {...props} />;
 }
 
 function CardContent({ className, ...props }: HeroUICardContentProps) {
-  return <HeroUICardContent className={cn('px-4 py-4', className)} {...props} />;
+  return <HeroUICardContent className={className} {...props} />;
 }
 
 function CardFooter({ className, ...props }: HeroUICardFooterProps) {
-  return <HeroUICardFooter className={cn('border-t border-border px-4 py-3', className)} {...props} />;
+  return <HeroUICardFooter className={className} {...props} />;
 }
 
 export { Card, CardCompact, CardAccent, CardHeader, CardTitle, CardDescription, CardContent, CardFooter };
