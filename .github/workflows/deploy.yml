@@ -1,0 +1,74 @@
+name: DevLens CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: CI · build & smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+
+      - name: Backend deps + import smoke
+        run: |
+          cd backend
+          uv sync --frozen
+          uv run python -c "from app.main import app"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Frontend build
+        run: |
+          cd frontend
+          pnpm install --frozen-lockfile
+          NEXT_PUBLIC_API_URL=/api/v1 pnpm build
+
+  deploy:
+    name: Deploy to joox
+    needs: ci
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy code to joox
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.JOOX_HOST }}
+          username: ${{ secrets.JOOX_USER }}
+          key: ${{ secrets.JOOX_SSH_KEY }}
+          port: 22   # joox SSH 端口；若非 22，改用 secrets.JOOX_PORT
+          source: "./"
+          target: /opt/devlens
+          exclude: ".git/*,node_modules/*,.next/*,backups/*,backend/.venv/*"
+
+      - name: Run deploy script
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.JOOX_HOST }}
+          username: ${{ secrets.JOOX_USER }}
+          key: ${{ secrets.JOOX_SSH_KEY }}
+          port: 22   # 同上
+          script: |
+            bash /opt/devlens/scripts/deploy.sh
