@@ -8,7 +8,7 @@
 DevLens 目前只在开发机本地运行（后端 uvicorn :8000，前端 next dev :3800，PG/Redis/Qdrant 本机）。需要：
 
 1. 为仓库编写 GitHub Action，实现 push 到 main 后自动 CI + 部署。
-2. 通过 SSH 把 DevLens 原生部署到远程服务器 `joox.cc`，以 `https://joox.cc:7504` 对外访问（自签名 HTTPS）。
+2. 通过 SSH 把 DevLens 原生部署到远程服务器 `joox.cc`，以 `https://joox.cc:7506` 对外访问（自签名 HTTPS）。
 3. 将用户提供的 SVG 图形作为网站 logo（侧边栏品牌位）与浏览器 favicon（icon + ico）。
 
 ## 2. 关键决策（已确认）
@@ -25,7 +25,7 @@ DevLens 目前只在开发机本地运行（后端 uvicorn :8000，前端 next d
 ## 3. 目标拓扑
 
 ```
-浏览器 ──> https://joox.cc:7504 (nginx, TLS 自签名)
+浏览器 ──> https://joox.cc:7506 (nginx, TLS 自签名)
                 ├─ /api/*        → 127.0.0.1:8000   (uvicorn, devlens-backend.service)
                 └─ /*            → 127.0.0.1:3800   (next start, devlens-frontend.service)
 ```
@@ -72,7 +72,7 @@ DevLens 目前只在开发机本地运行（后端 uvicorn :8000，前端 next d
 
 | 文件 | 说明 |
 |---|---|
-| `deploy/nginx-devlens.conf` | TLS 反代配置：listen 7504 ssl；`/api/` → 127.0.0.1:8000（含 `proxy_set_header` 透传 X-DevLens-* 与 Host）；其余 → 127.0.0.1:3800 |
+| `deploy/nginx-devlens.conf` | TLS 反代配置：listen 7506 ssl；`/api/` → 127.0.0.1:8000（含 `proxy_set_header` 透传 X-DevLens-* 与 Host）；其余 → 127.0.0.1:3800 |
 | `deploy/devlens-backend.service` | systemd 单元：`WorkingDirectory=…/backend`，`ExecStart` uvicorn :8000，`Restart=always`，用户以部署用户运行 |
 | `deploy/devlens-frontend.service` | systemd 单元：`WorkingDirectory=…/frontend`，`ExecStart` `pnpm start --port 3800`，`Restart=always` |
 | `scripts/deploy.sh` | 部署编排脚本（在 joox 执行，见 §5） |
@@ -90,7 +90,7 @@ DevLens 目前只在开发机本地运行（后端 uvicorn :8000，前端 next d
 5. **证书**：若 `/etc/ssl/devlens/fullchain.pem` + `privkey.pem` 不存在，`openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj "/CN=joox.cc"` 生成并写入。
 6. **nginx 配置**：将 `deploy/nginx-devlens.conf` 安装到 `/etc/nginx/sites-available/devlens`（或 conf.d），`nginx -t` 通过后 `systemctl reload nginx`。
 7. **systemd 单元**：安装 `deploy/devlens-*.service` 到 `/etc/systemd/system/`，`systemctl daemon-reload`；`restart` 后端与前端服务。
-8. **健康检查**：等待 `curl -k -sf https://127.0.0.1:7504/api/v1/health` 返回 2xx（最多 ~60s），失败则退出非 0（服务保持上一版本）。
+8. **健康检查**：等待 `curl -k -sf https://127.0.0.1:7506/api/v1/health` 返回 2xx（最多 ~60s），失败则退出非 0（服务保持上一版本）。
 
 ## 6. 错误处理与回滚
 
@@ -103,13 +103,13 @@ DevLens 目前只在开发机本地运行（后端 uvicorn :8000，前端 next d
 
 - 本地：前端 `pnpm build` 通过；`logo.svg` / `icon.svg` / `favicon.ico` 存在于产物。
 - Action：push main 后，GitHub 上 `ci` 与 `deploy` 均绿。
-- 服务器：`curl -k -I https://joox.cc:7504` 返回 200 且 TLS 生效；`/api/v1/health` 返回正常；浏览器访问可见 logo 与 favicon。
+- 服务器：`curl -k -I https://joox.cc:7506` 返回 200 且 TLS 生效；`/api/v1/health` 返回正常；浏览器访问可见 logo 与 favicon。
 - 幂等性：`scripts/deploy.sh` 可重复执行，重复运行不破坏已部署服务。
 
 ## 8. 范围外（Non-Goals）
 
 - Docker 化部署 / Kubernetes（本期不做）。
-- Let's Encrypt 正式证书（自定义端口 7504 + 内网主机名不适用）。
+- Let's Encrypt 正式证书（自定义端口 7506 + 内网主机名不适用）。
 - 前端 ESLint 规则补全（本期 CI 用 build 类型检查代替 lint）。
 - joox 基础设施（PG/Redis/Qdrant）的安装。
 

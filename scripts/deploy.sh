@@ -86,9 +86,9 @@ $SUDO systemctl enable devlens-backend devlens-frontend
 $SUDO systemctl restart devlens-backend devlens-frontend
 
 # 8. 健康检查（最多 90s：后端 /api/v1/health + 前端服务存活）
-log "等待 https://127.0.0.1:7504/api/v1/health"
+log "等待 https://127.0.0.1:7506/api/v1/health"
 for i in $(seq 1 90); do
-  if curl -k -sf "https://127.0.0.1:7504/api/v1/health" >/dev/null 2>&1 \
+  if curl -k -sf "https://127.0.0.1:7506/api/v1/health" >/dev/null 2>&1 \
      && $SUDO systemctl is-active --quiet devlens-frontend; then
     log "部署成功"
     exit 0

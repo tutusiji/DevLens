@@ -2,15 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 为 DevLens 编写 GitHub Action（push main 自动 CI+部署到 joox），将用户提供的 SVG 作为侧边栏 logo 与 favicon，使 `https://joox.cc:7504` 可访问。
+**Goal:** 为 DevLens 编写 GitHub Action（push main 自动 CI+部署到 joox），将用户提供的 SVG 作为侧边栏 logo 与 favicon，使 `https://joox.cc:7506` 可访问。
 
-**Architecture:** GitHub Actions 两个 Job：`ci`（后端 uv 安装+导入冒烟，前端 pnpm build）与 `deploy`（SSH scp 同步代码到 `/opt/devlens`，远程执行 `scripts/deploy.sh`）。joox 上用 systemd 管 devlens-backend（uvicorn:8000）与 devlens-frontend（next start:3800），nginx 在 7504 端口 TLS 终止并反代 `/api/*`→后端、其余→前端。favicon 用 Next.js 约定文件 `app/icon.svg` + 一次性 sharp 生成的 `app/favicon.ico`。
+**Architecture:** GitHub Actions 两个 Job：`ci`（后端 uv 安装+导入冒烟，前端 pnpm build）与 `deploy`（SSH scp 同步代码到 `/opt/devlens`，远程执行 `scripts/deploy.sh`）。joox 上用 systemd 管 devlens-backend（uvicorn:8000）与 devlens-frontend（next start:3800），nginx 在 7506 端口 TLS 终止并反代 `/api/*`→后端、其余→前端。favicon 用 Next.js 约定文件 `app/icon.svg` + 一次性 sharp 生成的 `app/favicon.ico`。
 
 **Tech Stack:** GitHub Actions / Next.js 15 App Router / sharp / FastAPI / nginx / systemd / OpenSSL。
 
 ## Global Constraints
 
-- 部署目标：远程服务器 `joox.cc`，访问地址 `https://joox.cc:7504`（自签名证书）。
+- 部署目标：远程服务器 `joox.cc`，访问地址 `https://joox.cc:7506`（自签名证书）。
 - joox 基础设施（PostgreSQL/Redis/Qdrant/uv/pnpm/nginx）已就绪，部署脚本**不负责安装**。
 - 后端机密（`COPILOT_PROVIDER_API_KEY`）只存 joox 上 `backend/.env`，不入库、不被覆盖；GitHub 只放 SSH 密钥。
 - 前端生产构建必须设 `NEXT_PUBLIC_API_URL=/api/v1`（否则 `USE_MOCK=!NEXT_PUBLIC_API_URL` 会启用 mock，前端不连后端）。
@@ -376,16 +376,16 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 **Interfaces:**
 - Consumes: 自签名证书路径 `/etc/ssl/devlens/*.pem`（Task 7 生成）
-- Produces: joox 上 `/etc/nginx/sites-available/devlens` 的内容；监听 7504
+- Produces: joox 上 `/etc/nginx/sites-available/devlens` 的内容；监听 7506
 
 - [ ] **Step 1: 创建配置**
 
 创建 `deploy/nginx-devlens.conf`：
 
 ```nginx
-# DevLens — HTTPS 反向代理，对外端口 7504
+# DevLens — HTTPS 反向代理，对外端口 7506
 server {
-    listen 7504 ssl;
+    listen 7506 ssl;
     server_name joox.cc;
 
     ssl_certificate     /etc/ssl/devlens/fullchain.pem;
@@ -424,16 +424,16 @@ server {
 - [ ] **Step 2: 静态检查关键字段**
 
 ```bash
-grep -E "listen 7504 ssl|ssl_certificate|proxy_pass http://127.0.0.1:(8000|3800)" deploy/nginx-devlens.conf
+grep -E "listen 7506 ssl|ssl_certificate|proxy_pass http://127.0.0.1:(8000|3800)" deploy/nginx-devlens.conf
 ```
 
-Expected: 四行均命中（listen 7504 ssl、两个证书路径、两个 proxy_pass）。
+Expected: 四行均命中（listen 7506 ssl、两个证书路径、两个 proxy_pass）。
 
 - [ ] **Step 3: 提交**
 
 ```bash
 git add deploy/nginx-devlens.conf
-git commit -m "feat: nginx TLS 反代配置（7504 → 后端/前端）
+git commit -m "feat: nginx TLS 反代配置（7506 → 后端/前端）
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
@@ -522,7 +522,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 **Interfaces:**
 - Consumes: Task 5 的 `deploy/nginx-devlens.conf`、Task 6 的 `deploy/*.service.template`、`backend/pyproject.toml` + `uv.lock`、`frontend/pnpm-lock.yaml`
-- Produces: joox 上运行的服务（uvicorn:8000、next:3800、nginx:7504）；`backend/.env`（首次创建）；自签名证书 `/etc/ssl/devlens/*.pem`（首次）
+- Produces: joox 上运行的服务（uvicorn:8000、next:3800、nginx:7506）；`backend/.env`（首次创建）；自签名证书 `/etc/ssl/devlens/*.pem`（首次）
 - 退出码：0=成功；非 0=失败（Action 据此判定）
 
 - [ ] **Step 1: 编写部署脚本**
@@ -601,9 +601,9 @@ $SUDO systemctl daemon-reload
 $SUDO systemctl restart devlens-backend devlens-frontend
 
 # 8. 健康检查（最多 90s）
-log "等待 https://127.0.0.1:7504/api/v1/health"
+log "等待 https://127.0.0.1:7506/api/v1/health"
 for i in $(seq 1 90); do
-  if curl -k -sf "https://127.0.0.1:7504/api/v1/health" >/dev/null 2>&1; then
+  if curl -k -sf "https://127.0.0.1:7506/api/v1/health" >/dev/null 2>&1; then
     log "部署成功"
     exit 0
   fi
@@ -713,7 +713,7 @@ Expected: 列出 Task 1-7 各提交 + docs 提交，无遗漏。
    - `JOOX_USER`：SSH 用户名（需 passwordless sudo）
    - `JOOX_SSH_KEY`：SSH 私钥全文
 3. **首次部署后填 API key**：登录 joox，编辑 `/opt/devlens/backend/.env` 填入 `COPILOT_PROVIDER_API_KEY`，然后 `sudo systemctl restart devlens-backend`。
-4. **访问**：浏览器打开 `https://joox.cc:7504`，信任自签名证书；确认侧边栏 logo 与浏览器标签 favicon 生效。
+4. **访问**：浏览器打开 `https://joox.cc:7506`，信任自签名证书；确认侧边栏 logo 与浏览器标签 favicon 生效。
 
 ## Self-Review 结论
 
