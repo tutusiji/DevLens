@@ -20,6 +20,7 @@ backend/.venv/
 # Tooling and local agent state
 .zcode/
 .claude/
+.superpowers/
 
 # TypeScript build cache
 *.tsbuildinfo
