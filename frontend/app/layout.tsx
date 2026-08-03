@@ -22,6 +22,10 @@ const firaCode = Fira_Code({
 export const metadata: Metadata = {
   title: 'DevLens · 研发棱镜',
   description: '基于 AI 的研发认知系统 - 项目 / 团队 / 人员三位一体评估',
+  icons: {
+    icon: '/icon.svg',
+    shortcut: '/favicon.ico',
+  },
 };
 
 // 防止主题闪烁：在 HTML 解析阶段同步读取 localStorage，
