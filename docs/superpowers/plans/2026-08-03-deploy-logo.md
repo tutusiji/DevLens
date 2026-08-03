@@ -34,7 +34,7 @@
 
 **Interfaces:**
 - Consumes: 无
-- Produces: `public/logo.svg`（后续 Task 2 组件、Task 3 metadata 引用）；`app/icon.svg`、`app/favicon.ico`（Next 自动 favicon）；`scripts/generate-favicon.mjs`（可复用再生成）
+- Produces: `public/logo.svg`（后续 Task 2 组件、Task 3 metadata 引用）；`app/icon.svg`、`app/favicon.ico`（Next 自动 favicon）；`frontend/scripts/generate-favicon.mjs`（可复用再生成）
 
 - [ ] **Step 1: 创建分支并写入 logo.svg**
 

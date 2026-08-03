@@ -64,8 +64,11 @@ if [ -f "$SITE_CONF" ]; then $SUDO cp "$SITE_CONF" "$SITE_CONF.prev"; fi
 $SUDO cp "$APP_DIR/deploy/nginx-devlens.conf" "$SITE_CONF"
 $SUDO ln -sfn "$SITE_CONF" "$SITE_LINK"
 if ! $SUDO nginx -t; then
-  if [ -f "$SITE_CONF.prev" ]; then $SUDO cp "$SITE_CONF.prev" "$SITE_CONF"; else $SUDO rm -f "$SITE_CONF"; fi
-  $SUDO rm -f "$SITE_LINK"
+  if [ -f "$SITE_CONF.prev" ]; then
+    $SUDO cp "$SITE_CONF.prev" "$SITE_CONF"   # 恢复旧配置，软链保持指向
+  else
+    $SUDO rm -f "$SITE_CONF" "$SITE_LINK"     # 首次部署失败则整体清理
+  fi
   die "nginx -t 校验失败，已回滚配置"
 fi
 $SUDO rm -f "$SITE_CONF.prev"
