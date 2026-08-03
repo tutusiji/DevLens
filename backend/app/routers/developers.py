@@ -54,7 +54,29 @@ def get_developer(
                 "ownership": int(existing.get("ownership", contributor.get("ownership", 0)) or 0),
             }
 
-    detail = schemas.DeveloperDetail.model_validate(d)
+    detail_payload = {
+        column.name: getattr(d, column.name)
+        for column in d.__table__.columns
+    }
+    detail_payload.update({
+        "capability": d.capability or {},
+        "team_capability_avg": d.team_capability_avg or {},
+        "growth_curve": d.growth_curve or [],
+        "behavior_evidence": d.behavior_evidence or [],
+        "partners": d.partners or [],
+        "modules": d.modules or [],
+        "ai_suggestion": d.ai_suggestion or "",
+    })
+    detail = schemas.DeveloperDetail.model_validate(detail_payload)
+    # 早期或仅列表导入的开发者可能没有完整画像 JSON。ORM 中的 NULL 会覆盖
+    # Pydantic 的默认值，因此在派生模块和项目参与关系前统一归一化为空集合。
+    detail.capability = detail.capability or {}
+    detail.team_capability_avg = detail.team_capability_avg or {}
+    detail.growth_curve = detail.growth_curve or []
+    detail.behavior_evidence = detail.behavior_evidence or []
+    detail.partners = detail.partners or []
+    detail.modules = detail.modules or []
+    detail.projects = detail.projects or []
     primary_project_id = (
         max(
             persisted.items(),

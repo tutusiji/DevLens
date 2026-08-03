@@ -107,13 +107,17 @@ function ActivityLeaderboard({
   selectedId,
   detail,
   detailLoading,
+  detailError,
   onSelect,
+  onRetry,
 }: {
   developers: Developer[];
   selectedId: string | null;
   detail: DeveloperDetail | null;
   detailLoading: boolean;
+  detailError: string;
   onSelect: (id: string) => void;
+  onRetry: () => void;
 }) {
   const maxActivity = Math.max(1, ...developers.map(contributionActivity));
   const selectedRank = selectedId ? developers.findIndex((developer) => developer.id === selectedId) + 1 : 0;
@@ -201,7 +205,13 @@ function ActivityLeaderboard({
       </Card>
 
       <Card className="min-w-0 overflow-hidden">
-        {detailLoading || !detail ? (
+        {detailError ? (
+          <CardContent className="flex min-h-[420px] flex-col items-center justify-center gap-3 px-6 text-center">
+            <div className="text-sm font-medium text-destructive">加载开发者详情失败</div>
+            <p className="max-w-md text-xs leading-5 text-muted-foreground">{detailError}</p>
+            <button type="button" onClick={onRetry} className="rounded-md border border-border px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60">重试</button>
+          </CardContent>
+        ) : detailLoading || !detail ? (
           <CardContent className="flex min-h-[420px] items-center justify-center text-sm text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />正在加载开发者详情…
           </CardContent>
@@ -384,6 +394,8 @@ export default function DevelopersPage() {
   const [selectedDeveloperId, setSelectedDeveloperId] = React.useState<string | null>(null);
   const [selectedDetail, setSelectedDetail] = React.useState<DeveloperDetail | null>(null);
   const [detailLoading, setDetailLoading] = React.useState(false);
+  const [detailError, setDetailError] = React.useState('');
+  const [detailRequestVersion, setDetailRequestVersion] = React.useState(0);
 
   React.useEffect(() => {
     api.getDevelopers().then((d) => { setDevelopers(d); setLoading(false); });
@@ -434,12 +446,14 @@ export default function DevelopersPage() {
     if (viewMode !== 'leaderboard' || !selectedDeveloperId) return;
     let cancelled = false;
     setDetailLoading(true);
+    setDetailError('');
+    setSelectedDetail(null);
     api.getDeveloperDetail(selectedDeveloperId)
       .then((detail) => { if (!cancelled) setSelectedDetail(detail); })
-      .catch(() => { if (!cancelled) setSelectedDetail(null); })
+      .catch((cause) => { if (!cancelled) setDetailError(cause instanceof Error ? cause.message : '服务暂时不可用，请稍后重试。'); })
       .finally(() => { if (!cancelled) setDetailLoading(false); });
     return () => { cancelled = true; };
-  }, [viewMode, selectedDeveloperId]);
+  }, [viewMode, selectedDeveloperId, detailRequestVersion]);
 
   if (loading) {
     return (
@@ -557,7 +571,9 @@ export default function DevelopersPage() {
           selectedId={selectedDeveloperId}
           detail={selectedDetail}
           detailLoading={detailLoading}
+          detailError={detailError}
           onSelect={setSelectedDeveloperId}
+          onRetry={() => setDetailRequestVersion((version) => version + 1)}
         />
       )}
     </>
