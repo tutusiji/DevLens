@@ -36,10 +36,9 @@ const STAGES = [
     title: '团队聚合',
     subtitle: 'Team Aggregation',
     desc: 'Bus Factor、能力缺口、协作网络等团队级指标',
-    color: 'var(--chart-2)',
-    bg: 'color-mix(in oklch, var(--chart-2) 10%, var(--card))',
-    border: 'color-mix(in oklch, var(--chart-2) 32%, var(--border))',
-    pattern: 'network',
+    color: 'var(--secondary)',
+    bg: 'color-mix(in oklch, var(--secondary) 12%, transparent)',
+    border: 'color-mix(in oklch, var(--secondary) 25%, transparent)',
   },
   {
     num: '04',
@@ -65,34 +64,6 @@ const itemVariants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' as const } },
 };
 
-function TeamNetworkPattern() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 260 120"
-      preserveAspectRatio="none"
-      className="pointer-events-none absolute inset-y-0 right-0 h-full w-[68%] text-[var(--chart-2)] opacity-[0.16]"
-    >
-      <g fill="none" stroke="currentColor" strokeWidth="1">
-        <path d="M34 68L88 34L142 54L202 22" />
-        <path d="M34 68L98 91L142 54L221 88" />
-        <path d="M88 34L98 91" />
-        <path d="M142 54L176 104" />
-        <path d="M202 22L221 88" />
-      </g>
-      <g fill="currentColor">
-        <circle cx="34" cy="68" r="4" />
-        <circle cx="88" cy="34" r="3" />
-        <circle cx="98" cy="91" r="3" />
-        <circle cx="142" cy="54" r="5" />
-        <circle cx="176" cy="104" r="3" />
-        <circle cx="202" cy="22" r="3" />
-        <circle cx="221" cy="88" r="4" />
-      </g>
-    </svg>
-  );
-}
-
 export function DerivationChain() {
   return (
     <motion.div
@@ -109,17 +80,15 @@ export function DerivationChain() {
             <motion.div key={stage.num} variants={itemVariants} className="flex flex-1 items-center">
               {/* 阶段卡片 */}
               <div
-                className="group relative flex-1 overflow-hidden rounded-lg border-l-[3px] p-4 transition-[border-color,box-shadow] duration-200 hover:shadow-sm"
+                className="group relative flex-1 overflow-hidden rounded-2xl p-4 transition-all duration-200 hover:scale-[1.02]"
                 style={{
                   background: stage.bg,
-                  borderColor: stage.border,
-                  borderLeftColor: stage.color,
+                  border: `1px solid ${stage.border}`,
                 }}
               >
-                {stage.pattern === 'network' && <TeamNetworkPattern />}
                 {/* 编号水印 */}
                 <span
-                  className="absolute right-2 top-1 font-mono text-3xl font-bold opacity-[0.1] select-none"
+                  className="absolute -right-1 -top-2 font-mono text-4xl font-bold opacity-8 select-none"
                   style={{ color: stage.color }}
                 >
                   {stage.num}
@@ -127,7 +96,7 @@ export function DerivationChain() {
 
                 <div className="relative flex items-start gap-3">
                   <div
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors duration-200 group-hover:bg-card"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-110"
                     style={{ background: `color-mix(in oklch, ${stage.color} 18%, transparent)` }}
                   >
                     <Icon className="h-4.5 w-4.5" style={{ color: stage.color }} />
