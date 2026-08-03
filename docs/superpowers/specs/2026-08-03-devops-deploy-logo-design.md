@@ -7,7 +7,7 @@
 
 DevLens 目前只在开发机本地运行（后端 uvicorn :8000，前端 next dev :3800，PG/Redis/Qdrant 本机）。需要：
 
-1. 为仓库编写 GitHub Action，实现 push 到 main 后自动 CI + 部署。
+1. 为仓库编写 GitHub Action，实现 push 到 master 后自动 CI + 部署。
 2. 通过 SSH 把 DevLens 原生部署到远程服务器 `joox.cc`，以 `https://joox.cc:7506` 对外访问（自签名 HTTPS）。
 3. 将用户提供的 SVG 图形作为网站 logo（侧边栏品牌位）与浏览器 favicon（icon + ico）。
 
@@ -16,7 +16,7 @@ DevLens 目前只在开发机本地运行（后端 uvicorn :8000，前端 next d
 | 决策点 | 结论 |
 |---|---|
 | joox 是什么 | 远程部署服务器，GitHub Action push 后通过 SSH 登录部署 |
-| Action 范围 | CI + 自动部署（push main 全流程；PR 仅 CI；支持手动触发） |
+| Action 范围 | CI + 自动部署（push master 全流程；PR 仅 CI；支持手动触发） |
 | 部署架构 | SSH + 原生部署（systemd 管理服务，nginx 做 TLS 反代），不使用 Docker |
 | HTTPS 证书 | joox 上用 openssl 生成自签名证书（10 年），首次部署自动生成，已存在则跳过 |
 | joox 基础设施 | PG / Redis / Qdrant / Python(uv) / Node(pnpm) 已就绪，部署脚本不负责安装 |
@@ -53,11 +53,11 @@ DevLens 目前只在开发机本地运行（后端 uvicorn :8000，前端 next d
 仓库根 `.github/workflows/deploy.yml`：
 
 - **Triggers**
-  - `push: branches: [main]` → CI + 部署
-  - `pull_request: branches: [main]` → 仅 CI
+  - `push: branches: [master]` → CI + 部署
+  - `pull_request: branches: [master]` → 仅 CI
   - `workflow_dispatch` → 手动触发完整流程
 - **Job 1 `ci`**（ubuntu-latest）
-  - 后端：`cd backend && uv sync`（或 `uv pip install`），冒烟测试 `uv run python -c "from app.main import app"`
+  - 后端：`cd backend && uv sync`（或 `uv pip install`），冒烟测试 `uv run python -c "from app.master import app"`
   - 前端：`cd frontend && pnpm install --frozen-lockfile && pnpm build`（build 含类型检查，前端无 ESLint 配置，故不用 `next lint`）
 - **Job 2 `deploy`**（needs: ci）
   - `actions/checkout@v4`
@@ -102,7 +102,7 @@ DevLens 目前只在开发机本地运行（后端 uvicorn :8000，前端 next d
 ## 7. 验证方案
 
 - 本地：前端 `pnpm build` 通过；`logo.svg` / `icon.svg` / `favicon.ico` 存在于产物。
-- Action：push main 后，GitHub 上 `ci` 与 `deploy` 均绿。
+- Action：push master 后，GitHub 上 `ci` 与 `deploy` 均绿。
 - 服务器：`curl -k -I https://joox.cc:7506` 返回 200 且 TLS 生效；`/api/v1/health` 返回正常；浏览器访问可见 logo 与 favicon。
 - 幂等性：`scripts/deploy.sh` 可重复执行，重复运行不破坏已部署服务。
 
@@ -115,5 +115,5 @@ DevLens 目前只在开发机本地运行（后端 uvicorn :8000，前端 next d
 
 ## 9. 提交策略
 
-- 本机当前分支 `feat/ui-ux-pro-max-international-theme`。Logo/favicon 与 Action 相关改动提交到独立分支（如 `feat/github-action-deploy-logo`），推送后由用户决定合并/开 PR 到 main。
+- 本机当前分支 `feat/ui-ux-pro-max-international-theme`。Logo/favicon 与 Action 相关改动提交到独立分支（如 `feat/github-action-deploy-logo`），推送后由用户决定合并/开 PR 到 master。
 - spec 文档单独提交。

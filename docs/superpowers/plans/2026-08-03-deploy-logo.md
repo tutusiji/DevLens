@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 为 DevLens 编写 GitHub Action（push main 自动 CI+部署到 joox），将用户提供的 SVG 作为侧边栏 logo 与 favicon，使 `https://joox.cc:7506` 可访问。
+**Goal:** 为 DevLens 编写 GitHub Action（push master 自动 CI+部署到 joox），将用户提供的 SVG 作为侧边栏 logo 与 favicon，使 `https://joox.cc:7506` 可访问。
 
 **Architecture:** GitHub Actions 两个 Job：`ci`（后端 uv 安装+导入冒烟，前端 pnpm build）与 `deploy`（SSH scp 同步代码到 `/opt/devlens`，远程执行 `scripts/deploy.sh`）。joox 上用 systemd 管 devlens-backend（uvicorn:8000）与 devlens-frontend（next start:3800），nginx 在 7506 端口 TLS 终止并反代 `/api/*`→后端、其余→前端。favicon 用 Next.js 约定文件 `app/icon.svg` + 一次性 sharp 生成的 `app/favicon.ico`。
 
@@ -271,9 +271,9 @@ name: DevLens CI/CD
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [master]
   workflow_dispatch:
 
 permissions:
@@ -295,7 +295,7 @@ jobs:
         run: |
           cd backend
           uv sync --frozen
-          uv run python -c "from app.main import app"
+          uv run python -c "from app.master import app"
 
       - uses: pnpm/action-setup@v4
         with:
@@ -316,7 +316,7 @@ jobs:
   deploy:
     name: Deploy to joox.cc
     needs: ci
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -362,7 +362,7 @@ Expected: `YAML OK, jobs: ['ci', 'deploy']`。
 
 ```bash
 git add .github/workflows/deploy.yml
-git commit -m "ci: 添加 GitHub Action（push main 自动 CI + 部署 joox）
+git commit -m "ci: 添加 GitHub Action（push master 自动 CI + 部署 joox）
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
@@ -464,7 +464,7 @@ Type=simple
 User=__USER__
 WorkingDirectory=__APP_DIR__/backend
 EnvironmentFile=__APP_DIR__/backend/.env
-ExecStart=/usr/bin/env bash -lc 'cd __APP_DIR__/backend && uv run uvicorn app.main:app --host 127.0.0.1 --port 8000'
+ExecStart=/usr/bin/env bash -lc 'cd __APP_DIR__/backend && uv run uvicorn app.master:app --host 127.0.0.1 --port 8000'
 Restart=always
 RestartSec=3
 
@@ -670,7 +670,7 @@ Expected: 能定位到 `.ico` 与 `icon.svg`（Next 约定文件自动复制）�
 
 ```bash
 cd /home/tutuos/CodeLab/devlens/backend
-.venv/bin/python -c "from app.main import app; print('backend OK')"
+.venv/bin/python -c "from app.master import app; print('backend OK')"
 ```
 
 Expected: `backend OK`。
@@ -703,10 +703,10 @@ Expected: 列出 Task 1-7 各提交 + docs 提交，无遗漏。
 
 以下步骤在代码提交并推送到 GitHub 后，由用户完成，供参考：
 
-1. **推送分支并合并到 main**：
+1. **推送分支并合并到 master**：
    ```bash
    git push origin feat/github-action-deploy-logo
-   # 在 GitHub 开 PR，合并到 main（合并后 push main 触发 workflow）
+   # 在 GitHub 开 PR，合并到 master（合并后 push master 触发 workflow）
    ```
 2. **配置 GitHub Secrets**（仓库 Settings → Secrets and variables → Actions）：
    - `JOOX_HOST`：joox 的 IP 或主机名
