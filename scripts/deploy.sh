@@ -55,7 +55,7 @@ if [ ! -f "$SSL_DIR/fullchain.pem" ] || [ ! -f "$SSL_DIR/privkey.pem" ]; then
   $SUDO mkdir -p "$SSL_DIR"
   $SUDO openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
     -keyout "$SSL_DIR/privkey.pem" -out "$SSL_DIR/fullchain.pem" \
-    -subj "/CN=joox"
+    -subj "/CN=joox.cc"
 fi
 
 # 6. nginx（nginx -t 不通过则回滚，现有运行配置不受影响）

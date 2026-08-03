@@ -50,14 +50,14 @@ jobs:
           NEXT_PUBLIC_API_URL=/api/v1 pnpm build
 
   deploy:
-    name: Deploy to joox
+    name: Deploy to joox.cc
     needs: ci
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Copy code to joox
+      - name: Copy code to joox.cc
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.JOOX_HOST }}

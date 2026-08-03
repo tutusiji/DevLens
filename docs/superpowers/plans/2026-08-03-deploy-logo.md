@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 为 DevLens 编写 GitHub Action（push main 自动 CI+部署到 joox），将用户提供的 SVG 作为侧边栏 logo 与 favicon，使 `https://joox:7504` 可访问。
+**Goal:** 为 DevLens 编写 GitHub Action（push main 自动 CI+部署到 joox），将用户提供的 SVG 作为侧边栏 logo 与 favicon，使 `https://joox.cc:7504` 可访问。
 
 **Architecture:** GitHub Actions 两个 Job：`ci`（后端 uv 安装+导入冒烟，前端 pnpm build）与 `deploy`（SSH scp 同步代码到 `/opt/devlens`，远程执行 `scripts/deploy.sh`）。joox 上用 systemd 管 devlens-backend（uvicorn:8000）与 devlens-frontend（next start:3800），nginx 在 7504 端口 TLS 终止并反代 `/api/*`→后端、其余→前端。favicon 用 Next.js 约定文件 `app/icon.svg` + 一次性 sharp 生成的 `app/favicon.ico`。
 
@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- 部署目标：远程服务器 `joox`，访问地址 `https://joox:7504`（自签名证书）。
+- 部署目标：远程服务器 `joox.cc`，访问地址 `https://joox.cc:7504`（自签名证书）。
 - joox 基础设施（PostgreSQL/Redis/Qdrant/uv/pnpm/nginx）已就绪，部署脚本**不负责安装**。
 - 后端机密（`COPILOT_PROVIDER_API_KEY`）只存 joox 上 `backend/.env`，不入库、不被覆盖；GitHub 只放 SSH 密钥。
 - 前端生产构建必须设 `NEXT_PUBLIC_API_URL=/api/v1`（否则 `USE_MOCK=!NEXT_PUBLIC_API_URL` 会启用 mock，前端不连后端）。
@@ -314,14 +314,14 @@ jobs:
           NEXT_PUBLIC_API_URL=/api/v1 pnpm build
 
   deploy:
-    name: Deploy to joox
+    name: Deploy to joox.cc
     needs: ci
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Copy code to joox
+      - name: Copy code to joox.cc
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.JOOX_HOST }}
@@ -386,7 +386,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 # DevLens — HTTPS 反向代理，对外端口 7504
 server {
     listen 7504 ssl;
-    server_name joox;
+    server_name joox.cc;
 
     ssl_certificate     /etc/ssl/devlens/fullchain.pem;
     ssl_certificate_key /etc/ssl/devlens/privkey.pem;
@@ -580,7 +580,7 @@ if [ ! -f "$SSL_DIR/fullchain.pem" ] || [ ! -f "$SSL_DIR/privkey.pem" ]; then
   $SUDO mkdir -p "$SSL_DIR"
   $SUDO openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
     -keyout "$SSL_DIR/privkey.pem" -out "$SSL_DIR/fullchain.pem" \
-    -subj "/CN=joox"
+    -subj "/CN=joox.cc"
 fi
 
 # 6. nginx（nginx -t 不通过则不改动现有配置）
@@ -713,7 +713,7 @@ Expected: 列出 Task 1-7 各提交 + docs 提交，无遗漏。
    - `JOOX_USER`：SSH 用户名（需 passwordless sudo）
    - `JOOX_SSH_KEY`：SSH 私钥全文
 3. **首次部署后填 API key**：登录 joox，编辑 `/opt/devlens/backend/.env` 填入 `COPILOT_PROVIDER_API_KEY`，然后 `sudo systemctl restart devlens-backend`。
-4. **访问**：浏览器打开 `https://joox:7504`，信任自签名证书；确认侧边栏 logo 与浏览器标签 favicon 生效。
+4. **访问**：浏览器打开 `https://joox.cc:7504`，信任自签名证书；确认侧边栏 logo 与浏览器标签 favicon 生效。
 
 ## Self-Review 结论
 
