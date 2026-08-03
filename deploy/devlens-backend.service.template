@@ -1,0 +1,15 @@
+[Unit]
+Description=DevLens Backend (FastAPI)
+After=network.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__APP_DIR__/backend
+EnvironmentFile=__APP_DIR__/backend/.env
+ExecStart=/usr/bin/env bash -lc 'cd __APP_DIR__/backend && uv run uvicorn app.main:app --host 127.0.0.1 --port 8000'
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
