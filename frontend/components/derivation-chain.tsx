@@ -33,12 +33,12 @@ const STAGES = [
   {
     num: '03',
     icon: Users,
-    title: '团队聚合',
-    subtitle: 'Team Aggregation',
-    desc: 'Bus Factor、能力缺口、协作网络等团队级指标',
-    color: 'var(--secondary)',
-    bg: 'color-mix(in oklch, var(--secondary) 12%, transparent)',
-    border: 'color-mix(in oklch, var(--secondary) 25%, transparent)',
+    title: '团队能力合成',
+    subtitle: 'Team Synthesis',
+    desc: '成员能力叠加、结构完整性与知识覆盖等团队能力指标',
+    color: 'var(--warning)',
+    bg: 'color-mix(in oklch, var(--warning) 12%, transparent)',
+    border: 'color-mix(in oklch, var(--warning) 25%, transparent)',
   },
   {
     num: '04',
@@ -70,7 +70,7 @@ export function DerivationChain() {
       variants={containerVariants}
       initial="hidden"
       animate="show"
-      className="relative mb-6"
+      className="relative mb-3"
     >
       <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch lg:gap-0">
         {STAGES.map((stage, idx) => {
@@ -80,7 +80,7 @@ export function DerivationChain() {
             <motion.div key={stage.num} variants={itemVariants} className="flex flex-1 items-center">
               {/* 阶段卡片 */}
               <div
-                className="group relative flex-1 overflow-hidden rounded-2xl p-4 transition-all duration-200 hover:scale-[1.02]"
+                className="group relative flex-1 overflow-hidden rounded-2xl p-3 transition-all duration-200 hover:scale-[1.02]"
                 style={{
                   background: stage.bg,
                   border: `1px solid ${stage.border}`,
@@ -94,19 +94,19 @@ export function DerivationChain() {
                   {stage.num}
                 </span>
 
-                <div className="relative flex items-start gap-3">
+                <div className="relative flex items-start gap-2.5">
                   <div
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-110"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-110"
                     style={{ background: `color-mix(in oklch, ${stage.color} 18%, transparent)` }}
                   >
-                    <Icon className="h-4.5 w-4.5" style={{ color: stage.color }} />
+                    <Icon className="h-4 w-4" style={{ color: stage.color }} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline gap-2">
                       <span className="text-sm font-semibold text-foreground">{stage.title}</span>
                       <span className="font-mono text-[10px] text-muted-foreground/60">{stage.subtitle}</span>
                     </div>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
                       {stage.desc}
                     </p>
                   </div>
@@ -115,7 +115,7 @@ export function DerivationChain() {
 
               {/* 连接箭头 */}
               {!isLast && (
-                <div className="flex shrink-0 items-center justify-center px-2 lg:px-3">
+                <div className="flex shrink-0 items-center justify-center px-2 lg:px-2">
                   <motion.div
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}

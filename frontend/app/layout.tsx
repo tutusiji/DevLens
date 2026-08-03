@@ -3,6 +3,7 @@ import { Fira_Sans, Fira_Code } from 'next/font/google';
 import { AppShell } from '@/components/app-shell';
 import { TeamSpaceProvider } from '@/components/team-space-provider';
 import './globals.css';
+import './overview-styles.css';
 
 // Fira 字体注入（skill 推荐的 dashboard 调性）
 const firaSans = Fira_Sans({

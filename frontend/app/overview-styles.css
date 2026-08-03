@@ -1,0 +1,67 @@
+
+/* ============================================
+   Decision Overview scoped visual treatment
+   ============================================ */
+.overview-page {
+  position: relative;
+  isolation: isolate;
+}
+
+.overview-page__ambient {
+  position: absolute;
+  inset: -2rem -2rem auto;
+  height: 22rem;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.8;
+  background:
+    radial-gradient(circle at 82% 8%, color-mix(in oklch, var(--primary) 10%, transparent), transparent 32%),
+    radial-gradient(circle at 20% 20%, color-mix(in oklch, var(--accent) 6%, transparent), transparent 28%),
+    repeating-linear-gradient(90deg, color-mix(in oklch, var(--foreground) 3%, transparent) 0 1px, transparent 1px 32px),
+    repeating-linear-gradient(0deg, color-mix(in oklch, var(--foreground) 3%, transparent) 0 1px, transparent 1px 32px);
+  mask-image: linear-gradient(to bottom, black 0%, transparent 92%);
+}
+
+.overview-page__eyebrow {
+  margin-bottom: -0.35rem;
+  color: var(--primary);
+  font-family: var(--font-fira-code), ui-monospace, monospace;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  text-transform: uppercase;
+  opacity: 0.78;
+}
+
+.overview-page__eyebrow span {
+  padding-inline: 0.35rem;
+  color: var(--muted-foreground);
+  opacity: 0.7;
+}
+
+.overview-page__header {
+  position: relative;
+}
+
+.overview-summary-surface::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, color-mix(in oklch, var(--primary) 5%, transparent), transparent 40%, color-mix(in oklch, var(--accent) 3%, transparent));
+}
+
+@media (max-width: 639px) {
+  .overview-page__eyebrow {
+    margin-bottom: -0.15rem;
+    font-size: 0.55rem;
+    letter-spacing: 0.12em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overview-page__ambient {
+    opacity: 0.45;
+  }
+}

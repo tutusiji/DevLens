@@ -9,28 +9,20 @@
 import * as React from 'react';
 import Link from 'next/link';
 import {
-  FolderGit2, Users, Network, HeartPulse,
+  FolderGit2, Users, Network,
   AlertTriangle, ShieldAlert, BusFront, TrendingDown, Bug,
-  RefreshCw, Activity, ChevronRight, Sparkles,
+  RefreshCw, ChevronRight,
   GitCommit, Eye, Code2, TrendingUp, Minus, ArrowUpRight,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { Card, CardAccent, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { PageHeader, ProgressBar, HealthHero, staggerContainer, cardItem } from '@/components/widgets';
+import { PageHeader, OrganizationHealthSummary, ProgressBar, staggerContainer, cardItem } from '@/components/widgets';
 import { AreaTrend } from '@/components/charts';
 import { TrinityMatrix } from '@/components/trinity-matrix';
-import { DerivationChain } from '@/components/derivation-chain';
 import { api } from '@/lib/api';
 import { cn, scoreColor } from '@/lib/utils';
-import type { StatItem, TrinityMatrix as TrinityMatrixData, HealthTrendPoint, RiskAlert, DataSource, RiskLevel, ActiveProject, ActiveDeveloper, ActiveTeam, ActivityTrend } from '@/lib/types';
-
-const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  'folder-git-2': FolderGit2,
-  users: Users,
-  network: Network,
-  'heart-pulse': HeartPulse,
-};
+import type { StatItem, TrinityMatrix as TrinityMatrixData, HealthTrendPoint, RiskAlert, DataSource, RiskLevel, ActiveProject, ActiveDeveloper, ActiveTeam, ActivityTrend, ArchitectureDesign } from '@/lib/types';
 
 const RISK_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   skill_gap: ShieldAlert,
@@ -69,6 +61,19 @@ function TrendBadge({ trend }: { trend: ActivityTrend }) {
   );
 }
 
+function architectureCompleteness(design: ArchitectureDesign): number {
+  if (design.analysisStatus !== 'ready') return 0;
+
+  const layerCoverage = Math.min(design.layers.length / 4, 1);
+  const componentCoverage = Math.min(design.components.length / 12, 1);
+  const relationCoverage = Math.min(design.relations.length / 12, 1);
+  const decisionCoverage = Math.min(design.decisions.length / 3, 1);
+
+  return Math.round(
+    (layerCoverage * 0.3 + componentCoverage * 0.25 + relationCoverage * 0.25 + decisionCoverage * 0.2) * 100,
+  );
+}
+
 export default function HomePage() {
   const [stats, setStats] = React.useState<StatItem[]>([]);
   const [matrix, setMatrix] = React.useState<TrinityMatrixData | null>(null);
@@ -78,6 +83,7 @@ export default function HomePage() {
   const [activeProjects, setActiveProjects] = React.useState<ActiveProject[]>([]);
   const [activeDevelopers, setActiveDevelopers] = React.useState<ActiveDeveloper[]>([]);
   const [activeTeams, setActiveTeams] = React.useState<ActiveTeam[]>([]);
+  const [architectureDesigns, setArchitectureDesigns] = React.useState<ArchitectureDesign[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -90,7 +96,8 @@ export default function HomePage() {
       api.getActiveProjects(),
       api.getActiveDevelopers(),
       api.getActiveTeams(),
-    ]).then(([s, m, t, r, ds, ap, ad, at]) => {
+      api.getArchitectureDesigns(),
+    ]).then(([s, m, t, r, ds, ap, ad, at, architecture]) => {
       setStats(s);
       setMatrix(m);
       setTrend(t);
@@ -99,6 +106,7 @@ export default function HomePage() {
       setActiveProjects(ap);
       setActiveDevelopers(ad);
       setActiveTeams(at);
+      setArchitectureDesigns(architecture.designs);
       setLoading(false);
     });
   }, []);
@@ -118,78 +126,63 @@ export default function HomePage() {
   }
 
   const orgHealth = stats.find((s) => s.label === '平均健康度')?.value || 78.4;
-  const healthTrend = 3.2; /* 模拟趋势数据 */
+  const healthTrend = stats.find((s) => s.label === '平均健康度')?.delta || 0;
   const highRiskCount = risks.filter((r) => r.level === 'high').length;
+  const projectStat = stats.find((s) => s.label === '接入项目');
+  const developerStat = stats.find((s) => s.label === '开发者');
+  const teamStat = stats.find((s) => s.label === '团队');
+  const readyArchitectureDesigns = architectureDesigns.filter((design) => design.analysisStatus === 'ready');
+  const architectureCoverage = architectureDesigns.length
+    ? Math.round((readyArchitectureDesigns.length / architectureDesigns.length) * 100)
+    : 0;
+  const architectureCompletenessAverage = readyArchitectureDesigns.length
+    ? Math.round(readyArchitectureDesigns.reduce((sum, design) => sum + architectureCompleteness(design), 0) / readyArchitectureDesigns.length)
+    : 0;
 
   return (
-    <>
-      <PageHeader
-        title="决策总览"
-        description="项目 · 团队 · 人员三位一体评估，从 Git 仓库推导组织能力"
-        actions={
-          <div className="flex items-center gap-3 rounded-2xl glass-light px-4 py-2.5">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-success" />
-            </span>
-            <span className="text-sm text-muted-foreground">数据更新于 2 分钟前</span>
-            <RefreshCw className="h-4 w-4 text-muted-foreground hover:text-foreground cursor-pointer transition-colors" />
-          </div>
-        }
+    <div className="overview-page">
+      <div className="overview-page__ambient" aria-hidden="true" />
+      <div className="overview-page__header">
+        <div className="overview-page__eyebrow">DECISION OVERVIEW <span>·</span> ORGANIZATION SIGNALS</div>
+        <PageHeader
+          title="决策总览"
+          description="项目 · 团队 · 人员三位一体评估，从 Git 仓库推导组织能力"
+          compact
+          actions={
+            <div className="flex items-center gap-2 rounded-xl glass-light px-3 py-2">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+              </span>
+              <span className="text-xs text-muted-foreground">数据更新于 2 分钟前</span>
+              <RefreshCw className="h-3.5 w-3.5 text-muted-foreground transition-colors hover:text-foreground" />
+            </div>
+          }
+        />
+      </div>
+
+      {/* ============ 决策摘要：健康度、风险、组织规模与架构覆盖 ============ */}
+      <OrganizationHealthSummary
+        score={orgHealth}
+        trend={healthTrend}
+        target={85}
+        highRiskCount={highRiskCount}
+        projectCount={projectStat?.value || 0}
+        developerCount={developerStat?.value || 0}
+        teamCount={teamStat?.value || 0}
+        architectureReady={readyArchitectureDesigns.length}
+        architectureTotal={architectureDesigns.length}
+        architectureCompleteness={architectureCompletenessAverage}
+        architectureCoverage={architectureCoverage}
+        onArchitectureClick={() => { window.location.assign('/architecture-design'); }}
       />
 
-      {/* ============ 推导链：项目事实 → 人员推导 → 团队聚合 → 管理决策 ============ */}
-      <DerivationChain />
-
-      {/* ============ Bento Grid 布局 - stagger 动画入场 ============ */}
       <motion.div
-        className="grid grid-cols-12 gap-4 lg:gap-5"
+        className="mt-4 grid grid-cols-12 gap-4 lg:gap-5"
         variants={staggerContainer}
         initial="hidden"
         animate="show"
       >
-        {/* 主角卡：组织健康度（跨 2 行，左侧） */}
-        <motion.div variants={cardItem} className="col-span-12 lg:col-span-5 lg:row-span-2">
-          <HealthHero score={orgHealth} trend={healthTrend} target={85} />
-        </motion.div>
-
-        {/* 4 个 StatCard（2x2 网格在右侧） */}
-        {stats.filter((s) => s.label !== '平均健康度').map((s) => {
-          const Icon = ICONS[s.icon];
-          return (
-            <motion.div key={s.label} variants={cardItem} className="col-span-6 lg:col-span-3">
-              <div className="relative overflow-hidden rounded-2xl bento-card p-6">
-                {/* 背景装饰微光 */}
-                <div
-                  className="absolute -right-10 -top-10 h-20 w-20 rounded-full opacity-10 blur-2xl"
-                  style={{
-                    background: s.label.includes('健康') ? 'var(--success)' : s.label.includes('贡献') ? 'var(--accent)' : 'var(--primary)',
-                  }}
-                />
-                {Icon && (
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary/15 shadow-lg shadow-primary/8">
-                    <Icon className="h-6 w-6 text-primary" />
-                  </div>
-                )}
-                <div className="relative">
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="font-mono text-3xl font-bold text-primary">
-                      {s.value}
-                    </span>
-                    {s.unit && <span className="text-base text-muted-foreground">{s.unit}</span>}
-                  </div>
-                  <p className="mt-1.5 text-sm text-muted-foreground">{s.label}</p>
-                  <div className="mt-2.5 flex items-center gap-1 text-xs font-medium text-success">
-                    <TrendingUp className="h-4 w-4" />
-                    <span className="tabular-nums">+{s.delta}%</span>
-                    <span className="text-muted-foreground/70">较上月</span>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          );
-        })}
-
         {/* 三位一体矩阵（带下钻，跨 8 列） */}
         <motion.div variants={cardItem} className="col-span-12 lg:col-span-8">
           <Card>
@@ -492,6 +485,6 @@ export default function HomePage() {
           </Card>
         </motion.div>
       </motion.div>
-    </>
+    </div>
   );
 }
