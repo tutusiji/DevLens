@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import inspect, text
 
 from .db import Base, engine, SessionLocal
@@ -272,3 +273,14 @@ app.include_router(architecture_designs.router, prefix="/api/v1")
 @app.get("/")
 def root():
     return {"name": "DevLens API", "status": "ok"}
+
+
+@app.get("/api/v1/health")
+def health():
+    """部署健康检查：服务可达且数据库可连接（nginx /api/ 反代到本端点）。"""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return {"status": "ok", "database": "ok"}
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "degraded", "database": "error"})

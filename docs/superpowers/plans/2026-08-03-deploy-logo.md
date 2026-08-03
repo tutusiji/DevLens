@@ -28,7 +28,7 @@
 **Files:**
 - Create: `frontend/public/logo.svg`
 - Create: `frontend/app/icon.svg`（内容同 logo.svg，Next 自动作为 favicon 输出）
-- Create: `scripts/generate-favicon.mjs`
+- Create: `frontend/scripts/generate-favicon.mjs`（前端自有脚本，运行 `cd frontend && node scripts/generate-favicon.mjs`）
 - Create: `frontend/app/favicon.ico`（生成产物）
 - Modify: `frontend/package.json`（devDependencies 增加 sharp）
 
@@ -73,7 +73,7 @@ Expected: `frontend/package.json` devDependencies 出现 `"sharp": "^0.33.x"`，
 
 - [ ] **Step 5: 编写 favicon 生成脚本**
 
-创建 `scripts/generate-favicon.mjs`：
+创建 `frontend/scripts/generate-favicon.mjs`：
 
 ```js
 // scripts/generate-favicon.mjs — 渲染 logo.svg → app/favicon.ico（PNG-in-ICO）
@@ -130,7 +130,7 @@ Expected: `file` 报 `MS Windows icon resource - 1 icon, 32x32`；`xxd` 首行�
 - [ ] **Step 8: 提交**
 
 ```bash
-git add frontend/public/logo.svg frontend/app/icon.svg frontend/app/favicon.ico scripts/generate-favicon.mjs frontend/package.json frontend/pnpm-lock.yaml
+git add frontend/public/logo.svg frontend/app/icon.svg frontend/app/favicon.ico frontend/scripts/generate-favicon.mjs frontend/package.json frontend/pnpm-lock.yaml
 git commit -m "feat: 添加 DevLens logo 源文件与 favicon（icon.svg + favicon.ico）
 
 Co-Authored-By: Claude <noreply@anthropic.com>"

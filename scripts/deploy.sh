@@ -18,6 +18,9 @@ die() { printf '[deploy] ERROR: %s\n' "$*" >&2; exit 1; }
 command -v uv >/dev/null || die "uv not found (需要 Python/uv，基础设施应已就绪)"
 command -v pnpm >/dev/null || die "pnpm not found (需要 Node/pnpm)"
 command -v nginx >/dev/null || die "nginx not found"
+command -v systemctl >/dev/null || die "systemctl not found (需要 systemd)"
+command -v curl >/dev/null || die "curl not found"
+command -v openssl >/dev/null || die "openssl not found"
 [ -d "$APP_DIR/backend" ] || die "$APP_DIR/backend 不存在 — 先完成 scp 同步"
 
 # 2. 后端依赖
@@ -32,6 +35,10 @@ COPILOT_PROVIDER_BASE_URL=https://api.deepseek.com/anthropic
 COPILOT_MODEL=deepseek-v4-pro
 # 请填写你的 DeepSeek API key（此文件不提交 git，也绝不被部署覆盖）：
 COPILOT_PROVIDER_API_KEY=
+# 本地单机兼容开关：true=无认证网关时回退本地管理员；对公网暴露必须改 false 并由网关注入 X-DevLens-User-Id/X-DevLens-Tenant-Id。
+DEVLENS_ALLOW_LOCAL_ADMIN=true
+# 数据库连接（默认 Unix socket peer auth 连本机 devlens 库；如需远端/密码认证，取消注释并填写）：
+# DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/devlens
 EOF
   log "已生成 backend/.env — 请人工填入 COPILOT_PROVIDER_API_KEY 后重跑部署"
 fi
@@ -51,11 +58,17 @@ if [ ! -f "$SSL_DIR/fullchain.pem" ] || [ ! -f "$SSL_DIR/privkey.pem" ]; then
     -subj "/CN=joox"
 fi
 
-# 6. nginx（nginx -t 不通过则不改动现有配置）
+# 6. nginx（nginx -t 不通过则回滚，现有运行配置不受影响）
 log "安装 nginx 配置"
+if [ -f "$SITE_CONF" ]; then $SUDO cp "$SITE_CONF" "$SITE_CONF.prev"; fi
 $SUDO cp "$APP_DIR/deploy/nginx-devlens.conf" "$SITE_CONF"
 $SUDO ln -sfn "$SITE_CONF" "$SITE_LINK"
-$SUDO nginx -t
+if ! $SUDO nginx -t; then
+  if [ -f "$SITE_CONF.prev" ]; then $SUDO cp "$SITE_CONF.prev" "$SITE_CONF"; else $SUDO rm -f "$SITE_CONF"; fi
+  $SUDO rm -f "$SITE_LINK"
+  die "nginx -t 校验失败，已回滚配置"
+fi
+$SUDO rm -f "$SITE_CONF.prev"
 $SUDO systemctl reload nginx
 
 # 7. systemd 单元（模板替换用户与目录）
@@ -66,15 +79,17 @@ for unit in devlens-backend devlens-frontend; do
   $SUDO install -m 0644 "/tmp/$unit.service" "/etc/systemd/system/$unit.service"
 done
 $SUDO systemctl daemon-reload
+$SUDO systemctl enable devlens-backend devlens-frontend
 $SUDO systemctl restart devlens-backend devlens-frontend
 
-# 8. 健康检查（最多 90s）
+# 8. 健康检查（最多 90s：后端 /api/v1/health + 前端服务存活）
 log "等待 https://127.0.0.1:7504/api/v1/health"
 for i in $(seq 1 90); do
-  if curl -k -sf "https://127.0.0.1:7504/api/v1/health" >/dev/null 2>&1; then
+  if curl -k -sf "https://127.0.0.1:7504/api/v1/health" >/dev/null 2>&1 \
+     && $SUDO systemctl is-active --quiet devlens-frontend; then
     log "部署成功"
     exit 0
   fi
   sleep 1
 done
-die "健康检查 90s 内未通过"
+die "健康检查 90s 内未通过（后端或前端未就绪）"
