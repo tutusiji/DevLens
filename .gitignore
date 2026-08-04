@@ -25,3 +25,9 @@ backend/.venv/
 
 # TypeScript build cache
 *.tsbuildinfo
+
+# Local SQLite database
+backend/devlens.db
+
+# Database backups
+backups/*.sql
