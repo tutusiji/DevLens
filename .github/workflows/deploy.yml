@@ -49,31 +49,32 @@ jobs:
           pnpm install --frozen-lockfile
           NEXT_PUBLIC_API_URL=/api/v1 pnpm build
 
-  deploy:
-    name: Deploy to joox.cc
-    needs: ci
-    if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Copy code to joox.cc
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.JOOX_HOST }}
-          username: ${{ secrets.JOOX_USER }}
-          key: ${{ secrets.JOOX_SSH_KEY }}
-          port: 22   # joox SSH 端口；若非 22，改用 secrets.JOOX_PORT
-          source: "./"
-          target: /opt/devlens
-          exclude: ".git/*,node_modules/*,.next/*,backups/*,backend/.venv/*"
-
-      - name: Run deploy script
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.JOOX_HOST }}
-          username: ${{ secrets.JOOX_USER }}
-          key: ${{ secrets.JOOX_SSH_KEY }}
-          port: 22   # 同上
-          script: |
-            bash /opt/devlens/scripts/deploy.sh
+  # 部署已改为本机生产模式 + frpc 隧道（souxy.com:7200 → 本机 3800），不再通过 CI 部署到火山服务器
+  # deploy:
+  #   name: Deploy to joox.cc
+  #   needs: ci
+  #   if: github.ref == 'refs/heads/master'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - name: Copy code to joox.cc
+  #       uses: appleboy/scp-action@v0.1.7
+  #       with:
+  #         host: ${{ secrets.JOOX_HOST }}
+  #         username: ${{ secrets.JOOX_USER }}
+  #         key: ${{ secrets.JOOX_SSH_KEY }}
+  #         port: 22   # joox SSH 端口；若非 22，改用 secrets.JOOX_PORT
+  #         source: "./"
+  #         target: /opt/devlens
+  #         exclude: ".git/*,node_modules/*,.next/*,backups/*,backend/.venv/*"
+  #
+  #     - name: Run deploy script
+  #       uses: appleboy/ssh-action@v1.2.0
+  #       with:
+  #         host: ${{ secrets.JOOX_HOST }}
+  #         username: ${{ secrets.JOOX_USER }}
+  #         key: ${{ secrets.JOOX_SSH_KEY }}
+  #         port: 22   # 同上
+  #         script: |
+  #           bash /opt/devlens/scripts/deploy.sh
