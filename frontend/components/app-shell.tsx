@@ -11,7 +11,7 @@ import {
   LayoutDashboard, FolderGit2, Users, Network, Rocket,
   Activity, ChevronRight, Menu, X, Search, Bell,
   GitBranch, Bot, Database, Ruler, Building2, ChevronDown,
-  ShieldCheck, GitCompareArrows, UserCog, Compass,
+  ShieldCheck, GitCompareArrows, UserCog, Compass, LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,8 @@ import { TenantSwitcher } from '@/components/tenant-switcher';
 import { useTeamSpace } from '@/components/team-space-provider';
 import { riskAlerts } from '@/lib/mock-data';
 import { Badge } from './ui/badge';
+import { useRouter } from 'next/navigation';
+import { fetchMe, getToken, logoutAPI, type MeResult } from '@/lib/api';
 
 interface NavItem {
   href: string;
@@ -86,14 +88,35 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [notifOpen, setNotifOpen] = React.useState(false);
   const [teamMenuOpen, setTeamMenuOpen] = React.useState(false);
+  const [me, setMe] = React.useState<MeResult | null>(null);
   const {
     spaces, largeTeams, activeLargeTeam,
     setActiveLargeTeamId,
   } = useTeamSpace();
+
+  /* 登录守卫：无有效会话时跳转 /login */
+  React.useEffect(() => {
+    if (pathname.startsWith('/login')) return;
+    if (!getToken()) {
+      router.replace('/login');
+      return;
+    }
+    fetchMe()
+      .then(setMe)
+      .catch(() => {
+        router.replace('/login');
+      });
+  }, [pathname, router]);
+
+  async function handleLogout() {
+    await logoutAPI();
+    router.replace('/login');
+  }
 
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href);
@@ -111,6 +134,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   const highRiskCount = riskAlerts.filter((r) => r.level === 'high').length;
+
+  // 登录页不渲染应用外壳（无侧边栏/顶栏）；置于所有 hooks 之后保证 hooks 顺序稳定
+  if (pathname.startsWith('/login')) return <>{children}</>;
 
   return (
     <div className="min-h-screen">
@@ -151,12 +177,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="border-t border-border/10 p-4">
           <div className="flex items-center gap-3 rounded-2xl bg-muted/15 p-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-sm font-mono font-semibold text-accent">
-              TL
+              {me ? me.user.name.slice(0, 2).toUpperCase() : '…'}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="truncate text-sm font-semibold">技术负责人</div>
-              <div className="truncate text-[11px] text-muted-foreground/70">tech-lead@devlens.io</div>
+              <div className="truncate text-sm font-semibold">{me ? me.user.name : '未登录'}</div>
+              <div className="truncate text-[11px] text-muted-foreground/70">
+                {me ? me.user.email : '—'}
+              </div>
             </div>
+            {me && (
+              <button
+                onClick={handleLogout}
+                title="退出登录"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-muted-foreground/60 transition-colors hover:bg-destructive/10 hover:text-destructive cursor-pointer"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
       </aside>

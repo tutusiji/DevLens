@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 import os
 import uuid
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from . import models
@@ -118,12 +118,42 @@ def ensure_bootstrap_tenant(db: Session) -> None:
 
 
 def get_tenant_context(
+    request: Request,
     x_devlens_user_id: str | None = Header(default=None),
     x_devlens_tenant_id: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> TenantContext:
-    """解析当前会员身份，不允许跨租户伪造 user / tenant 组合。"""
-    if not x_devlens_user_id and not x_devlens_tenant_id and local_admin_enabled():
+    """解析当前会员身份，不允许跨租户伪造 user / tenant 组合。
+
+    优先级：JWT(Bearer/cookie) > X-DevLens-* 头 > 本地管理员回退。
+    """
+    from .auth import decode_token, token_from_request, user_tenant_headers, local_admin_fallback
+
+    # 1) JWT 优先（登录体系）
+    token = token_from_request(request)
+    if token:
+        payload = decode_token(token)
+        if not payload:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录已过期或无效，请重新登录")
+        membership = (
+            db.query(models.TenantMembership)
+            .filter_by(tenant_id=payload.get("tenant"), user_id=payload.get("sub"))
+            .first()
+        )
+        if not membership:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="当前用户不属于该租户")
+        user = db.query(models.AccountUser).filter_by(id=payload.get("sub")).first()
+        tenant = db.query(models.Tenant).filter_by(id=payload.get("tenant")).first()
+        if not user or user.status != "active" or not tenant or tenant.status != "active":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="用户或租户不可用")
+        return TenantContext(tenant.id, user.id, membership.role)
+
+    # 2) 身份头（上游网关注入 / 旧客户端）
+    if not x_devlens_user_id and not x_devlens_tenant_id:
+        h_uid, h_tid = user_tenant_headers(request)
+        if h_uid and h_tid:
+            x_devlens_user_id, x_devlens_tenant_id = h_uid, h_tid
+    if not x_devlens_user_id and not x_devlens_tenant_id and local_admin_fallback(request):
         return TenantContext(DEFAULT_TENANT_ID, DEFAULT_USER_ID, "owner")
     if not x_devlens_user_id or not x_devlens_tenant_id:
         raise HTTPException(

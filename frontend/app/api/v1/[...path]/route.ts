@@ -21,6 +21,11 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
       ...identityHeaders,
     },
   };
+  // 透传认证头（JWT Bearer），否则后端收不到登录态
+  const auth = req.headers.get('authorization');
+  if (auth) init.headers = { ...init.headers, authorization: auth };
+  const cookie = req.headers.get('cookie');
+  if (cookie) init.headers = { ...init.headers, cookie };
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     init.body = await req.text();
   }

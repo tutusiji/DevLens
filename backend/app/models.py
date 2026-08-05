@@ -497,12 +497,13 @@ class Tenant(Base):
 
 
 class AccountUser(Base):
-    """认证提供方映射的本地用户资料；密码/Token 不落在该表。"""
+    """认证提供方映射的本地用户资料；密码只存 bcrypt 哈希。"""
     __tablename__ = "account_users"
 
     id = Column(String, primary_key=True)          # usr-xxx
     email = Column(String, unique=True, nullable=False)
     name = Column(String, nullable=False)
+    password_hash = Column(String, nullable=True)  # bcrypt; NULL=仅限外部认证/不可密码登录
     status = Column(String, default="active")      # active|disabled
     created_at = Column(String)
     updated_at = Column(String)

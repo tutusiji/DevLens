@@ -17,6 +17,11 @@ class Settings:
     llm_model: str = os.getenv("COPILOT_MODEL", "deepseek-v4-pro")
     # git clone 缓存目录
     repos_cache: str = os.getenv("DEVLENS_REPOS_CACHE", "/tmp/devlens-repos")
+    # 认证：JWT 密钥（生产必须用强随机值固定）、有效期、bootstrap 管理员
+    jwt_secret: str = os.getenv("DEVLENS_JWT_SECRET", "devlens-dev-secret-change-me")
+    jwt_expire_hours: int = int(os.getenv("DEVLENS_JWT_EXPIRE_HOURS", "168"))
+    admin_email: str = os.getenv("DEVLENS_ADMIN_EMAIL", "local-admin@devlens.local")
+    admin_password: str = os.getenv("DEVLENS_ADMIN_PASSWORD", "DevLens@2026")
 
 
 settings = Settings()

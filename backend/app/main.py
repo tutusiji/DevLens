@@ -1,5 +1,6 @@
 """DevLens FastAPI 应用"""
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,9 +10,11 @@ from sqlalchemy import inspect, text
 from .db import Base, engine, SessionLocal
 from . import capability, models, seed
 from .access import DEFAULT_TENANT_ID, ensure_bootstrap_tenant
+from .auth import hash_password
+from .config import settings
 from .routers import (
     overview, projects, developers, teams, repos, config, skills, env_inventory, evaluations,
-    portfolio, reports, tenants, architecture_designs,
+    portfolio, reports, tenants, architecture_designs, auth,
 )
 
 
@@ -19,6 +22,10 @@ def ensure_migrate():
     """增量迁移：为已有表补充新列（create_all 不会改已存在的表）"""
     with engine.connect() as conn:
         insp = inspect(engine)
+        cols = [c["name"] for c in insp.get_columns("account_users")]
+        if "password_hash" not in cols:
+            conn.execute(text("ALTER TABLE account_users ADD COLUMN password_hash VARCHAR"))
+            conn.commit()
         cols = [c["name"] for c in insp.get_columns("identity_matches")]
         if "project_id" not in cols:
             conn.execute(text("ALTER TABLE identity_matches ADD COLUMN project_id VARCHAR"))
@@ -192,6 +199,27 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     ensure_bootstrap_tenant(db)
     db.close()
+    # 认证 bootstrap：确保管理员账号存在且可密码登录（密码哈希只在缺失时写入，不覆盖）
+    db = SessionLocal()
+    admin = db.query(models.AccountUser).filter_by(email=settings.admin_email).first()
+    if not admin:
+        db.add(models.AccountUser(
+            id="usr-bootstrap-admin",
+            email=settings.admin_email,
+            name="系统管理员",
+            password_hash=hash_password(settings.admin_password),
+            status="active",
+            created_at=datetime.now(timezone.utc).isoformat(),
+            updated_at=datetime.now(timezone.utc).isoformat(),
+        ))
+        db.commit()
+        db.close()
+    else:
+        if not admin.password_hash:
+            admin.password_hash = hash_password(settings.admin_password)
+            admin.updated_at = datetime.now(timezone.utc).isoformat()
+            db.commit()
+        db.close()
     # 每个租户拥有独立、可编辑的默认环境盘点规则；只补缺失项，不覆盖用户修改。
     db = SessionLocal()
     for (tenant_id,) in db.query(models.Tenant.id).all():
@@ -255,6 +283,7 @@ app.add_middleware(
 )
 
 app.include_router(overview.router, prefix="/api/v1")
+app.include_router(auth.router, prefix="/api/v1")
 app.include_router(projects.router, prefix="/api/v1")
 app.include_router(developers.router, prefix="/api/v1")
 app.include_router(teams.router, prefix="/api/v1")

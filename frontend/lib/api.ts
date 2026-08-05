@@ -31,12 +31,40 @@ import { LEVEL_GROUPS } from './types';
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 const USE_MOCK = !process.env.NEXT_PUBLIC_API_URL;
 
+// ============ 认证 token 管理（JWT, localStorage）============
+const TOKEN_KEY = 'devlens-token';
+
+export function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token: string) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearToken() {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+function redirectToLogin() {
+  if (typeof window === 'undefined') return;
+  clearToken();
+  if (!window.location.pathname.startsWith('/login')) {
+    window.location.href = '/login';
+  }
+}
+
 /** 真实 fetch 封装 */
 function identityHeaders(): Record<string, string> {
   if (typeof window === 'undefined') return {};
   const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
   const tenantId = localStorage.getItem('devlens-tenant-id');
-  if (!tenantId) return {}; // 无租户身份时保持无头，后端回退默认租户（原行为）
+  if (!tenantId) return headers; // 无租户身份时保持无头，后端回退默认租户（原行为）
   headers['X-DevLens-Tenant-Id'] = tenantId;
   // 本地模式：有租户身份但缺用户身份时，回退到本地默认管理员，
   // 否则后端因"只有一个身份头"返回 401（生产由网关注入，不经 localStorage）
@@ -50,6 +78,7 @@ async function fetchAPI<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { 'Content-Type': 'application/json', ...tenantHeaders, ...init?.headers },
   });
+  if (res.status === 401 && getToken()) redirectToLogin();
   if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
   return res.json();
 }
@@ -57,10 +86,68 @@ async function fetchAPI<T>(path: string, init?: RequestInit): Promise<T> {
 async function downloadAPI(path: string): Promise<{ blob: Blob; filename: string }> {
   const tenantHeaders = identityHeaders();
   const res = await fetch(`${API_BASE}${path}`, { headers: tenantHeaders });
+  if (res.status === 401 && getToken()) redirectToLogin();
   if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
   const disposition = res.headers.get('content-disposition') || '';
   const filename = disposition.match(/filename="?([^"]+)"?/)?.[1] || 'devlens-report';
   return { blob: await res.blob(), filename };
+}
+
+// ============ 认证 API ============
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  status: string;
+}
+
+export interface AuthTenant {
+  id: string;
+  role: string;
+  name: string;
+}
+
+export interface LoginResult {
+  token: string;
+  user: AuthUser;
+  tenant: { id: string; name: string; slug: string };
+  role: string;
+  tenants: AuthTenant[];
+}
+
+export interface MeResult {
+  user: AuthUser;
+  tenant: { id: string };
+  role: string;
+  tenants: AuthTenant[];
+}
+
+export async function loginAPI(email: string, password: string): Promise<LoginResult> {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || `登录失败 ${res.status}`);
+  setToken(data.token);
+  return data as LoginResult;
+}
+
+export async function fetchMe(): Promise<MeResult> {
+  return fetchAPI<MeResult>('/auth/me');
+}
+
+export async function logoutAPI(): Promise<void> {
+  try { await fetch(`${API_BASE}/auth/logout`, { method: 'POST' }); } catch { /* ignore */ }
+  clearToken();
+}
+
+export async function changePasswordAPI(oldPassword: string, newPassword: string): Promise<void> {
+  return fetchAPI<void>('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
+  });
 }
 
 /** mock 延迟模拟网络（让 skeleton 态可见） */
