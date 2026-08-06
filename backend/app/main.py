@@ -22,6 +22,10 @@ def ensure_migrate():
     """增量迁移：为已有表补充新列（create_all 不会改已存在的表）"""
     with engine.connect() as conn:
         insp = inspect(engine)
+        cols = [c["name"] for c in insp.get_columns("team_spaces")]
+        if "parent_id" not in cols:
+            conn.execute(text("ALTER TABLE team_spaces ADD COLUMN parent_id VARCHAR"))
+            conn.commit()
         cols = [c["name"] for c in insp.get_columns("account_users")]
         if "password_hash" not in cols:
             conn.execute(text("ALTER TABLE account_users ADD COLUMN password_hash VARCHAR"))
@@ -192,10 +196,45 @@ def ensure_migrate():
             conn.commit()
 
 
+def _ensure_org_tree():
+    """组织三表合一：large_teams→根，team_groups→子，developers.group_id→team_id。幂等（按 id）。"""
+    from . import models
+    from .db import SessionLocal
+    with SessionLocal() as db:
+        for lt in db.query(models.LargeTeam).all():
+            if db.query(models.TeamSpace).filter_by(id=lt.id).first():
+                continue
+            db.add(models.TeamSpace(
+                id=lt.id, name=lt.name, description=lt.description, parent_id=None,
+                status="active", created_at="", updated_at="", member_ids=[], project_ids=[],
+                tenant_id=lt.tenant_id,
+            ))
+        db.commit()
+        for g in db.query(models.TeamGroup).all():
+            if db.query(models.TeamSpace).filter_by(id=g.id).first():
+                continue
+            db.add(models.TeamSpace(
+                id=g.id, name=g.name, description="", parent_id=g.team_id,
+                owner_id=g.lead_id, owner_name=g.lead_name,
+                status="active", created_at="", updated_at="",
+                member_ids=g.member_ids or [], project_ids=g.project_ids or [],
+                tenant_id=g.tenant_id,
+            ))
+        db.commit()
+        for d in db.query(models.Developer).all():
+            if d.group_id:
+                group = db.query(models.TeamSpace).filter_by(id=d.group_id).first()
+                d.team_id = d.group_id
+                d.team = group.name if group else d.team
+                d.group_id = None
+        db.commit()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(engine)
     ensure_migrate()
+    _ensure_org_tree()
     db = SessionLocal()
     ensure_bootstrap_tenant(db)
     db.close()

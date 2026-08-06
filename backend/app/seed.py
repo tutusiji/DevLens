@@ -86,41 +86,31 @@ def seed() -> None:
     db = _make_seed_session()
     _clear(db)
 
-    # ---- LargeTeams ----
+    # ---- 组织团队树（team_spaces 一体；根 lt-*，叶 g-*）----
     db.add_all([
-        models.LargeTeam(id="lt-tech", name="技术研发中心", description="负责全公司技术基础设施与产品研发"),
-        models.LargeTeam(id="lt-data", name="数据智能中心", description="负责数据平台、算法与智能化能力"),
+        models.TeamSpace(id="lt-tech", name="技术研发中心", description="负责全公司技术基础设施与产品研发", parent_id=None, status="active", created_at="", updated_at="", member_ids=[], project_ids=[]),
+        models.TeamSpace(id="lt-data", name="数据智能中心", description="负责数据平台、算法与智能化能力", parent_id=None, status="active", created_at="", updated_at="", member_ids=[], project_ids=[]),
+        models.TeamSpace(id="t1", name="平台架构组", parent_id="lt-tech", description="负责账户、权限、消息等平台基础能力。", owner_id="d1", owner_name="陈思", status="active", created_at="2025-03-12", updated_at="今天 10:32", member_ids=["d1"], project_ids=["p1", "p8"]),
+        models.TeamSpace(id="t2", name="业务中台组", parent_id="lt-tech", description="负责订单、库存及业务交易核心链路。", owner_id="d2", owner_name="林涛", status="active", created_at="2025-03-18", updated_at="今天 09:12", member_ids=["d2", "d6"], project_ids=["p2"]),
+        models.TeamSpace(id="t3", name="前端体验组", parent_id="lt-tech", description="负责内容体验、设计系统与用户端工程。", owner_id="d3", owner_name="王琳", status="active", created_at="2025-04-02", updated_at="昨天", member_ids=["d3", "d7"], project_ids=["p5"]),
+        models.TeamSpace(id="t5", name="基础架构组", parent_id="lt-tech", description="负责交付平台、稳定性和基础设施。", owner_id="d5", owner_name="刘洋", status="active", created_at="2025-04-22", updated_at="昨天", member_ids=["d5"], project_ids=["p7"]),
+        models.TeamSpace(id="t4", name="数据智能组", parent_id="lt-data", description="负责数据平台、模型服务和智能化能力。", owner_id="d4", owner_name="赵磊", status="active", created_at="2025-04-10", updated_at="3 小时前", member_ids=["d4", "d8"], project_ids=["p3", "p4", "p6"]),
+        models.TeamSpace(id="t6", name="安全合规组", parent_id="lt-tech", description="负责安全基线、风险治理与合规审查。", status="active", created_at="2025-05-08", updated_at="2 天前", member_ids=[], project_ids=[]),
+        models.TeamSpace(id="g-platform-core", name="核心服务小组", parent_id="t1", owner_id="d1", owner_name="陈思", status="active", created_at="", updated_at="", member_ids=["d1"], project_ids=["p1", "p8"]),
+        models.TeamSpace(id="g-business-order", name="交易服务小组", parent_id="t2", owner_id="d2", owner_name="林涛", status="active", created_at="", updated_at="", member_ids=["d2", "d6"], project_ids=["p2"]),
+        models.TeamSpace(id="g-frontend-content", name="内容体验小组", parent_id="t3", owner_id="d3", owner_name="王琳", status="active", created_at="", updated_at="", member_ids=["d3", "d7"], project_ids=["p5"]),
     ])
     db.commit()
-
-    # ---- TeamSpaces ----
-    db.add_all([
-        models.TeamSpace(id="t1", name="平台架构组", large_team_id="lt-tech", description="负责账户、权限、消息等平台基础能力。", owner_id="d1", owner_name="陈思", status="active", created_at="2025-03-12", updated_at="今天 10:32", member_ids=["d1"], project_ids=["p1", "p8"]),
-        models.TeamSpace(id="t2", name="业务中台组", large_team_id="lt-tech", description="负责订单、库存及业务交易核心链路。", owner_id="d2", owner_name="林涛", status="active", created_at="2025-03-18", updated_at="今天 09:12", member_ids=["d2", "d6"], project_ids=["p2"]),
-        models.TeamSpace(id="t3", name="前端体验组", large_team_id="lt-tech", description="负责内容体验、设计系统与用户端工程。", owner_id="d3", owner_name="王琳", status="active", created_at="2025-04-02", updated_at="昨天", member_ids=["d3", "d7"], project_ids=["p5"]),
-        models.TeamSpace(id="t5", name="基础架构组", large_team_id="lt-tech", description="负责交付平台、稳定性和基础设施。", owner_id="d5", owner_name="刘洋", status="active", created_at="2025-04-22", updated_at="昨天", member_ids=["d5"], project_ids=["p7"]),
-        models.TeamSpace(id="t4", name="数据智能组", large_team_id="lt-data", description="负责数据平台、模型服务和智能化能力。", owner_id="d4", owner_name="赵磊", status="active", created_at="2025-04-10", updated_at="3 小时前", member_ids=["d4", "d8"], project_ids=["p3", "p4", "p6"]),
-        models.TeamSpace(id="t6", name="安全合规组", large_team_id="lt-tech", description="负责安全基线、风险治理与合规审查。", status="active", created_at="2025-05-08", updated_at="2 天前", member_ids=[], project_ids=[]),
-    ])
-    db.commit()
-
-    # ---- TeamGroups ----
-    db.add_all([
-        models.TeamGroup(id="g-platform-core", team_id="t1", name="核心服务小组", lead_id="d1", lead_name="陈思", member_ids=["d1"], project_ids=["p1", "p8"]),
-        models.TeamGroup(id="g-business-order", team_id="t2", name="交易服务小组", lead_id="d2", lead_name="林涛", member_ids=["d2", "d6"], project_ids=["p2"]),
-        models.TeamGroup(id="g-frontend-content", team_id="t3", name="内容体验小组", lead_id="d3", lead_name="王琳", member_ids=["d3", "d7"], project_ids=["p5"]),
-    ])
-    db.commit()  # 确保 team_spaces/team_groups 先入库，满足 developers 外键
 
     # ---- Developers ----
     devs = [
-        dict(id="d1", name="陈思", username="chensi", role="架构师", role_type="backend", team="平台架构组", team_id="t1", group_id="g-platform-core", level="E3", overall=89, commits=412, reviews=156, langs=["Go", "Python"], tags=["核心模块贡献者", "偏后端架构"]),
-        dict(id="d2", name="林涛", username="lintao", role="技术专家", role_type="backend", team="业务中台组", team_id="t2", group_id="g-business-order", level="D2", overall=91, commits=523, reviews=198, langs=["Java", "Kotlin"], tags=["核心模块贡献者", "架构能力突出"]),
-        dict(id="d3", name="王琳", username="wanglin", role="高级工程师", role_type="frontend", team="前端体验组", team_id="t3", group_id="g-frontend-content", level="E3", overall=87, commits=387, reviews=134, langs=["TypeScript", "React"], tags=["核心模块贡献者", "前端专家", "13年经验示例"]),
+        dict(id="d1", name="陈思", username="chensi", role="架构师", role_type="backend", team="核心服务小组", team_id="g-platform-core", level="E3", overall=89, commits=412, reviews=156, langs=["Go", "Python"], tags=["核心模块贡献者", "偏后端架构"]),
+        dict(id="d2", name="林涛", username="lintao", role="技术专家", role_type="backend", team="交易服务小组", team_id="g-business-order", level="D2", overall=91, commits=523, reviews=198, langs=["Java", "Kotlin"], tags=["核心模块贡献者", "架构能力突出"]),
+        dict(id="d3", name="王琳", username="wanglin", role="高级工程师", role_type="frontend", team="内容体验小组", team_id="g-frontend-content", level="E3", overall=87, commits=387, reviews=134, langs=["TypeScript", "React"], tags=["核心模块贡献者", "前端专家", "13年经验示例"]),
         dict(id="d4", name="赵磊", username="zhaolei", role="技术专家", role_type="algorithm", team="数据智能组", team_id="t4", level="D3", overall=93, commits=612, reviews=245, langs=["Python", "Rust"], tags=["全栈能力", "成长速度快"]),
         dict(id="d5", name="刘洋", username="liuyang", role="高级工程师", role_type="devops", team="基础架构组", team_id="t5", level="E1", overall=78, commits=298, reviews=87, langs=["Go"], tags=["稳定性强", "运维能力"]),
-        dict(id="d6", name="张敏", username="zhangmin", role="工程师", role_type="backend", team="业务中台组", team_id="t2", group_id="g-business-order", level="F2", overall=72, commits=234, reviews=56, langs=["Java"], tags=["成长中", "业务理解"]),
-        dict(id="d7", name="周杰", username="zhoujie", role="工程师", role_type="frontend", team="前端体验组", team_id="t3", group_id="g-frontend-content", level="F3", overall=75, commits=267, reviews=78, langs=["TypeScript", "Vue"], tags=["协作能力突出"]),
+        dict(id="d6", name="张敏", username="zhangmin", role="工程师", role_type="backend", team="交易服务小组", team_id="g-business-order", level="F2", overall=72, commits=234, reviews=56, langs=["Java"], tags=["成长中", "业务理解"]),
+        dict(id="d7", name="周杰", username="zhoujie", role="工程师", role_type="frontend", team="内容体验小组", team_id="g-frontend-content", level="F3", overall=75, commits=267, reviews=78, langs=["TypeScript", "Vue"], tags=["协作能力突出"]),
         dict(id="d8", name="吴婷", username="wuting", role="高级工程师", role_type="algorithm", team="数据智能组", team_id="t4", level="E2", overall=82, commits=341, reviews=112, langs=["Python", "SQL"], tags=["数据建模", "安全意识强"]),
     ]
     for d in devs:
