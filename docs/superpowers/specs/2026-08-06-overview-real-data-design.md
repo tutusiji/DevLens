@@ -42,11 +42,12 @@ def compute_data_sources(db, tenant_id: str) -> list[dict]: ... # [{name, covera
 ### 3.1 trinity-matrix（真实团队×项目覆盖矩阵）
 
 - `rows` = 租户下有成员的团队名（`team_spaces`，有 `member_ids` 的），按成员数降序取前 8。
-- `cols` = 租户项目名（`projects`），按 commits 降序取前 8。
-- `cells[i][j]` = 团队 i × 项目 j 的交集，来源优先级：
-  1. `Developer.project_contributions`（真实跨团队贡献，含 project_id/commits/ownership）建 team→project 邻接；
-  2. 无贡献数据时回退 `TeamSpace.project_ids`（所属团队）与 `Project.team_id`。
-- cell 内容：`{score: 项目.score, members: 该团队贡献该项目的开发者数, owner: 该团队对该项目 ownership/overall 最高的开发者名（回退 team.owner_name）}`。
+- `cols` = 租户项目名，按 commits 降序取前 8 个**去重后**的名称（真实数据存在同名项目，如 3 个 `forest`）。
+- `cells[i][j]` = 团队 i × 项目 j 的交集：
+  - 主源 `Project.contributor_list`（真实 Git 贡献归集，由 `analyzer._persist` 与 seed 写入，含 name/commits/ownership）；
+  - 回退：项目无 contributor_list 时用 `Project.team_id` 归属团队。
+  - 注：`Developer.project_contributions` 字段无任何写入方，不作为数据源。
+- cell 内容：`{score: 项目.score, members: 该团队贡献该项目的开发者数, owner: 该团队对该项目 commits 最高的开发者名（回退 team.owner_name）}`。
 - 无交集 → `None`。
 - 空库 → `{rows: [], cols: [], cells: []}`。
 
@@ -58,15 +59,17 @@ def compute_data_sources(db, tenant_id: str) -> list[dict]: ... # [{name, covera
 - 无快照的月份跳过；整表空 → `[]`。
 - 兜底：复用 `portfolio.py` 的 `ensure_project_baseline_snapshots` 思路，保证至少当前月有基线点。
 
-### 3.3 risk-alerts（真实风险预警，按严重度取前 8）
+### 3.3 risk-alerts（真实风险预警，取前 8，三类类型均在前端 RiskType 联合类型内）
 
 | type | 来源条件 | level 映射 |
 |---|---|---|
-| `bus_factor` | ModuleRisk.ownership ≥ 60 且 backup_owner 为空 | critical→high |
-| `critical_risk` | ModuleRisk.severity = critical | high→medium |
-| `tech_debt` | FixPriority.priority = P0 且 status = open | medium→low |
-| `skill_gap` | CapabilityGap（current 明显低于 target）或 DeveloperEvaluation.gaps 中 gap ≥ 20 | 按缺口幅度 |
+| `bus_factor` | ModuleRisk.ownership ≥ 40 且 backup_owner 为空 | ≥70→high，否则 medium |
+| `tech_debt` | ModuleRisk.severity = critical（high）或 FixPriority.priority = P0 且 open（medium） | |
+| `skill_gap` | CapabilityGap（current < target）或 DeveloperEvaluation.gaps 中 gap ≥ 20 | 按缺口幅度 |
 
+- 关键模块风险映射为 `tech_debt`（前端 `RiskType` 无 `critical_risk`）。
+- 选择策略：每类最多取 3 条，再按严重度全局排序取前 8，保证 bus_factor / skill_gap 不被 tech_debt 挤掉。
+- P0 的 action 取 `fix.impact`，裸严重度词（high/高 等）时回退"优先排期修复"。
 - `description`/`action` 从数据字段拼装（模块名、缺口维度、backup 缺失、P0 标题等）。
 - `time` 优先取关联时间戳（evaluation.updated_at / project.last_analyzed），无则"最近"。
 - 全部按租户隔离；无数据 → `[]`。

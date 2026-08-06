@@ -6,6 +6,12 @@ from sqlalchemy.orm import Session
 from ..db import get_db
 from .. import models, schemas
 from ..access import TenantContext, require_permission
+from ..overview_service import (
+    compute_data_sources,
+    compute_health_trend,
+    compute_risk_alerts,
+    compute_trinity_matrix,
+)
 
 router = APIRouter()
 
@@ -34,52 +40,35 @@ def get_overview(
 
 
 @router.get("/trinity-matrix", response_model=schemas.TrinityMatrix)
-def get_trinity(ctx: TenantContext = Depends(require_permission("project:read"))):
-    return {
-        "rows": ["平台架构组", "业务中台组", "前端体验组", "数据智能组", "基础架构组"],
-        "cols": ["用户中心", "订单系统", "数据网关", "支付平台", "内容引擎"],
-        "cells": [
-            [{"score": 88, "members": 4, "owner": "陈思"}, {"score": 72, "members": 2, "owner": "陈思"}, None, {"score": 65, "members": 1}, None],
-            [{"score": 81, "members": 5, "owner": "林涛"}, {"score": 90, "members": 6, "owner": "林涛"}, {"score": 76, "members": 3}, None, {"score": 68, "members": 2}],
-            [None, {"score": 74, "members": 2}, {"score": 85, "members": 4, "owner": "王琳"}, None, {"score": 92, "members": 5, "owner": "王琳"}],
-            [{"score": 69, "members": 1}, {"score": 77, "members": 3}, {"score": 94, "members": 7, "owner": "赵磊"}, {"score": 82, "members": 4, "owner": "赵磊"}, None],
-            [{"score": 58, "members": 1}, None, {"score": 71, "members": 2}, {"score": 79, "members": 3}, {"score": 84, "members": 4}],
-        ],
-    }
+def get_trinity(
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("project:read")),
+):
+    return compute_trinity_matrix(db, ctx.tenant_id)
 
 
 @router.get("/health-trend", response_model=list[schemas.HealthTrendPoint])
-def get_health(ctx: TenantContext = Depends(require_permission("project:read"))):
-    return [
-        {"month": "2月", "quality": 72, "security": 68, "health": 70},
-        {"month": "3月", "quality": 74, "security": 71, "health": 72},
-        {"month": "4月", "quality": 73, "security": 75, "health": 74},
-        {"month": "5月", "quality": 78, "security": 76, "health": 76},
-        {"month": "6月", "quality": 80, "security": 78, "health": 77},
-        {"month": "7月", "quality": 82, "security": 79, "health": 78},
-    ]
+def get_health(
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("project:read")),
+):
+    return compute_health_trend(db, ctx.tenant_id)
 
 
 @router.get("/risk-alerts", response_model=list[schemas.RiskAlert])
-def get_alerts(ctx: TenantContext = Depends(require_permission("project:read"))):
-    return [
-        {"id": "r1", "type": "skill_gap", "level": "high", "title": "数据智能组「安全意识」覆盖率仅 18%", "description": "7 名成员中仅 1 人安全维度 >=60，支付平台存在单点风险", "time": "2小时前", "action": "安排安全培训 + 代码审查配对"},
-        {"id": "r2", "type": "bus_factor", "level": "high", "title": "内容引擎 Bus Factor = 1", "description": "王琳独占 92 分模块知识，离职将导致项目停摆", "time": "5小时前", "action": "识别备份负责人 + 文档沉淀"},
-        {"id": "r3", "type": "high_variance", "level": "medium", "title": "基础架构组能力差异过大", "description": "架构能力维度标准差 24，新人难以承接核心模块", "time": "1天前", "action": "拆分任务粒度 + 结对编程"},
-        {"id": "r4", "type": "tech_debt", "level": "medium", "title": "用户中心技术债持续上升", "description": "近 3 月技术债评分从 78 降至 65，复杂度集中在认证模块", "time": "1天前", "action": "排期重构认证流程"},
-        {"id": "r5", "type": "skill_gap", "level": "low", "title": "前端体验组测试覆盖偏低", "description": "团队测试维度均值 52，低于全公司 68 的平均水平", "time": "2天前", "action": "引入测试覆盖率门禁"},
-    ]
+def get_alerts(
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("project:read")),
+):
+    return compute_risk_alerts(db, ctx.tenant_id)
 
 
 @router.get("/data-sources", response_model=list[schemas.DataSource])
-def get_sources(ctx: TenantContext = Depends(require_permission("project:read"))):
-    return [
-        {"name": "GitLab 仓库", "coverage": 100, "status": "connected"},
-        {"name": "Merge Request", "coverage": 92, "status": "connected"},
-        {"name": "Issue 跟踪", "coverage": 78, "status": "partial"},
-        {"name": "CI/CD 流水线", "coverage": 65, "status": "partial"},
-        {"name": "代码质量扫描", "coverage": 40, "status": "disconnected"},
-    ]
+def get_sources(
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("project:read")),
+):
+    return compute_data_sources(db, ctx.tenant_id)
 
 
 @router.get("/active-projects", response_model=list[schemas.ActiveProject])
