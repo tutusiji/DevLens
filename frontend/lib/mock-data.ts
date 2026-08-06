@@ -73,13 +73,13 @@ export const projects: Project[] = [
 
 // ============ 开发者列表 ============
 export const developers: Developer[] = [
-  { id: 'd1', name: '陈思', username: 'chensi', role: '架构师', roleType: 'backend', team: '平台架构组', teamId: 't1', groupId: 'g-platform-core', level: 'E3', overall: 89, commits: 412, reviews: 156, langs: ['Go', 'Python'], tags: ['核心模块贡献者', '偏后端架构'] },
-  { id: 'd2', name: '林涛', username: 'lintao', role: '技术专家', roleType: 'backend', team: '业务中台组', teamId: 't2', groupId: 'g-business-order', level: 'D2', overall: 91, commits: 523, reviews: 198, langs: ['Java', 'Kotlin'], tags: ['核心模块贡献者', '架构能力突出'] },
-  { id: 'd3', name: '王琳', username: 'wanglin', role: '高级工程师', roleType: 'frontend', team: '前端体验组', teamId: 't3', groupId: 'g-frontend-content', level: 'E3', overall: 87, commits: 387, reviews: 134, langs: ['TypeScript', 'React'], tags: ['核心模块贡献者', '前端专家', '13年经验示例'] },
+  { id: 'd1', name: '陈思', username: 'chensi', role: '架构师', roleType: 'backend', team: '核心服务小组', teamId: 'g-platform-core', level: 'E3', overall: 89, commits: 412, reviews: 156, langs: ['Go', 'Python'], tags: ['核心模块贡献者', '偏后端架构'] },
+  { id: 'd2', name: '林涛', username: 'lintao', role: '技术专家', roleType: 'backend', team: '交易服务小组', teamId: 'g-business-order', level: 'D2', overall: 91, commits: 523, reviews: 198, langs: ['Java', 'Kotlin'], tags: ['核心模块贡献者', '架构能力突出'] },
+  { id: 'd3', name: '王琳', username: 'wanglin', role: '高级工程师', roleType: 'frontend', team: '内容体验小组', teamId: 'g-frontend-content', level: 'E3', overall: 87, commits: 387, reviews: 134, langs: ['TypeScript', 'React'], tags: ['核心模块贡献者', '前端专家', '13年经验示例'] },
   { id: 'd4', name: '赵磊', username: 'zhaolei', role: '技术专家', roleType: 'algorithm', team: '数据智能组', teamId: 't4', level: 'D3', overall: 93, commits: 612, reviews: 245, langs: ['Python', 'Rust'], tags: ['全栈能力', '成长速度快'] },
   { id: 'd5', name: '刘洋', username: 'liuyang', role: '高级工程师', roleType: 'devops', team: '基础架构组', teamId: 't5', level: 'E1', overall: 78, commits: 298, reviews: 87, langs: ['Go'], tags: ['稳定性强', '运维能力'] },
-  { id: 'd6', name: '张敏', username: 'zhangmin', role: '工程师', roleType: 'backend', team: '业务中台组', teamId: 't2', groupId: 'g-business-order', level: 'F2', overall: 72, commits: 234, reviews: 56, langs: ['Java'], tags: ['成长中', '业务理解'] },
-  { id: 'd7', name: '周杰', username: 'zhoujie', role: '工程师', roleType: 'frontend', team: '前端体验组', teamId: 't3', groupId: 'g-frontend-content', level: 'F3', overall: 75, commits: 267, reviews: 78, langs: ['TypeScript', 'Vue'], tags: ['协作能力突出'] },
+  { id: 'd6', name: '张敏', username: 'zhangmin', role: '工程师', roleType: 'backend', team: '交易服务小组', teamId: 'g-business-order', level: 'F2', overall: 72, commits: 234, reviews: 56, langs: ['Java'], tags: ['成长中', '业务理解'] },
+  { id: 'd7', name: '周杰', username: 'zhoujie', role: '工程师', roleType: 'frontend', team: '内容体验小组', teamId: 'g-frontend-content', level: 'F3', overall: 75, commits: 267, reviews: 78, langs: ['TypeScript', 'Vue'], tags: ['协作能力突出'] },
   { id: 'd8', name: '吴婷', username: 'wuting', role: '高级工程师', roleType: 'algorithm', team: '数据智能组', teamId: 't4', level: 'E2', overall: 82, commits: 341, reviews: 112, langs: ['Python', 'SQL'], tags: ['数据建模', '安全意识强'] },
 ];
 
