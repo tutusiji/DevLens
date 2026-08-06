@@ -42,7 +42,7 @@ const ANALYSIS_NAV: NavItem[] = [
 ];
 
 const SYSTEM_NAV: NavItem[] = [
-  { href: '/team-spaces', label: '团队空间管理', description: '团队 · 小组 · 成员归属', icon: Building2 },
+  { href: '/team-spaces', label: '团队空间管理', description: '团队 · 子团队 · 成员归属', icon: Building2 },
   { href: '/skills', label: 'Skill 管理', description: '规则库 · 编组 · 规范来源', icon: ShieldCheck },
   { href: '/onboard', label: '接入项目', description: 'Git 仓库 · 身份匹配', icon: Rocket },
   { href: '/repos', label: 'Git 仓库管理', description: '仓库列表 · 同步状态', icon: GitBranch },

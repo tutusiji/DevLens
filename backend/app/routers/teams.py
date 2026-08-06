@@ -73,7 +73,7 @@ def create_team_space(
 ):
     if not body.name or not body.name.strip():
         raise HTTPException(status_code=422, detail="团队名称不能为空")
-    parent_id = body.parent_id
+    parent_id = body.parent_id or None  # 空串归一为根（None）
     if parent_id:
         parent = db.query(models.TeamSpace).filter_by(id=parent_id, tenant_id=ctx.tenant_id).first()
         if not parent:
@@ -109,9 +109,9 @@ def update_team_space(
         space.description = data["description"]
     if "owner_id" in data:
         space.owner_id = data["owner_id"]
-        space.owner_name = data["owner_name"]
+        space.owner_name = data.get("owner_name")  # PATCH 可能只带 ownerId
     if "parent_id" in data:
-        new_parent = data["parent_id"]   # None = 移到根
+        new_parent = data["parent_id"] or None   # 空串/None 均归一为根（移到根）
         if new_parent == space.id:
             raise HTTPException(status_code=422, detail="父团队不能是自己")
         if new_parent:
@@ -119,7 +119,11 @@ def update_team_space(
             if not parent:
                 raise HTTPException(status_code=404, detail="父团队不存在")
             cur = parent
+            seen = set()  # 防御脏数据中的环，避免无限循环
             while cur:
+                if cur.id in seen:
+                    break
+                seen.add(cur.id)
                 if cur.id == space.id:
                     raise HTTPException(status_code=422, detail="父团队不能是自身的子团队")
                 cur = db.query(models.TeamSpace).filter_by(id=cur.parent_id, tenant_id=ctx.tenant_id).first() if cur.parent_id else None

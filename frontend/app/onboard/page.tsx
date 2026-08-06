@@ -219,7 +219,7 @@ export default function OnboardPage() {
               <EmptyState
                 icon={UserCheck}
                 title="请先创建团队空间"
-                description="项目、人员和小组都必须先归属团队空间，才能开始仓库接入与后续分析。"
+                description="项目、人员和子团队都必须先归属团队空间，才能开始仓库接入与后续分析。"
                 action={<Button variant="accent" onClick={() => router.push('/team-spaces')}>前往创建团队空间</Button>}
               />
             </div>
