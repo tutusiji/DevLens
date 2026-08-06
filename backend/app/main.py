@@ -221,9 +221,10 @@ def _ensure_org_tree():
                 tenant_id=g.tenant_id,
             ))
         db.commit()
-        # 回填存量 team_spaces：旧 large_team_id → parent_id（列仍存在于 DB，且 lt-* 已折叠为根节点）
-        db.execute(text("UPDATE team_spaces SET parent_id = large_team_id WHERE parent_id IS NULL AND large_team_id IS NOT NULL"))
-        db.commit()
+        # 回填存量 team_spaces：旧 large_team_id → parent_id（仅存量库有此列；全新库由 seed 建树）
+        if "large_team_id" in {c["name"] for c in inspect(engine).get_columns("team_spaces")}:
+            db.execute(text("UPDATE team_spaces SET parent_id = large_team_id WHERE parent_id IS NULL AND large_team_id IS NOT NULL"))
+            db.commit()
         for d in db.query(models.Developer).all():
             if d.group_id:
                 group = db.query(models.TeamSpace).filter_by(id=d.group_id).first()
