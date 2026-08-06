@@ -320,7 +320,8 @@ class LargeTeamM(CamelModel):
 class TeamSpace(CamelModel):
     id: str
     name: str
-    large_team_id: str
+    parent_id: Optional[str] = None
+    parent_name: Optional[str] = None
     description: Optional[str] = None
     owner_id: Optional[str] = None
     owner_name: Optional[str] = None
@@ -329,6 +330,15 @@ class TeamSpace(CamelModel):
     updated_at: str = ""
     member_ids: list[str] = []
     project_ids: list[str] = []
+
+
+class TeamSpaceUpsert(CamelModel):
+    """POST/PATCH 团队共用；name 在 POST 处理器强制，PATCH 可部分更新。"""
+    name: Optional[str] = None
+    parent_id: Optional[str] = None
+    description: Optional[str] = None
+    owner_id: Optional[str] = None
+    owner_name: Optional[str] = None
 
 
 class TeamGroup(CamelModel):

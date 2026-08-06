@@ -23,7 +23,7 @@ class TeamSpace(Base):
     __tablename__ = "team_spaces"
     id = Column(String, primary_key=True)
     name = Column(String, nullable=False)
-    large_team_id = Column(String, ForeignKey("large_teams.id"))
+    parent_id = Column(String, ForeignKey("team_spaces.id"), nullable=True)  # 可选父团队
     description = Column(Text)
     owner_id = Column(String)
     owner_name = Column(String)
