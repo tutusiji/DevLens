@@ -99,24 +99,25 @@ def update_team_space(
     space = db.query(models.TeamSpace).filter_by(id=space_id, tenant_id=ctx.tenant_id).first()
     if not space:
         raise HTTPException(status_code=404, detail="团队不存在")
-    if body.name is not None:
-        if not body.name.strip():
+    data = body.model_dump(exclude_unset=True)
+    if "name" in data:
+        name = data["name"]
+        if not name or not name.strip():
             raise HTTPException(status_code=422, detail="团队名称不能为空")
-        space.name = body.name.strip()
-    if body.description is not None:
-        space.description = body.description
-    if body.owner_id is not None:
-        space.owner_id = body.owner_id
-        space.owner_name = body.owner_name
-    if body.parent_id is not None:
-        new_parent = body.parent_id
+        space.name = name.strip()
+    if "description" in data:
+        space.description = data["description"]
+    if "owner_id" in data:
+        space.owner_id = data["owner_id"]
+        space.owner_name = data["owner_name"]
+    if "parent_id" in data:
+        new_parent = data["parent_id"]   # None = 移到根
         if new_parent == space.id:
             raise HTTPException(status_code=422, detail="父团队不能是自己")
         if new_parent:
             parent = db.query(models.TeamSpace).filter_by(id=new_parent, tenant_id=ctx.tenant_id).first()
             if not parent:
                 raise HTTPException(status_code=404, detail="父团队不存在")
-            # 禁环：沿新父向上走，若遇到 space 自身则成环
             cur = parent
             while cur:
                 if cur.id == space.id:
