@@ -5,7 +5,7 @@
 import type {
   StatItem, TrinityMatrix, HealthTrendPoint, RiskAlert, DataSource,
   Project, Developer, Team, CapabilityGap, IdentityMatch,
-  TeamSpace, TeamGroup, LargeTeam,
+  TeamSpace,
   DeveloperDetail, ProjectDetail, AIReviewInsight, ModuleRisk, FixPriority,
   RoleConfig, Level, Role, LevelStandard, ActivityTrend,
 } from './types';
@@ -150,24 +150,19 @@ export const activeTeams = teams
     trend: t.avgScore >= 85 ? 'up' : t.avgScore >= 70 ? 'stable' : 'down' as ActivityTrend,
   }));
 
-export const largeTeams: LargeTeam[] = [
-  { id: 'lt-tech', name: '技术研发中心', description: '负责全公司技术基础设施与产品研发' },
-  { id: 'lt-data', name: '数据智能中心', description: '负责数据平台、算法与智能化能力' },
-];
-
+// 统一组织团队树：根团队（lt-*，parentId 为 null）+ 空间（t*）+ 叶团队（g-*）
 export const teamSpaces: TeamSpace[] = [
-  { id: 't1', name: '平台架构组', largeTeamId: 'lt-tech', description: '负责账户、权限、消息等平台基础能力。', ownerId: 'd1', ownerName: '陈思', status: 'active', createdAt: '2025-03-12', updatedAt: '今天 10:32', memberIds: ['d1'], projectIds: ['p1', 'p8'] },
-  { id: 't2', name: '业务中台组', largeTeamId: 'lt-tech', description: '负责订单、库存及业务交易核心链路。', ownerId: 'd2', ownerName: '林涛', status: 'active', createdAt: '2025-03-18', updatedAt: '今天 09:12', memberIds: ['d2', 'd6'], projectIds: ['p2'] },
-  { id: 't3', name: '前端体验组', largeTeamId: 'lt-tech', description: '负责内容体验、设计系统与用户端工程。', ownerId: 'd3', ownerName: '王琳', status: 'active', createdAt: '2025-04-02', updatedAt: '昨天', memberIds: ['d3', 'd7'], projectIds: ['p5'] },
-  { id: 't5', name: '基础架构组', largeTeamId: 'lt-tech', description: '负责交付平台、稳定性和基础设施。', ownerId: 'd5', ownerName: '刘洋', status: 'active', createdAt: '2025-04-22', updatedAt: '昨天', memberIds: ['d5'], projectIds: ['p7'] },
-  { id: 't4', name: '数据智能组', largeTeamId: 'lt-data', description: '负责数据平台、模型服务和智能化能力。', ownerId: 'd4', ownerName: '赵磊', status: 'active', createdAt: '2025-04-10', updatedAt: '3 小时前', memberIds: ['d4', 'd8'], projectIds: ['p3', 'p4', 'p6'] },
-  { id: 't6', name: '安全合规组', largeTeamId: 'lt-tech', description: '负责安全基线、风险治理与合规审查。', status: 'active', createdAt: '2025-05-08', updatedAt: '2 天前', memberIds: [], projectIds: [] },
-];
-
-export const teamGroups: TeamGroup[] = [
-  { id: 'g-platform-core', teamId: 't1', name: '核心服务小组', leadId: 'd1', leadName: '陈思', memberIds: ['d1'], projectIds: ['p1', 'p8'] },
-  { id: 'g-business-order', teamId: 't2', name: '交易服务小组', leadId: 'd2', leadName: '林涛', memberIds: ['d2', 'd6'], projectIds: ['p2'] },
-  { id: 'g-frontend-content', teamId: 't3', name: '内容体验小组', leadId: 'd3', leadName: '王琳', memberIds: ['d3', 'd7'], projectIds: ['p5'] },
+  { id: 'lt-tech', name: '技术研发中心', parentId: null, description: '负责全公司技术基础设施与产品研发', status: 'active', createdAt: '2025-03-01', updatedAt: '今天 10:32', memberIds: [], projectIds: [] },
+  { id: 'lt-data', name: '数据智能中心', parentId: null, description: '负责数据平台、算法与智能化能力', status: 'active', createdAt: '2025-03-01', updatedAt: '今天 10:32', memberIds: [], projectIds: [] },
+  { id: 't1', name: '平台架构组', parentId: 'lt-tech', parentName: '技术研发中心', description: '负责账户、权限、消息等平台基础能力。', ownerId: 'd1', ownerName: '陈思', status: 'active', createdAt: '2025-03-12', updatedAt: '今天 10:32', memberIds: ['d1'], projectIds: ['p1', 'p8'] },
+  { id: 't2', name: '业务中台组', parentId: 'lt-tech', parentName: '技术研发中心', description: '负责订单、库存及业务交易核心链路。', ownerId: 'd2', ownerName: '林涛', status: 'active', createdAt: '2025-03-18', updatedAt: '今天 09:12', memberIds: ['d2', 'd6'], projectIds: ['p2'] },
+  { id: 't3', name: '前端体验组', parentId: 'lt-tech', parentName: '技术研发中心', description: '负责内容体验、设计系统与用户端工程。', ownerId: 'd3', ownerName: '王琳', status: 'active', createdAt: '2025-04-02', updatedAt: '昨天', memberIds: ['d3', 'd7'], projectIds: ['p5'] },
+  { id: 't5', name: '基础架构组', parentId: 'lt-tech', parentName: '技术研发中心', description: '负责交付平台、稳定性和基础设施。', ownerId: 'd5', ownerName: '刘洋', status: 'active', createdAt: '2025-04-22', updatedAt: '昨天', memberIds: ['d5'], projectIds: ['p7'] },
+  { id: 't6', name: '安全合规组', parentId: 'lt-tech', parentName: '技术研发中心', description: '负责安全基线、风险治理与合规审查。', status: 'active', createdAt: '2025-05-08', updatedAt: '2 天前', memberIds: [], projectIds: [] },
+  { id: 't4', name: '数据智能组', parentId: 'lt-data', parentName: '数据智能中心', description: '负责数据平台、模型服务和智能化能力。', ownerId: 'd4', ownerName: '赵磊', status: 'active', createdAt: '2025-04-10', updatedAt: '3 小时前', memberIds: ['d4', 'd8'], projectIds: ['p3', 'p4', 'p6'] },
+  { id: 'g-platform-core', name: '核心服务小组', parentId: 't1', parentName: '平台架构组', description: '账户、权限与消息核心服务小组', ownerId: 'd1', ownerName: '陈思', status: 'active', createdAt: '2025-03-12', updatedAt: '今天', memberIds: ['d1'], projectIds: ['p1', 'p8'] },
+  { id: 'g-business-order', name: '交易服务小组', parentId: 't2', parentName: '业务中台组', description: '订单、库存与交易链路小组', ownerId: 'd2', ownerName: '林涛', status: 'active', createdAt: '2025-03-18', updatedAt: '今天', memberIds: ['d2', 'd6'], projectIds: ['p2'] },
+  { id: 'g-frontend-content', name: '内容体验小组', parentId: 't3', parentName: '前端体验组', description: '内容体验与用户端工程小组', ownerId: 'd3', ownerName: '王琳', status: 'active', createdAt: '2025-04-02', updatedAt: '昨天', memberIds: ['d3', 'd7'], projectIds: ['p5'] },
 ];
 
 // ============ 能力缺口矩阵 ============

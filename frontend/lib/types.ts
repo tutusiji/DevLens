@@ -158,32 +158,17 @@ export interface ActiveTeam {
 
 // ============ 项目 ============
 
-export interface LargeTeam {
-  id: string;
-  name: string;
-  description?: string;
-}
-
 export interface TeamSpace {
   id: string;
   name: string;
-  largeTeamId: string;
+  parentId?: string | null;
+  parentName?: string;
   description?: string;
   ownerId?: string;
   ownerName?: string;
-  status: 'active' | 'archived';
+  status: string;
   createdAt: string;
   updatedAt: string;
-  memberIds: string[];
-  projectIds: string[];
-}
-
-export interface TeamGroup {
-  id: string;
-  teamId: string;
-  name: string;
-  leadId?: string;
-  leadName?: string;
   memberIds: string[];
   projectIds: string[];
 }

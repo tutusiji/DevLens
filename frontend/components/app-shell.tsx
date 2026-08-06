@@ -19,7 +19,7 @@ import { Popover } from '@heroui/react/popover';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { CommandPalette } from '@/components/command-palette';
 import { TenantSwitcher } from '@/components/tenant-switcher';
-import { useTeamSpace } from '@/components/team-space-provider';
+import { useTeamSpace, type TeamTreeNode } from '@/components/team-space-provider';
 import { riskAlerts } from '@/lib/mock-data';
 import { Badge } from './ui/badge';
 import { useRouter } from 'next/navigation';
@@ -86,6 +86,27 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   );
 }
 
+/** 侧边栏团队树递归节点（浏览组织团队树用） */
+function TreeItem({ node, depth, onSelect }: { node: TeamTreeNode; depth: number; onSelect: (id: string) => void }) {
+  const [open, setOpen] = React.useState(true);
+  return (
+    <div>
+      <div className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm hover:bg-muted/40" style={{ paddingLeft: 8 + depth * 16 }}>
+        {node.children.length ? (
+          <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(!open); }} className="shrink-0 cursor-pointer text-muted-foreground focus-visible:outline-none" aria-label={open ? '折叠' : '展开'}>
+            {open ? '▼' : '▶'}
+          </button>
+        ) : <span className="w-3.5 shrink-0" />}
+        <button type="button" onClick={() => onSelect(node.id)} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg text-left focus-visible:outline-none">
+          <Building2 className="h-3.5 w-3.5 shrink-0 text-primary" />
+          <span className="truncate font-medium">{node.name}</span>
+        </button>
+      </div>
+      {open && node.children.map((c) => <TreeItem key={c.id} node={c} depth={depth + 1} onSelect={onSelect} />)}
+    </div>
+  );
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -95,8 +116,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [teamMenuOpen, setTeamMenuOpen] = React.useState(false);
   const [me, setMe] = React.useState<MeResult | null>(null);
   const {
-    spaces, largeTeams, activeLargeTeam,
-    setActiveLargeTeamId,
+    teamsTree, teamIndex, activeTeamSpace,
+    setActiveTeamSpaceId,
   } = useTeamSpace();
 
   /* 登录守卫：无有效会话时跳转 /login */
@@ -253,49 +274,39 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </span>
           </div>
 
-          {/* 组织空间（租户）选择器 + 团队空间选择器 */}
+          {/* 组织空间（租户）选择器 + 团队树选择器 */}
           <div className="hidden md:flex items-center gap-2 ml-auto">
             <TenantSwitcher />
-            {activeLargeTeam ? (
-              <Popover isOpen={teamMenuOpen} onOpenChange={setTeamMenuOpen}>
-                <Popover.Trigger
-                  className="flex items-center gap-3 rounded-2xl bg-muted/15 px-4 py-2.5 text-left transition-all hover:bg-muted/25 cursor-pointer"
-                  aria-label="切换大团队"
-                >
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/12">
-                    <Building2 className="h-4.5 w-4.5 text-primary" />
-                  </div>
-                  <div className="max-w-40 min-w-0">
-                    <div className="truncate text-sm font-semibold text-foreground">{activeLargeTeam.name}</div>
-                    <div className="text-[11px] text-muted-foreground/70">
-                      {spaces.filter((space) => space.largeTeamId === activeLargeTeam.id).length} 团队空间 · {spaces.filter((space) => space.largeTeamId === activeLargeTeam.id).reduce((count, space) => count + space.projectIds.length, 0)} 项目
+            <Popover isOpen={teamMenuOpen} onOpenChange={setTeamMenuOpen}>
+              <Popover.Trigger
+                className="flex items-center gap-3 rounded-2xl bg-muted/15 px-4 py-2.5 text-left transition-all hover:bg-muted/25 cursor-pointer"
+                aria-label="切换团队"
+              >
+                {activeTeamSpace ? (
+                  <>
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/12">
+                      <Building2 className="h-4.5 w-4.5 text-primary" />
                     </div>
-                  </div>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground/70" />
-                </Popover.Trigger>
-                <Popover.Content placement="bottom end" offset={8} className="w-72 overflow-hidden rounded-xl glass-strong shadow-2xl">
-                  <div className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70 border-b border-border/10">切换大团队</div>
-                  {largeTeams.map((lt) => (
-                    <button
-                      key={lt.id}
-                      onClick={() => { setActiveLargeTeamId(lt.id); setTeamMenuOpen(false); }}
-                      className={cn(
-                        'flex w-full items-center justify-between px-4 py-3 text-left text-sm transition-all hover:bg-muted/20',
-                        lt.id === activeLargeTeam.id && 'bg-primary/8 text-primary'
-                      )}
-                    >
-                      <span className="truncate font-medium">{lt.name}</span>
-                      <span className="font-mono text-[11px] text-muted-foreground/70">{spaces.filter((space) => space.largeTeamId === lt.id).length} 团队空间</span>
-                    </button>
-                  ))}
-                  <Link href="/team-spaces" onClick={() => setTeamMenuOpen(false)} className="flex items-center gap-2 border-t border-border/10 px-4 py-3 text-xs font-medium text-primary hover:bg-muted/15">
-                    <Building2 className="h-4 w-4" />管理团队空间
-                  </Link>
-                </Popover.Content>
-              </Popover>
-            ) : (
-              <Link href="/team-spaces" className="text-sm font-medium text-primary hover:underline">创建团队空间</Link>
-            )}
+                    <div className="max-w-40 min-w-0">
+                      <div className="truncate text-sm font-semibold text-foreground">{activeTeamSpace.name}</div>
+                      <div className="text-[11px] text-muted-foreground/70">{teamIndex.get(activeTeamSpace.parentId ?? '')?.name || '根团队'}</div>
+                    </div>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground/70" />
+                  </>
+                ) : (
+                  <span className="text-sm font-medium text-primary">选择团队</span>
+                )}
+              </Popover.Trigger>
+              <Popover.Content placement="bottom end" offset={8} className="w-72 overflow-hidden rounded-xl glass-strong shadow-2xl">
+                <div className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70 border-b border-border/10">组织团队树</div>
+                <div className="max-h-80 overflow-y-auto p-2">
+                  {teamsTree.length ? teamsTree.map((root) => <TreeItem key={root.id} node={root} depth={0} onSelect={(id) => { setActiveTeamSpaceId(id); setTeamMenuOpen(false); }} />) : <p className="px-3 py-4 text-xs text-muted-foreground">暂无团队，请先在团队空间管理创建。</p>}
+                </div>
+                <Link href="/team-spaces" onClick={() => setTeamMenuOpen(false)} className="flex items-center gap-2 border-t border-border/10 px-4 py-3 text-xs font-medium text-primary hover:bg-muted/15">
+                  <Building2 className="h-4 w-4" />管理团队空间
+                </Link>
+              </Popover.Content>
+            </Popover>
           </div>
 
           <div className="flex items-center gap-2 ml-auto md:ml-4">

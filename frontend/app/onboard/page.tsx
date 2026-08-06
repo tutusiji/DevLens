@@ -16,7 +16,7 @@ import { Progress } from '@/components/ui/progress';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { PageHeader } from '@/components/widgets';
 import { EmptyState } from '@/components/filter-bar';
-import { useTeamSpace } from '@/components/team-space-provider';
+import { useTeamSpace, type TeamTreeNode } from '@/components/team-space-provider';
 import { api } from '@/lib/api';
 import type { IdentityMatch, SkillGroup } from '@/lib/types';
 
@@ -58,6 +58,11 @@ function validateRepository(value: string, type: 'remote' | 'local'): string | n
   } catch {
     return '请输入合法的 Git 仓库地址，例如 https://github.com/org/repo.git';
   }
+}
+
+/** 扁平化团队树（先序遍历），用于单级团队下拉 */
+function flattenTeams(nodes: TeamTreeNode[]): TeamTreeNode[] {
+  return nodes.flatMap((node) => [node, ...flattenTeams(node.children)]);
 }
 
 function StepIndicator({ current }: { current: number }) {
@@ -105,14 +110,13 @@ export default function OnboardPage() {
   const [submitError, setSubmitError] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
   const [skillGroups, setSkillGroups] = React.useState<SkillGroup[]>([]);
-  const { spaces, largeTeams, activeLargeTeamId, activeTeamSpaceId } = useTeamSpace();
+  const { spaces, teamsTree, activeTeamSpaceId } = useTeamSpace();
   const [form, setForm] = React.useState(() => ({
     name: '',
     repoPath: '',
     repoType: 'remote' as 'remote' | 'local',
     accessToken: '',
     branch: 'main',
-    largeTeamId: activeLargeTeamId || '',
     teamId: activeTeamSpaceId || '',
     skillGroupId: '',
   }));
@@ -130,17 +134,6 @@ export default function OnboardPage() {
       })
       .catch(() => { /* 后端不可用时保持空选择 */ });
   }, []);
-
-  // 顶部切换大团队时，自动选中该大团队下的第一个团队空间
-  React.useEffect(() => {
-    setForm((current) => {
-      if (current.largeTeamId === activeLargeTeamId && current.teamId === activeTeamSpaceId) return current;
-      const teamInLarge = activeLargeTeamId ? spaces.find((space) => space.largeTeamId === activeLargeTeamId && space.status === 'active') : undefined;
-      return { ...current, largeTeamId: activeLargeTeamId || current.largeTeamId, teamId: activeLargeTeamId ? (teamInLarge?.id || '') : current.teamId };
-    });
-  }, [activeLargeTeamId, activeTeamSpaceId, spaces]);
-
-  const availableSpaces = spaces.filter((space) => space.status === 'active' && (!form.largeTeamId || space.largeTeamId === form.largeTeamId));
 
   // 通过分析运行状态轮询进度
   React.useEffect(() => {
@@ -179,7 +172,7 @@ export default function OnboardPage() {
       return;
     }
     if (!form.teamId) {
-      setSubmitError('请选择所属团队空间');
+      setSubmitError('请选择所属团队');
       return;
     }
     setSubmitting(true);
@@ -234,26 +227,13 @@ export default function OnboardPage() {
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
                 <div className="text-sm font-medium">组织归属</div>
-                <p className="mt-1 text-xs text-muted-foreground">先确定项目所属大团队，再选择该大团队下的具体团队空间。</p>
-                <div className="mt-3 grid gap-4 md:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <label htmlFor="largeTeamId" className="text-sm font-medium">所属大团队 <span className="text-destructive">*</span></label>
-                    <select id="largeTeamId" required value={form.largeTeamId} onChange={(e) => {
-                      const largeId = e.target.value;
-                      const firstSpace = spaces.find((space) => space.largeTeamId === largeId && space.status === 'active');
-                      setForm({ ...form, largeTeamId: largeId, teamId: firstSpace?.id || '' });
-                    }} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                      <option value="">请选择大团队</option>
-                      {largeTeams.map((lt) => <option key={lt.id} value={lt.id}>{lt.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label htmlFor="teamId" className="text-sm font-medium">所属团队空间 <span className="text-destructive">*</span></label>
-                    <select id="teamId" required value={form.teamId} onChange={(e) => setForm({ ...form, teamId: e.target.value })} disabled={!form.largeTeamId} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring">
-                      <option value="">请选择团队空间</option>
-                      {availableSpaces.map((space) => <option key={space.id} value={space.id}>{space.name}</option>)}
-                    </select>
-                  </div>
+                <p className="mt-1 text-xs text-muted-foreground">选择项目所属团队；团队按组织树层级展示。</p>
+                <div className="mt-3 space-y-1.5">
+                  <label htmlFor="teamId" className="text-sm font-medium">所属团队 <span className="text-destructive">*</span></label>
+                  <select id="teamId" required value={form.teamId} onChange={(e) => setForm({ ...form, teamId: e.target.value })} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <option value="">请选择团队</option>
+                    {flattenTeams(teamsTree).map((t) => <option key={t.id} value={t.id}>{t.parentName ? `${t.parentName} / ${t.name}` : t.name}</option>)}
+                  </select>
                 </div>
               </div>
               <div className="space-y-1.5">

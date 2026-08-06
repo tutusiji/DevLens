@@ -5,17 +5,17 @@
 import {
   overviewStats, trinityMatrix, healthTrend, riskAlerts, dataSources,
   projects, developers, teams, capabilityGaps, identityMatches,
-  getDeveloperDetail, getProjectDetail, teamSpaces, teamGroups,
-  activeProjects, activeDevelopers, activeTeams, repoList, largeTeams,
+  getDeveloperDetail, getProjectDetail, teamSpaces,
+  activeProjects, activeDevelopers, activeTeams, repoList,
   modelProviders, taskRoutes, vectorCollections, embeddingModels,
   roleConfigs, roleStandards, DIMENSION_LABELS, ALL_LEVELS,
 } from './mock-data';
 
 import type {
   AnalysisRun, ProjectCreateRequest, ProjectDetail, RepositoryImportResult,
-  TeamGroup, TeamSpace, Project, Developer, Team, DeveloperDetail,
+  TeamSpace, Project, Developer, Team, DeveloperDetail,
   StatItem, TrinityMatrix, HealthTrendPoint, RiskAlert, DataSource,
-  ActiveProject, ActiveDeveloper, ActiveTeam, CapabilityGap, IdentityMatch, Repository, LargeTeam,
+  ActiveProject, ActiveDeveloper, ActiveTeam, CapabilityGap, IdentityMatch, Repository,
   SkillSource, Skill, SkillGroup, SkillGroupPreview, ExtractResult,
   SkillSourceCreateRequest, SkillCreateRequest, SkillGroupCreateRequest,
   EnvInventoryEntry, EnvInventoryScan, EnvInventorySummary, EnvInventorySkill,
@@ -427,19 +427,14 @@ export const api = {
     });
   },
 
-  // 团队空间
+  // 团队空间（统一组织团队树：parentId 为空即根团队，子团队通过 parentId 挂载）
   getTeamSpaces: () => (USE_MOCK ? mockDelay(teamSpaces) : fetchAPI<TeamSpace[]>('/team-spaces')),
-  getTeamGroups: (teamId?: string) =>
-    USE_MOCK ? mockDelay(teamId ? teamGroups.filter((g) => g.teamId === teamId) : teamGroups) : fetchAPI<TeamGroup[]>(teamId ? `/team-groups?team_id=${teamId}` : '/team-groups'),
-  getLargeTeams: () => (USE_MOCK ? mockDelay(largeTeams) : fetchAPI<LargeTeam[]>('/large-teams')),
-  createTeamSpace: (body: Pick<TeamSpace, 'name' | 'description' | 'ownerId' | 'ownerName'>) =>
+  createTeamSpace: (body: { name: string; parentId?: string | null; description?: string; ownerId?: string; ownerName?: string }) =>
     USE_MOCK
-      ? mockDelay({ id: `team-${Date.now()}`, status: 'active' as const, createdAt: '刚刚', updatedAt: '刚刚', largeTeamId: '', memberIds: body.ownerId ? [body.ownerId] : [], projectIds: [], ...body } as TeamSpace)
+      ? mockDelay({ id: `team-${Date.now()}`, status: 'active' as const, createdAt: '刚刚', updatedAt: '刚刚', parentId: body.parentId ?? null, memberIds: body.ownerId ? [body.ownerId] : [], projectIds: [], ...body } as TeamSpace)
       : fetchAPI<TeamSpace>('/team-spaces', { method: 'POST', body: JSON.stringify(body) }),
-  createTeamGroup: (body: Omit<TeamGroup, 'id' | 'memberIds' | 'projectIds'>) =>
-    USE_MOCK
-      ? mockDelay({ id: `group-${Date.now()}`, memberIds: [], projectIds: [], ...body } as TeamGroup)
-      : fetchAPI<TeamGroup>('/team-groups', { method: 'POST', body: JSON.stringify(body) }),
+  updateTeamSpace: (id: string, patch: Partial<TeamSpace>) =>
+    USE_MOCK ? mockDelay(patch as TeamSpace) : fetchAPI<TeamSpace>(`/team-spaces/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
 
   // 开发者
   getDevelopers: () => (USE_MOCK ? mockDelay(developers) : fetchAPI<Developer[]>('/developers')),

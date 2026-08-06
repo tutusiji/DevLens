@@ -30,7 +30,6 @@ import { FilterBar, EmptyState } from '@/components/filter-bar';
 import { DiceBearAvatar } from '@/components/dicebear-avatar';
 import { Segmented } from '@/components/ui/segmented';
 import { api } from '@/lib/api';
-import { teamGroups } from '@/lib/mock-data';
 import type { Developer, DeveloperDetail } from '@/lib/types';
 
 const LEVEL_VARIANT: Record<string, 'default' | 'secondary' | 'accent' | 'success'> = {
@@ -329,7 +328,7 @@ function DeveloperCard({ dev }: { dev: Developer }) {
                   <Badge variant={levelVariant(dev.level)} className="font-mono">{dev.level}</Badge>
                 </div>
                 <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                  <span>{dev.role}</span><span>·</span><span>{dev.team}</span>{dev.groupId && <Badge variant="secondary">{teamGroups.find((group) => group.id === dev.groupId)?.name || '已分组'}</Badge>}
+                  <span>{dev.role}</span><span>·</span><span>{dev.team}</span>
                 </div>
               </div>
               <ScoreRing score={dev.overall} size={46} stroke={4} glow={false} />
