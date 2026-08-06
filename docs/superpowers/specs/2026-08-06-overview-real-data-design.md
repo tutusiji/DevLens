@@ -91,15 +91,15 @@ def compute_data_sources(db, tenant_id: str) -> list[dict]: ... # [{name, covera
 - health-trend / risk-alerts / data-sources → `[]`
 - 前端对空数组安全（Recharts 空数据不渲染图表，见 §6）。
 
-## 5. 测试
+## 5. 验证
 
-- 单测 `backend/tests/test_overview_service.py`（如已有测试目录则加入）：
-  - 各函数在空租户返回空结构；
-  - seed 数据下 trinity-matrix 生成合理行列、cell 字段非空；
-  - health-trend 按月聚合正确、health=score；
-  - risk-alerts 覆盖 4 种类型、按 severity 排序；
-  - data-sources 在无 key / Qdrant 不可达时状态正确。
-- 若无测试基建，先确认现状再决定单测 vs 手动 curl 验证。
+后端目前无 pytest 基建（无 `backend/tests/` 目录）。本轮不加测试框架，验证采用
+**本地起后端 + curl 4 个接口 + 空租户行为验证**：
+
+1. 启动后端（`.venv/bin/uvicorn app.main:app --port 8000`），确认 seed 数据入库。
+2. curl 4 个接口，核对输出基于真实数据（团队/项目/快照/风险字段），无硬编码。
+3. 用空租户 header 请求，确认 4 接口返回空结构且 HTTP 200。
+4. 后端日志无异常堆栈。
 
 ## 6. 前端适配
 
