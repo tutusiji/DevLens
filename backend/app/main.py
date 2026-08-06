@@ -221,6 +221,9 @@ def _ensure_org_tree():
                 tenant_id=g.tenant_id,
             ))
         db.commit()
+        # 回填存量 team_spaces：旧 large_team_id → parent_id（列仍存在于 DB，且 lt-* 已折叠为根节点）
+        db.execute(text("UPDATE team_spaces SET parent_id = large_team_id WHERE parent_id IS NULL AND large_team_id IS NOT NULL"))
+        db.commit()
         for d in db.query(models.Developer).all():
             if d.group_id:
                 group = db.query(models.TeamSpace).filter_by(id=d.group_id).first()
@@ -265,7 +268,7 @@ async def lifespan(app: FastAPI):
         seed.ensure_default_env_inventory_skills(db, tenant_id)
     db.close()
     db = SessionLocal()
-    if db.query(models.LargeTeam).filter_by(tenant_id=seed.SEED_TENANT_ID).count() == 0:
+    if db.query(models.TeamSpace).filter_by(tenant_id=seed.SEED_TENANT_ID).count() == 0:
         db.close()
         seed.seed()
     elif db.query(models.ModelProvider).count() == 0:
