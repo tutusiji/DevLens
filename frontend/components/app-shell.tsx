@@ -23,7 +23,7 @@ import { useTeamSpace, type TeamTreeNode } from '@/components/team-space-provide
 import { riskAlerts } from '@/lib/mock-data';
 import { Badge } from './ui/badge';
 import { useRouter } from 'next/navigation';
-import { fetchMe, getToken, logoutAPI, type MeResult } from '@/lib/api';
+import { fetchMe, getToken, logoutAPI, resolveAvatarUrl, type MeResult } from '@/lib/api';
 
 interface NavItem {
   href: string;
@@ -120,9 +120,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setActiveTeamSpaceId,
   } = useTeamSpace();
 
-  /* 登录守卫：无有效会话时跳转 /login */
+  /* 登录守卫：无有效会话时跳转 /login（/login、/register 为公开页，免守卫） */
   React.useEffect(() => {
-    if (pathname.startsWith('/login')) return;
+    if (pathname.startsWith('/login') || pathname.startsWith('/register')) return;
     if (!getToken()) {
       router.replace('/login');
       return;
@@ -133,6 +133,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         router.replace('/login');
       });
   }, [pathname, router]);
+
+  /* 个人中心更新头像/昵称后，侧边栏即时同步 */
+  React.useEffect(() => {
+    const refresh = () => { fetchMe().then(setMe).catch(() => {}); };
+    window.addEventListener('devlens:auth-changed', refresh);
+    return () => window.removeEventListener('devlens:auth-changed', refresh);
+  }, []);
 
   async function handleLogout() {
     await logoutAPI();
@@ -156,8 +163,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const highRiskCount = riskAlerts.filter((r) => r.level === 'high').length;
 
-  // 登录页不渲染应用外壳（无侧边栏/顶栏）；置于所有 hooks 之后保证 hooks 顺序稳定
-  if (pathname.startsWith('/login')) return <>{children}</>;
+  // 登录/注册页不渲染应用外壳（无侧边栏/顶栏）；置于所有 hooks 之后保证 hooks 顺序稳定
+  if (pathname.startsWith('/login') || pathname.startsWith('/register')) return <>{children}</>;
 
   return (
     <div className="min-h-screen">
@@ -197,15 +204,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* 底部用户卡 */}
         <div className="border-t border-border/10 p-4">
           <div className="flex items-center gap-3 rounded-2xl bg-muted/15 p-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-sm font-mono font-semibold text-accent">
-              {me ? me.user.name.slice(0, 2).toUpperCase() : '…'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="truncate text-sm font-semibold">{me ? me.user.name : '未登录'}</div>
-              <div className="truncate text-[11px] text-muted-foreground/70">
-                {me ? me.user.email : '—'}
+            <Link
+              href="/profile"
+              title="个人中心"
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 transition-colors hover:bg-muted/20"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={resolveAvatarUrl(me?.user)}
+                alt="头像"
+                className="h-10 w-10 shrink-0 rounded-xl border border-border/40 object-cover bg-muted/20"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold">{me ? me.user.name : '未登录'}</div>
+                <div className="truncate text-[11px] text-muted-foreground/70">
+                  {me ? `@${me.user.username || me.user.email}` : '-'}
+                </div>
               </div>
-            </div>
+            </Link>
             {me && (
               <button
                 onClick={handleLogout}

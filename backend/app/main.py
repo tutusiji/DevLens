@@ -30,6 +30,33 @@ def ensure_migrate():
         if "password_hash" not in cols:
             conn.execute(text("ALTER TABLE account_users ADD COLUMN password_hash VARCHAR"))
             conn.commit()
+        # 个人中心：用户名（不可改，DiceBear 种子）+ 头像 URL
+        cols = [c["name"] for c in insp.get_columns("account_users")]
+        if "username" not in cols:
+            conn.execute(text("ALTER TABLE account_users ADD COLUMN username VARCHAR"))
+            conn.commit()
+        if "avatar_url" not in cols:
+            conn.execute(text("ALTER TABLE account_users ADD COLUMN avatar_url VARCHAR"))
+            conn.commit()
+        # 历史用户（如本地 admin）无用户名：回填邮箱本地部分，保证个人中心可展示
+        conn.execute(
+            text(
+                "UPDATE account_users SET username = lower(split_part(email, '@', 1)) "
+                "WHERE username IS NULL OR username = ''"
+            )
+        )
+        conn.commit()
+        # 历史用户无头像：用 username + 随机数生成 DiceBear 头像（注册时的「初始化随机」
+        # 对老用户补做一次）。WHERE avatar_url IS NULL 保证只回填一次，之后稳定不变。
+        conn.execute(
+            text(
+                "UPDATE account_users "
+                "SET avatar_url = 'https://api.dicebear.com/9.x/avataaars/svg?seed=' "
+                "    || username || floor(random() * 10000)::int::text "
+                "WHERE (avatar_url IS NULL OR avatar_url = '') AND username IS NOT NULL"
+            )
+        )
+        conn.commit()
         cols = [c["name"] for c in insp.get_columns("identity_matches")]
         if "project_id" not in cols:
             conn.execute(text("ALTER TABLE identity_matches ADD COLUMN project_id VARCHAR"))

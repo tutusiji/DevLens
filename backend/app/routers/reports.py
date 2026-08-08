@@ -10,6 +10,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import uuid
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse, Response
@@ -149,18 +150,38 @@ def _as_pdf(html: str, file_stem: str) -> bytes:
         return output_path.read_bytes()
 
 
+def _content_disposition(file_stem: str, output_format: str) -> str:
+    """构建兼容 ASCII 的 Content-Disposition 文件名。
+
+    中文等非 ASCII 字符无法直接写入 HTTP 头（Starlette 按 latin-1 编码），
+    需同时给出 ASCII 回退文件名（filename=）与 RFC 5987 的 UTF-8 编码名
+    （filename*=UTF-8''...），后者在现代浏览器中优先用于展示原名。
+    """
+    filename = f"{file_stem}.{output_format}"
+    ascii_fallback = (
+        "".join(ch if ch.isascii() and (ch.isalnum() or ch in "-_") else "-" for ch in filename)
+        .strip("-")
+        .rstrip(".")
+        or "report"
+    )
+    return (
+        f"attachment; filename=\"{ascii_fallback}\"; "
+        f"filename*=UTF-8''{quote(filename)}"
+    )
+
+
 def _download(html: str, output_format: str, file_stem: str) -> Response:
     if output_format == "html":
         return HTMLResponse(
             html,
-            headers={"Content-Disposition": f'attachment; filename="{_safe_filename(file_stem)}.html"'},
+            headers={"Content-Disposition": _content_disposition(file_stem, output_format)},
         )
     if output_format == "pdf":
         pdf = _as_pdf(html, file_stem)
         return Response(
             pdf,
             media_type="application/pdf",
-            headers={"Content-Disposition": f'attachment; filename="{_safe_filename(file_stem)}.pdf"'},
+            headers={"Content-Disposition": _content_disposition(file_stem, output_format)},
         )
     raise HTTPException(status_code=422, detail="format 必须是 html 或 pdf")
 

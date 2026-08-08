@@ -9,19 +9,11 @@ from .capability import (
     ALL_LEVELS,
     DIMENSION_LABELS,
     ROLE_DIMENSIONS,
+    ROLE_NAMES,
     default_thresholds,
 )
 from .git_collect import collect_author_code
 from .llm import chat_json
-
-
-ROLE_NAMES = {
-    "frontend": "前端工程师",
-    "backend": "后端工程师",
-    "devops": "DevOps 工程师",
-    "algorithm": "算法工程师",
-    "qa": "测试工程师",
-}
 
 
 def _now() -> str:

@@ -502,7 +502,9 @@ class AccountUser(Base):
 
     id = Column(String, primary_key=True)          # usr-xxx
     email = Column(String, unique=True, nullable=False)
-    name = Column(String, nullable=False)
+    name = Column(String, nullable=False)          # 昵称（可修改）
+    username = Column(String, nullable=True)       # 用户名（注册后不可改；DiceBear 种子；应用层唯一）
+    avatar_url = Column(String, nullable=True)     # 头像 URL：DiceBear 绝对 URL 或 /api/v1/avatars/xxx
     password_hash = Column(String, nullable=True)  # bcrypt; NULL=仅限外部认证/不可密码登录
     status = Column(String, default="active")      # active|disabled
     created_at = Column(String)

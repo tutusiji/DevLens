@@ -135,15 +135,24 @@ def get_tenant_context(
         payload = decode_token(token)
         if not payload:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录已过期或无效，请重新登录")
+        user_id = payload.get("sub")
+        # 租户选择：默认使用 JWT 签发时的租户；若请求显式携带 X-DevLens-Tenant-Id
+        # （前端 TenantSwitcher 写 localStorage 后整页刷新，所有 API 附带该头），
+        # 且该用户在目标租户有成员身份，则跟随请求头实现切换。身份始终以 JWT 的
+        # sub 为准，Header 里的用户 id 不可信（防跨租户伪造）。
+        if not x_devlens_tenant_id:
+            _, h_tid = user_tenant_headers(request)
+            x_devlens_tenant_id = h_tid
+        requested_tenant = x_devlens_tenant_id or payload.get("tenant")
         membership = (
             db.query(models.TenantMembership)
-            .filter_by(tenant_id=payload.get("tenant"), user_id=payload.get("sub"))
+            .filter_by(tenant_id=requested_tenant, user_id=user_id)
             .first()
         )
         if not membership:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="当前用户不属于该租户")
-        user = db.query(models.AccountUser).filter_by(id=payload.get("sub")).first()
-        tenant = db.query(models.Tenant).filter_by(id=payload.get("tenant")).first()
+        user = db.query(models.AccountUser).filter_by(id=user_id).first()
+        tenant = db.query(models.Tenant).filter_by(id=requested_tenant).first()
         if not user or user.status != "active" or not tenant or tenant.status != "active":
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="用户或租户不可用")
         return TenantContext(tenant.id, user.id, membership.role)

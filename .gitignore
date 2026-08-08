@@ -31,3 +31,7 @@ backend/devlens.db
 
 # Database backups
 backups/*.sql
+
+# Runtime uploads (user avatars)
+backend/uploads/
+backend/app/uploads/

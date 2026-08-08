@@ -418,7 +418,7 @@ def seed_capability() -> None:
     仅在 capability_roles 为空时写入，避免覆盖管理员已保存的角色配置、
     Skill Group 关联和阈值标准。
     """
-    from .capability import ALL_LEVELS, ROLE_DIMENSIONS, default_thresholds
+    from .capability import ALL_LEVELS, ROLE_DIMENSIONS, ROLE_NAMES, default_thresholds
 
     Base.metadata.create_all(engine)
     db = _make_seed_session()
@@ -427,13 +427,6 @@ def seed_capability() -> None:
         return
 
     now = "2026-08-01T00:00:00+00:00"
-    role_names = {
-        "frontend": "前端工程师",
-        "backend": "后端工程师",
-        "devops": "运维工程师",
-        "algorithm": "算法工程师",
-        "qa": "测试工程师",
-    }
     default_skill_groups = {
         "frontend": "skg-seed-fe",
         "backend": "skg-seed-java",
@@ -447,7 +440,7 @@ def seed_capability() -> None:
         role = models.CapabilityRole(
             id=f"cr-{role_key}",
             key=role_key,
-            name=role_names[role_key],
+            name=ROLE_NAMES[role_key],
             dimensions=list(dimensions),
             skill_group_id=(
                 default_skill_groups.get(role_key)
@@ -669,6 +662,42 @@ def ensure_default_env_inventory_skills(db, tenant_id: str) -> None:
         created = True
     if created:
         db.commit()
+
+
+def init_tenant_assets(db, tenant_id: str, now: str | None = None) -> None:
+    """为新建租户初始化可立即编辑的资产：能力角色/职级标准 + 环境盘点默认规则。
+
+    供 ``POST /tenants``（管理员建租户）与 ``POST /auth/register``（自助注册建
+    个人工作区）共用，保证两类入口落地的租户能力一致、首次进入各模块非空。
+    """
+    from datetime import datetime, timezone
+
+    from .capability import ALL_LEVELS, ROLE_DIMENSIONS, ROLE_NAMES, default_thresholds
+
+    if now is None:
+        now = datetime.now(timezone.utc).isoformat()
+
+    for role_key, dimensions in ROLE_DIMENSIONS.items():
+        role = models.CapabilityRole(
+            id=f"cr-{tenant_id[-6:]}-{role_key}",
+            key=role_key,
+            name=ROLE_NAMES[role_key],
+            dimensions=dimensions,
+            enabled=1,
+            tenant_id=tenant_id,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(role)
+        for level in ALL_LEVELS:
+            db.add(models.CapabilityStandard(
+                id=f"cstd-{uuid.uuid4().hex[:12]}",
+                role_id=role.id,
+                level=level,
+                thresholds=default_thresholds(role_key, level),
+                updated_at=now,
+            ))
+    ensure_default_env_inventory_skills(db, tenant_id)
 
 
 if __name__ == "__main__":

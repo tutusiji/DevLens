@@ -64,6 +64,20 @@ ROLE_DIMENSIONS: dict[str, list[str]] = {
     ],
 }
 
+# 角色默认中文名（新建租户/角色时的初始 name；管理员可在能力标准页改名）。
+# 这是 role_key -> 名称的唯一权威源，避免各处散落写死导致不一致。
+ROLE_NAMES: dict[str, str] = {
+    "frontend": "前端工程师",
+    "backend": "后端工程师",
+    "devops": "DevOps 工程师",
+    "algorithm": "算法工程师",
+    "qa": "测试工程师",
+}
+# 防漏配：新增角色时若忘了同步 ROLE_NAMES，导入即报错，避免运行期 KeyError。
+assert set(ROLE_NAMES) == set(ROLE_DIMENSIONS), (
+    "ROLE_NAMES 与 ROLE_DIMENSIONS 的 key 不一致，请同步配置角色默认名"
+)
+
 DIMENSION_LABELS: dict[str, str] = {
     "code_quality": "代码质量",
     "architecture": "架构能力",

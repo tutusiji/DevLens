@@ -60,20 +60,31 @@ export function OrganizationHealthSummary({
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2">
               <span className="text-xs font-medium text-muted-foreground">组织健康度</span>
-              <span className={cn('flex items-center gap-1 text-xs font-medium', trendColor)}>
-                <TrendIcon className="h-3.5 w-3.5" />{isUp ? '+' : ''}{trend}%
-              </span>
+              {projectCount > 0 && (
+                <span className={cn('flex items-center gap-1 text-xs font-medium', trendColor)}>
+                  <TrendIcon className="h-3.5 w-3.5" />{isUp ? '+' : ''}{trend}%
+                </span>
+              )}
             </div>
-            <div className="mt-0.5 flex items-baseline gap-1.5">
-              <span className="font-mono text-4xl font-bold leading-none tracking-tight text-primary sm:text-5xl">{score.toFixed(1)}</span>
-              <span className="text-xs text-muted-foreground">/ 100</span>
-            </div>
-            <div className="mt-2 flex items-center gap-2">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted/60">
-                <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(score, 100)}%` }} />
+            {projectCount > 0 ? (
+              <>
+                <div className="mt-0.5 flex items-baseline gap-1.5">
+                  <span className="font-mono text-4xl font-bold leading-none tracking-tight text-primary sm:text-5xl">{score.toFixed(1)}</span>
+                  <span className="text-xs text-muted-foreground">/ 100</span>
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted/60">
+                    <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(score, 100)}%` }} />
+                  </div>
+                  <span className="shrink-0 text-[11px] text-muted-foreground">距目标 {targetGap.toFixed(1)}</span>
+                </div>
+              </>
+            ) : (
+              <div className="mt-1.5">
+                <div className="font-mono text-2xl font-semibold leading-none text-muted-foreground/70 sm:text-3xl">暂无数据</div>
+                <div className="mt-2 text-[11px] text-muted-foreground/70">接入项目并完成分析后将自动生成健康度</div>
               </div>
-              <span className="shrink-0 text-[11px] text-muted-foreground">距目标 {targetGap.toFixed(1)}</span>
-            </div>
+            )}
           </div>
         </div>
 

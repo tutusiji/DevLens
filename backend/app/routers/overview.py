@@ -24,18 +24,20 @@ def get_overview(
     proj = db.query(models.Project).filter_by(tenant_id=ctx.tenant_id).count()
     dev = db.query(models.Developer).filter_by(tenant_id=ctx.tenant_id).count()
     team = db.query(models.Team).filter_by(tenant_id=ctx.tenant_id).count()
+    # 平均健康度取已分析项目的均分；无项目时为 0（不再回退 78.4 假分）。
     avg = (
         db.query(func.avg(models.Project.score))
         .filter(models.Project.score.isnot(None), models.Project.tenant_id == ctx.tenant_id)
         .scalar()
-        or 78.4
     )
-    avg = round(float(avg), 1)
+    avg = round(float(avg), 1) if avg is not None else 0.0
+    # delta/trend 不再写死：当前未留存计数历史，无数据时返回 0 / 空列表，
+    # 避免给空组织伪造增长趋势与分数。
     return [
-        {"label": "接入项目", "value": proj, "unit": "个", "delta": 2, "trend": [8, 9, 10, 11, proj], "icon": "folder-git-2"},
-        {"label": "开发者", "value": dev, "unit": "人", "delta": 5, "trend": [38, 40, 42, 45, dev], "icon": "users"},
-        {"label": "团队", "value": team, "unit": "个", "delta": 0, "trend": [6, 6, 6, 6, team], "icon": "network"},
-        {"label": "平均健康度", "value": avg, "unit": "分", "delta": 3.2, "trend": [72, 74, 75, 77, avg], "icon": "heart-pulse"},
+        {"label": "接入项目", "value": proj, "unit": "个", "delta": 0, "trend": [proj] if proj else [], "icon": "folder-git-2"},
+        {"label": "开发者", "value": dev, "unit": "人", "delta": 0, "trend": [dev] if dev else [], "icon": "users"},
+        {"label": "团队", "value": team, "unit": "个", "delta": 0, "trend": [team] if team else [], "icon": "network"},
+        {"label": "平均健康度", "value": avg, "unit": "分", "delta": 0, "trend": [avg] if avg else [], "icon": "heart-pulse"},
     ]
 
 

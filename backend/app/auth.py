@@ -7,6 +7,7 @@
 """
 import datetime as _dt
 import os
+import re
 from dataclasses import dataclass
 
 import bcrypt
@@ -30,6 +31,23 @@ def verify_password(password: str, password_hash: str | None) -> bool:
         return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
     except ValueError:
         return False
+
+
+def password_policy_error(password: str) -> str | None:
+    """校验密码强度，不满足返回中文提示，满足返回 None。
+
+    策略：≥8 位，且同时包含英文字母、数字、符号。供注册与改密码共用，
+    保证两处口子强度一致。
+    """
+    if len(password) < 8:
+        return "密码至少 8 位，且需同时包含字母、数字和符号"
+    if not re.search(r"[A-Za-z]", password):
+        return "密码需同时包含字母、数字和符号"
+    if not re.search(r"[0-9]", password):
+        return "密码需同时包含字母、数字和符号"
+    if not re.search(r"[^A-Za-z0-9\s]", password):
+        return "密码需同时包含字母、数字和符号"
+    return None
 
 
 def create_access_token(user_id: str, tenant_id: str, role: str) -> str:

@@ -7,9 +7,8 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..access import ROLE_PERMISSIONS, TenantContext, get_tenant_context, require_permission
-from ..capability import ALL_LEVELS, ROLE_DIMENSIONS, default_thresholds
 from ..db import get_db
-from ..seed import ensure_default_env_inventory_skills
+from ..seed import init_tenant_assets
 
 
 router = APIRouter(tags=["tenants-rbac"])
@@ -79,33 +78,8 @@ def create_tenant(
     ))
     # 每个新租户有一套独立、可管理的阈值资产；规则组由 tenant 管理员
     # 按自身规范导入后在能力标准页关联，避免跨客户共享规则正文。
-    for role_key, dimensions in ROLE_DIMENSIONS.items():
-        role = models.CapabilityRole(
-            id=f"cr-{tenant.id[-6:]}-{role_key}",
-            key=role_key,
-            name={
-                "frontend": "前端工程师", "backend": "后端工程师",
-                "devops": "DevOps 工程师", "algorithm": "算法工程师", "qa": "测试工程师",
-            }[role_key],
-            dimensions=dimensions,
-            enabled=1,
-            tenant_id=tenant.id,
-            created_at=now,
-            updated_at=now,
-        )
-        db.add(role)
-        for level in ALL_LEVELS:
-            db.add(models.CapabilityStandard(
-                id=f"cstd-{uuid.uuid4().hex[:12]}",
-                role_id=role.id,
-                level=level,
-                thresholds=default_thresholds(role_key, level),
-                updated_at=now,
-            ))
+    init_tenant_assets(db, tenant.id, now)
     db.commit()
-    # 环境盘点规则同样是每个租户独立管理的资产；新租户创建后立即获得
-    # 可编辑的默认扫描 Skill，避免首次进入环境盘点时出现空规则状态。
-    ensure_default_env_inventory_skills(db, tenant.id)
     db.refresh(tenant)
     return tenant
 

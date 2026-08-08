@@ -98,6 +98,8 @@ export interface AuthUser {
   id: string;
   email: string;
   name: string;
+  username: string;
+  avatarUrl: string | null;
   status: string;
 }
 
@@ -134,6 +136,18 @@ export async function loginAPI(email: string, password: string): Promise<LoginRe
   return data as LoginResult;
 }
 
+export async function registerAPI(username: string, name: string, email: string, password: string): Promise<LoginResult> {
+  const res = await fetch(`${API_BASE}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, name, email, password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || `注册失败 ${res.status}`);
+  setToken(data.token);
+  return data as LoginResult;
+}
+
 export async function fetchMe(): Promise<MeResult> {
   return fetchAPI<MeResult>('/auth/me');
 }
@@ -148,6 +162,109 @@ export async function changePasswordAPI(oldPassword: string, newPassword: string
     method: 'POST',
     body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
   });
+}
+
+/** 更新个人资料：昵称和/或头像 URL（DiceBear 切换）。 */
+export async function updateProfileAPI(patch: { name?: string; avatarUrl?: string }): Promise<AuthUser> {
+  const body: Record<string, string> = {};
+  if (patch.name !== undefined) body.name = patch.name;
+  if (patch.avatarUrl !== undefined) body.avatar_url = patch.avatarUrl;
+  const data = await fetchAPI<{ user: AuthUser }>('/auth/me', {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+  return data.user;
+}
+
+/** 上传头像：读取文件为 data URI 后提交，返回更新后的用户资料。 */
+export async function uploadAvatarAPI(file: File): Promise<AuthUser> {
+  const dataUri = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('读取头像文件失败'));
+    reader.readAsDataURL(file);
+  });
+  const data = await fetchAPI<{ user: AuthUser }>('/auth/avatar', {
+    method: 'POST',
+    body: JSON.stringify({ avatar: dataUri }),
+  });
+  return data.user;
+}
+
+/** 生成 DiceBear avataaars 头像 URL（仅用于「切换头像」主动操作：seed = username + 随机数）。 */
+export function makeDicebearAvatarUrl(username: string): string {
+  return `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(username)}${Math.floor(Math.random() * 10000)}`;
+}
+
+/** 解析用户头像：有 avatarUrl 用之，否则用 username/email 作种子的确定性 DiceBear 头像。
+ *  注意：兜底分支不含随机数，保证同一用户每次刷新/重渲染头像稳定；随机仅由「切换」动作触发。 */
+export function resolveAvatarUrl(user: Pick<AuthUser, 'avatarUrl' | 'username' | 'email'> | null | undefined): string {
+  if (!user) return 'https://api.dicebear.com/9.x/avataaars/svg?seed=devlens';
+  if (user.avatarUrl) return user.avatarUrl;
+  const seed = user.username || user.email || 'devlens';
+  return `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(seed)}`;
+}
+
+// ============ 个人中心综合数据 ============
+
+export interface ProfileProject {
+  id: string;
+  name: string;
+  language: string | null;
+  score: number | null;
+  status: string;
+  commits: number;
+  lastAnalyzed: string | null;
+}
+
+export interface ProfileTeam {
+  id: string;
+  name: string;
+  members: number;
+  avgScore: number | null;
+  busFactor: number | null;
+  riskCount: number;
+}
+
+export interface ProfileDeveloper {
+  id: string;
+  name: string;
+  username: string | null;
+  role: string | null;
+  roleType: string | null;
+  roleLabel: string | null;
+  level: string | null;
+  overall: number | null;
+  commits: number;
+  reviews: number;
+  langs: string[];
+  tags: string[];
+}
+
+export interface ProfileEvaluation {
+  id: string;
+  roleKey: string;
+  roleLabel: string;
+  scores: Record<string, number>;
+  achievedLevel: string | null;
+  bestLevel: string | null;
+  gaps: Array<{ dimension: string; current: number; target: number; gap: number }>;
+  summary: string;
+  projectId: string | null;
+  createdAt: string;
+}
+
+export interface MyProfileResponse {
+  user: AuthUser;
+  tenantId: string;
+  developer: ProfileDeveloper | null;
+  latestEvaluation: ProfileEvaluation | null;
+  projects: ProfileProject[];
+  teams: ProfileTeam[];
+}
+
+export async function fetchMyProfile(): Promise<MyProfileResponse> {
+  return fetchAPI<MyProfileResponse>('/auth/me/profile');
 }
 
 /** mock 延迟模拟网络（让 skeleton 态可见） */

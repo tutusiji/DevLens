@@ -13,10 +13,12 @@ import {
   AlertTriangle, ShieldAlert, BusFront, TrendingDown, Bug,
   RefreshCw, ChevronRight,
   GitCommit, Eye, Code2, TrendingUp, Minus, ArrowUpRight,
+  Grid3x3, Activity,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader, OrganizationHealthSummary, ProgressBar, staggerContainer, cardItem } from '@/components/widgets';
 import { AreaTrend } from '@/components/charts';
 import { TrinityMatrix } from '@/components/trinity-matrix';
@@ -125,12 +127,13 @@ export default function HomePage() {
     );
   }
 
-  const orgHealth = stats.find((s) => s.label === '平均健康度')?.value || 78.4;
-  const healthTrend = stats.find((s) => s.label === '平均健康度')?.delta || 0;
+  const orgHealth = stats.find((s) => s.label === '平均健康度')?.value ?? 0;
+  const healthTrend = stats.find((s) => s.label === '平均健康度')?.delta ?? 0;
   const highRiskCount = risks.filter((r) => r.level === 'high').length;
   const projectStat = stats.find((s) => s.label === '接入项目');
   const developerStat = stats.find((s) => s.label === '开发者');
   const teamStat = stats.find((s) => s.label === '团队');
+  const hasProjects = (projectStat?.value || 0) > 0;
   const readyArchitectureDesigns = architectureDesigns.filter((design) => design.analysisStatus === 'ready');
   const architectureCoverage = architectureDesigns.length
     ? Math.round((readyArchitectureDesigns.length / architectureDesigns.length) * 100)
@@ -201,10 +204,16 @@ export default function HomePage() {
               </div>
             </CardHeader>
             <CardContent>
-              {matrix && (
+              {matrix && matrix.rows.length > 0 && matrix.cols.length > 0 ? (
                 <TrinityMatrix
                   data={matrix}
                   onSelect={() => {}}
+                />
+              ) : (
+                <EmptyState
+                  icon={Grid3x3}
+                  title="暂无团队与项目数据"
+                  description="接入仓库并完成分析后，将自动生成团队 × 项目覆盖矩阵"
                 />
               )}
             </CardContent>
@@ -224,41 +233,52 @@ export default function HomePage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              {risks.slice(0, 4).map((risk) => {
-                const RiskIcon = RISK_ICONS[risk.type] || AlertTriangle;
-                const barClass = risk.level === 'high' ? 'risk-bar-high' : risk.level === 'medium' ? 'risk-bar-medium' : 'risk-bar-low';
-                return (
-                  <div
-                    key={risk.id}
-                    className={`flex items-start gap-3 rounded-2xl bg-muted/15 p-3 transition-all hover:bg-muted/25 cursor-pointer ${barClass}`}
-                  >
-                    <div className={cn(
-                      'mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl',
-                      risk.level === 'high' ? 'bg-destructive/15' : risk.level === 'medium' ? 'bg-warning/15' : 'bg-muted/30'
-                    )}>
-                      <RiskIcon className={cn(
-                        'h-5 w-5',
-                        risk.level === 'high' ? 'text-destructive' : risk.level === 'medium' ? 'text-warning' : 'text-muted-foreground'
-                      )} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate text-sm font-medium">{risk.title}</span>
+              {risks.length === 0 ? (
+                <EmptyState
+                  icon={ShieldAlert}
+                  title="暂无风险预警"
+                  description={hasProjects ? '当前各项目运行平稳，暂无识别到的风险' : '接入项目并完成分析后将自动识别 Bus Factor、技术债与能力缺口'}
+                  compact
+                />
+              ) : (
+                <>
+                  {risks.slice(0, 4).map((risk) => {
+                    const RiskIcon = RISK_ICONS[risk.type] || AlertTriangle;
+                    const barClass = risk.level === 'high' ? 'risk-bar-high' : risk.level === 'medium' ? 'risk-bar-medium' : 'risk-bar-low';
+                    return (
+                      <div
+                        key={risk.id}
+                        className={`flex items-start gap-3 rounded-2xl bg-muted/15 p-3 transition-all hover:bg-muted/25 cursor-pointer ${barClass}`}
+                      >
+                        <div className={cn(
+                          'mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl',
+                          risk.level === 'high' ? 'bg-destructive/15' : risk.level === 'medium' ? 'bg-warning/15' : 'bg-muted/30'
+                        )}>
+                          <RiskIcon className={cn(
+                            'h-5 w-5',
+                            risk.level === 'high' ? 'text-destructive' : risk.level === 'medium' ? 'text-warning' : 'text-muted-foreground'
+                          )} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate text-sm font-medium">{risk.title}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant={levelVariant(risk.level)} className="text-[10px]">
+                              {risk.level === 'high' ? '高危' : risk.level === 'medium' ? '中危' : '低危'}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground/70">{risk.time}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant={levelVariant(risk.level)} className="text-[10px]">
-                          {risk.level === 'high' ? '高危' : risk.level === 'medium' ? '中危' : '低危'}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground/70">{risk.time}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              <button className="flex w-full items-center justify-center gap-1.5 pt-2 text-sm text-primary hover:underline cursor-pointer transition-colors">
-                查看全部 {risks.length} 条
-                <ChevronRight className="h-4 w-4" />
-              </button>
+                    );
+                  })}
+                  <button className="flex w-full items-center justify-center gap-1.5 pt-2 text-sm text-primary hover:underline cursor-pointer transition-colors">
+                    查看全部 {risks.length} 条
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </>
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -290,16 +310,24 @@ export default function HomePage() {
               </div>
             </CardHeader>
             <CardContent>
-              <AreaTrend
-                data={trend}
-                xKey="month"
-                series={[
-                  { key: 'quality', name: '代码质量', color: 'var(--primary)' },
-                  { key: 'security', name: '安全', color: 'var(--secondary)', dashed: true },
-                  { key: 'health', name: '健康度', color: 'var(--success)' },
-                ]}
-                height={260}
-              />
+              {trend.length > 0 ? (
+                <AreaTrend
+                  data={trend}
+                  xKey="month"
+                  series={[
+                    { key: 'quality', name: '代码质量', color: 'var(--primary)' },
+                    { key: 'security', name: '安全', color: 'var(--secondary)', dashed: true },
+                    { key: 'health', name: '健康度', color: 'var(--success)' },
+                  ]}
+                  height={260}
+                />
+              ) : (
+                <EmptyState
+                  icon={Activity}
+                  title="暂无趋势数据"
+                  description="完成项目分析后，将按月生成质量 / 安全 / 健康度趋势"
+                />
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -367,7 +395,9 @@ export default function HomePage() {
               <CardDescription>近 30 天 commits / contributors 综合排序</CardDescription>
             </CardHeader>
             <CardContent className="flex-1 space-y-3">
-              {activeProjects.map((project, index) => (
+              {activeProjects.length === 0 ? (
+                <EmptyState icon={FolderGit2} title="暂无活跃项目" description="接入 Git 仓库后将自动汇总活跃项目" compact />
+              ) : activeProjects.map((project, index) => (
                 <Link key={project.id} href={`/projects/${project.id}`}>
                   <div className="flex items-center gap-3 rounded-2xl p-3 transition-all hover:bg-muted/30">
                     <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted/20 font-mono text-sm font-bold text-muted-foreground">
@@ -413,7 +443,9 @@ export default function HomePage() {
               <CardDescription>commits + reviews 综合活跃度排序</CardDescription>
             </CardHeader>
             <CardContent className="flex-1 space-y-3">
-              {activeDevelopers.slice(0, 4).map((dev, index) => (
+              {activeDevelopers.length === 0 ? (
+                <EmptyState icon={Code2} title="暂无活跃开发者" description="接入仓库后将按 commits + reviews 汇总活跃度" compact />
+              ) : activeDevelopers.slice(0, 4).map((dev, index) => (
                 <Link key={dev.id} href={`/developers/${dev.id}`}>
                   <div className="flex items-center gap-3 rounded-2xl p-3 transition-all hover:bg-muted/30">
                     <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-muted/20 font-mono text-sm font-bold text-muted-foreground">
@@ -459,7 +491,9 @@ export default function HomePage() {
               <CardDescription>团队规模 + 平均健康度综合排序</CardDescription>
             </CardHeader>
             <CardContent className="flex-1 space-y-3">
-              {activeTeams.slice(0, 3).map((team, index) => (
+              {activeTeams.length === 0 ? (
+                <EmptyState icon={Network} title="暂无活跃团队" description="创建团队并归属开发者后将自动汇总" compact />
+              ) : activeTeams.slice(0, 3).map((team, index) => (
                 <Link key={team.id} href="/teams">
                   <div className="flex items-center gap-3 rounded-2xl p-3 transition-all hover:bg-muted/30">
                     <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-muted/20 font-mono text-sm font-bold text-muted-foreground">

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { loginAPI } from '@/lib/api';
@@ -83,6 +84,13 @@ export default function LoginPage() {
               {loading ? '登录中…' : '登录'}
             </Button>
           </form>
+
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            还没有账号？{' '}
+            <Link href="/register" className="font-medium text-primary hover:underline">
+              立即注册
+            </Link>
+          </p>
         </div>
         <p className="mt-6 text-center text-xs text-muted-foreground/70">
           DevLens · 基于 AI 的研发认知系统

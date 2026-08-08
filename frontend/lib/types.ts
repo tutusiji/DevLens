@@ -922,6 +922,8 @@ export interface AccountUser {
   id: string;
   email: string;
   name: string;
+  username?: string;
+  avatarUrl?: string | null;
   status: 'active' | 'disabled';
   createdAt: string;
   updatedAt: string;
