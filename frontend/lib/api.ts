@@ -27,7 +27,7 @@ import type {
   ProjectCodeGraph, ArchitectureDesign, ArchitectureDesignListResponse,
   GlobalSearchResult, ProviderConfigM, ProviderConfigUpsert, DiscoveredRepo, RepoImportRequest,
   ProjectForecast, TeamForecast, CareerPathResult, RiskCenter, ApiTokenM,
-  SkillsMatrix, Iceberg, SwotResult,
+  SkillsMatrix, Iceberg, SwotResult, CodeSearchResult,
 } from './types';
 import { LEVEL_GROUPS } from './types';
 
@@ -632,6 +632,9 @@ export const api = {
       : fetchAPI<ProjectComparisonResponse>(`/project-comparisons${projectIds.length ? `?project_ids=${encodeURIComponent(projectIds.join(','))}` : ''}`),
   getProjectForecast: (projectId: string): Promise<ProjectForecast> =>
     fetchAPI<ProjectForecast>(`/projects/${projectId}/forecast`),
+  searchProjectCode: (projectId: string, q: string): Promise<CodeSearchResult[]> =>
+    fetchAPI<CodeSearchResult[]>(`/projects/${projectId}/search?q=${encodeURIComponent(q)}`),
+
   getTeamForecast: (teamId: string): Promise<TeamForecast> =>
     fetchAPI<TeamForecast>(`/teams/${teamId}/forecast`),
   getTeamHiringAdvice: (teamId: string): Promise<{ teamId: string; teamName: string; advice: string }> =>

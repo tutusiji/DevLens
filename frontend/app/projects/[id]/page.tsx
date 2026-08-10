@@ -9,8 +9,8 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   Activity, AlertTriangle, ArrowLeft, CheckCircle2, ChevronRight, CircleDot,
   ClipboardCheck, Code2, DatabaseZap, FileCode2, FileSearch, FolderKanban, Gauge,
-  Layers3, Play, RefreshCw, ShieldAlert, Sparkles, TrendingUp, UserRound,
-  Waypoints, Wrench, Zap,
+  Layers3, LoaderCircle, Play, RefreshCw, Search, ShieldAlert, Sparkles, TrendingUp, UserRound,
+  Waypoints, Wrench, X, Zap,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +28,7 @@ import { ForecastCard } from '@/components/forecast-card';
 import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { scoreColor } from '@/lib/utils';
-import type { AIReviewInsight, FixPriority, InsightStatus, ModuleRisk, ProjectCodeGraph, ProjectDetail, ProjectForecast, ReviewCategory } from '@/lib/types';
+import type { AIReviewInsight, FixPriority, InsightStatus, ModuleRisk, ProjectCodeGraph, ProjectDetail, ProjectForecast, ReviewCategory, CodeSearchResult } from '@/lib/types';
 
 const TREND_ARROW = { up: '↑', down: '↓', stable: '→' };
 const TREND_COLOR = { up: 'var(--success)', down: 'var(--destructive)', stable: 'var(--muted-foreground)' };
@@ -548,6 +548,10 @@ export default function ProjectDetailPage() {
   const [graphError, setGraphError] = React.useState('');
   const [forecast, setForecast] = React.useState<ProjectForecast | null>(null);
   const [forecastLoading, setForecastLoading] = React.useState(false);
+  const [codeSearchOpen, setCodeSearchOpen] = React.useState(false);
+  const [codeQuery, setCodeQuery] = React.useState('');
+  const [codeResults, setCodeResults] = React.useState<CodeSearchResult[]>([]);
+  const [codeSearching, setCodeSearching] = React.useState(false);
 
   React.useEffect(() => {
     setLoading(true);
@@ -630,7 +634,15 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="ghost" size="sm" onClick={() => router.push('/projects')}><ArrowLeft className="h-4 w-4" />返回项目列表</Button><Button variant="outline" size="sm" onClick={refresh} disabled={refreshing}><RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />{refreshing ? '分析中...' : '重新分析'}</Button></div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Button variant="ghost" size="sm" onClick={() => router.push('/projects')}><ArrowLeft className="h-4 w-4" />返回项目列表</Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setCodeSearchOpen(true)}>
+            <Search className="h-4 w-4" />语义搜索
+          </Button>
+          <Button variant="outline" size="sm" onClick={refresh} disabled={refreshing}><RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />{refreshing ? '分析中...' : '重新分析'}</Button>
+        </div>
+      </div>
       <Card><CardContent className="p-6"><div className="flex flex-col items-start gap-6 lg:flex-row lg:items-center"><ScoreRing score={detail.score} size={140} stroke={10} label="健康度" sublabel={detail.analysisMeta.analysisVersion} /><div className="min-w-0 flex-1 space-y-3"><div className="flex flex-wrap items-center gap-2"><h1 className="font-mono text-2xl font-bold">{detail.name}</h1><Badge variant="outline" className="font-mono">{detail.language}</Badge><Badge variant={detail.status === 'completed' ? 'success' : 'warning'}>{detail.status === 'completed' ? '已分析' : detail.status}</Badge></div><div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"><span>{detail.group}</span><span>·</span><span>{detail.commits.toLocaleString()} commits</span><span>·</span><span>{detail.contributors} 贡献者</span><span>·</span><span>最近扫描 {detail.analysisMeta.scannedAt}</span></div><div className="flex flex-wrap gap-2 text-xs"><Badge variant="outline">分支 {detail.analysisMeta.branch}</Badge><Badge variant="outline">{detail.analysisMeta.commit}</Badge><Badge variant="outline">{detail.analysisMeta.filesScanned} 文件</Badge><Badge variant="outline">覆盖 {detail.analysisMeta.coverage}%</Badge><Badge variant="outline">置信度 {Math.round(detail.analysisMeta.confidence * 100)}%</Badge></div></div></div></CardContent></Card>
       <div className="overflow-x-auto pb-1">
         <Segmented
@@ -671,6 +683,65 @@ export default function ProjectDetailPage() {
       <InsightSheet insight={selectedInsight ? detail.aiInsights.find((insight) => insight.id === selectedInsight.id) || selectedInsight : null} onClose={() => setSelectedInsight(null)} onUpdate={updateInsight} />
       <ModuleSheet module={selectedModule} onClose={() => setSelectedModule(null)} onViewReview={viewModuleReview} />
       <FixSheet fix={activeFix || null} insight={relatedInsight} onClose={() => setSelectedFix(null)} onViewInsight={() => { setSelectedFix(null); if (relatedInsight) { setSelectedInsight(relatedInsight); setTab('review'); } }} onUpdateStatus={updateFixStatus} />
+
+      {/* 项目代码语义搜索（RAG） */}
+      {codeSearchOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setCodeSearchOpen(false)}>
+          <div className="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-2xl border border-border bg-background shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-border px-5 py-3">
+              <h3 className="flex items-center gap-2 text-sm font-semibold"><Search className="h-4 w-4 text-primary" />语义搜索代码</h3>
+              <Button variant="ghost" size="icon" onClick={() => setCodeSearchOpen(false)}><X className="h-4 w-4" /></Button>
+            </div>
+            <div className="flex items-center gap-2 border-b border-border/60 px-5 py-3">
+              <Input
+                value={codeQuery}
+                onChange={(e) => setCodeQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && codeQuery.trim()) {
+                    setCodeSearching(true);
+                    api.searchProjectCode(id, codeQuery.trim())
+                      .then((r) => setCodeResults(r))
+                      .catch(() => setCodeResults([]))
+                      .finally(() => setCodeSearching(false));
+                  }
+                }}
+                placeholder="输入自然语言描述，如：用户登录逻辑 / 支付回调 / Redis 缓存实现"
+                className="font-mono"
+              />
+              <Button
+                size="sm"
+                disabled={codeSearching || !codeQuery.trim()}
+                onClick={() => {
+                  setCodeSearching(true);
+                  api.searchProjectCode(id, codeQuery.trim())
+                    .then((r) => setCodeResults(r))
+                    .catch(() => setCodeResults([]))
+                    .finally(() => setCodeSearching(false));
+                }}
+              >
+                {codeSearching ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                搜索
+              </Button>
+            </div>
+            <div className="flex-1 space-y-2 overflow-y-auto p-4">
+              <p className="text-[11px] text-muted-foreground">基于向量语义检索，需分析时已索引 Qdrant；Qdrant 不可用时返回空。</p>
+              {codeResults.length === 0 ? (
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  {codeQuery ? '未找到匹配代码，换一种描述试试' : '输入描述后回车搜索'}
+                </div>
+              ) : codeResults.map((r, i) => (
+                <div key={i} className="rounded-lg border border-border/60 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="truncate font-mono text-xs font-medium">{r.path}</span>
+                    <span className="font-mono text-[10px] text-muted-foreground">相关度 {(r.score * 100).toFixed(1)}%</span>
+                  </div>
+                  <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-muted/30 p-2 font-mono text-[11px] text-foreground/80">{r.content}</pre>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

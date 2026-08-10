@@ -930,6 +930,13 @@ export interface CareerPathResult {
   careerPath: string;
 }
 
+// ============ 项目代码语义搜索（RAG） ============
+export interface CodeSearchResult {
+  path: string;
+  content: string;
+  score: number;
+}
+
 // ============ P6：开放平台与风险预警 ============
 // ============ 团队分析模型（技能矩阵/冰山/SWOT） ============
 export interface SkillsMatrixMember {
