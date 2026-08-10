@@ -16,6 +16,8 @@ import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { PageHeader, ProgressBar, staggerContainer, cardItem } from '@/components/widgets';
 import { FilterBar, EmptyState } from '@/components/filter-bar';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useToast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { scoreColor } from '@/lib/utils';
 import type { Project, ProjectStatus } from '@/lib/types';
@@ -159,6 +161,9 @@ export default function ProjectsPage() {
   const [langFilter, setLangFilter] = React.useState('all');
   const [statusFilter, setStatusFilter] = React.useState('all');
   const [search, setSearch] = React.useState('');
+  const [deleteTarget, setDeleteTarget] = React.useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = React.useState(false);
+  const { toast, ToastViewport } = useToast();
 
   const loadProjects = React.useCallback(() => {
     setLoading(true);
@@ -175,21 +180,31 @@ export default function ProjectsPage() {
   const handleReanalyze = React.useCallback(async (id: string) => {
     try {
       await api.reanalyzeProject(id);
+      toast.success('已触发重新分析', '后台正在拉取最新代码并重新评估，可稍后刷新查看。');
       loadProjects();
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : '重新分析失败');
+      toast.error('重新分析失败', e instanceof Error ? e.message : '请稍后重试');
     }
   }, [loadProjects]);
 
   const handleDelete = React.useCallback(async (id: string) => {
-    if (!window.confirm('确定删除该项目？相关分析、报告、环境盘点数据将一并删除，不可恢复。')) return;
-    try {
-      await api.deleteProject(id);
-      setProjects((prev) => prev.filter((p) => p.id !== id));
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : '删除失败');
-    }
+    setDeleteTarget(id);
   }, []);
+
+  const confirmDelete = React.useCallback(async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    try {
+      await api.deleteProject(deleteTarget);
+      setProjects((prev) => prev.filter((p) => p.id !== deleteTarget));
+      toast.success('项目已删除', '相关分析、报告与环境盘点数据已一并清理。');
+      setDeleteTarget(null);
+    } catch (e) {
+      toast.error('删除失败', e instanceof Error ? e.message : '请稍后重试');
+    } finally {
+      setDeleteLoading(false);
+    }
+  }, [deleteTarget]);
 
   const langOptions = React.useMemo(() => {
     const langs = [...new Set(projects.map((p) => p.language))];
@@ -296,6 +311,18 @@ export default function ProjectsPage() {
       ) : (
         <ProjectTableView projects={filtered} onReanalyze={handleReanalyze} onDelete={handleDelete} />
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="删除项目"
+        description="项目、分析结果、报告与环境盘点数据将一并删除，且无法恢复。确定继续吗？"
+        confirmText="删除"
+        danger
+        loading={deleteLoading}
+        onConfirm={() => void confirmDelete()}
+        onClose={() => { if (!deleteLoading) setDeleteTarget(null); }}
+      />
+      <ToastViewport />
     </>
   );
 }

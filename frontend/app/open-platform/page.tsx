@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/widgets';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useToast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import type { ApiTokenM, RiskCenter } from '@/lib/types';
 
@@ -50,10 +52,28 @@ export default function OpenPlatformPage() {
     }
   };
 
+  const [deleteTarget, setDeleteTarget] = React.useState<ApiTokenM | null>(null);
+  const [deleteLoading, setDeleteLoading] = React.useState(false);
+  const { toast, ToastViewport } = useToast();
+
   const removeToken = async (id: string) => {
-    if (!window.confirm('删除后该 Token 立即失效，确认删除？')) return;
-    await api.deleteApiToken(id);
-    setTokens((prev) => prev.filter((t) => t.id !== id));
+    const token = tokens.find((t) => t.id === id);
+    if (token) setDeleteTarget(token);
+  };
+
+  const confirmDeleteToken = async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    try {
+      await api.deleteApiToken(deleteTarget.id);
+      setTokens((prev) => prev.filter((t) => t.id !== deleteTarget.id));
+      toast.success('Token 已删除', '该凭证已立即失效。');
+      setDeleteTarget(null);
+    } catch (e) {
+      toast.error('删除失败', e instanceof Error ? e.message : '请稍后重试');
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   if (loading) return <div className="space-y-6"><div className="h-8 w-64 skeleton rounded" /><div className="grid gap-4 lg:grid-cols-2">{[0, 1].map((i) => <div key={i} className="h-64 skeleton rounded-xl" />)}</div></div>;
@@ -167,6 +187,18 @@ export default function OpenPlatformPage() {
           </CardContent>
         </Card>
       </div>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="删除 API Token"
+        description={`删除后 Token「${deleteTarget?.name ?? ''}」立即失效，使用它的外部集成将无法继续调用。确定删除吗？`}
+        confirmText="删除"
+        danger
+        loading={deleteLoading}
+        onConfirm={() => void confirmDeleteToken()}
+        onClose={() => { if (!deleteLoading) setDeleteTarget(null); }}
+      />
+      <ToastViewport />
     </>
   );
 }

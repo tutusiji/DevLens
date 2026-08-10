@@ -12,6 +12,7 @@ import {
   CheckCircle2, XCircle, AlertCircle, ShieldCheck, GripVertical, Loader2,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -184,6 +185,8 @@ function GroupsTab({ groups, skills, reload, show }: {
   const [creating, setCreating] = React.useState(false);
   const [previewGroup, setPreviewGroup] = React.useState<SkillGroup | null>(null);
   const [editingGroup, setEditingGroup] = React.useState<SkillGroup | null>(null);
+  const [confirmTarget, setConfirmTarget] = React.useState<SkillGroup | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
 
   const toggleEnabled = async (g: SkillGroup) => {
     await api.updateSkillGroup(g.id, { enabled: g.enabled ? 0 : 1 });
@@ -191,10 +194,19 @@ function GroupsTab({ groups, skills, reload, show }: {
     show(`${g.name} 已${g.enabled ? '停用' : '启用'}`);
   };
   const del = async (g: SkillGroup) => {
-    if (!confirm(`确认删除编组「${g.name}」？组内规则不会被删除。`)) return;
-    await api.deleteSkillGroup(g.id);
-    await reload();
-    show(`已删除编组 ${g.name}`);
+    setConfirmTarget(g);
+  };
+  const confirmDeleteGroup = async () => {
+    if (!confirmTarget) return;
+    setDeleting(true);
+    try {
+      await api.deleteSkillGroup(confirmTarget.id);
+      await reload();
+      show(`已删除编组 ${confirmTarget.name}`);
+      setConfirmTarget(null);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -269,6 +281,17 @@ function GroupsTab({ groups, skills, reload, show }: {
         skills={skills}
         onClose={() => setEditingGroup(null)}
         onSaved={async () => { setEditingGroup(null); await reload(); show('规则组已更新'); }}
+      />
+
+      <ConfirmDialog
+        open={!!confirmTarget}
+        title="删除编组"
+        description={`确认删除编组「${confirmTarget?.name ?? ''}」？组内规则不会被删除。`}
+        confirmText="删除"
+        danger
+        loading={deleting}
+        onConfirm={() => void confirmDeleteGroup()}
+        onClose={() => { if (!deleting) setConfirmTarget(null); }}
       />
     </div>
   );
@@ -508,15 +531,27 @@ function SkillsTab({ skills, sources, reload, show }: {
     (filterEnabled === '' || (filterEnabled === '1' ? s.enabled : !s.enabled))
   );
 
+  const [confirmTarget, setConfirmTarget] = React.useState<Skill | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
+
   const toggleEnabled = async (s: Skill) => {
     await api.updateSkill(s.id, { enabled: s.enabled ? 0 : 1 });
     await reload();
   };
   const del = async (s: Skill) => {
-    if (!confirm(`确认删除规则「${s.name}」？`)) return;
-    await api.deleteSkill(s.id);
-    await reload();
-    show(`已删除规则 ${s.name}`);
+    setConfirmTarget(s);
+  };
+  const confirmDeleteSkill = async () => {
+    if (!confirmTarget) return;
+    setDeleting(true);
+    try {
+      await api.deleteSkill(confirmTarget.id);
+      await reload();
+      show(`已删除规则 ${confirmTarget.name}`);
+      setConfirmTarget(null);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const sourceName = (id?: string) => sources.find((x) => x.id === id)?.name || '手工创建';
@@ -602,6 +637,16 @@ function SkillsTab({ skills, sources, reload, show }: {
           await reload();
           setCreating(false); setEditing(null);
         }}
+      />
+      <ConfirmDialog
+        open={!!confirmTarget}
+        title="删除规则"
+        description={`确认删除规则「${confirmTarget?.name ?? ''}」？`}
+        confirmText="删除"
+        danger
+        loading={deleting}
+        onConfirm={() => void confirmDeleteSkill()}
+        onClose={() => { if (!deleting) setConfirmTarget(null); }}
       />
     </div>
   );
@@ -708,11 +753,22 @@ function SourcesTab({ sources, skills, reload, show }: {
       setExtracting(null);
     }
   };
+  const [confirmTarget, setConfirmTarget] = React.useState<SkillSource | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
   const del = async (src: SkillSource) => {
-    if (!confirm(`确认删除来源「${src.name}」？关联规则不会被删除（sourceId 置空）。`)) return;
-    await api.deleteSkillSource(src.id);
-    await reload();
-    show(`已删除来源 ${src.name}`);
+    setConfirmTarget(src);
+  };
+  const confirmDeleteSource = async () => {
+    if (!confirmTarget) return;
+    setDeleting(true);
+    try {
+      await api.deleteSkillSource(confirmTarget.id);
+      await reload();
+      show(`已删除来源 ${confirmTarget.name}`);
+      setConfirmTarget(null);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -786,6 +842,16 @@ function SourcesTab({ sources, skills, reload, show }: {
           setCreating(false);
           show(`来源「${body.name}」已导入，可点击 AI 抽取`);
         }}
+      />
+      <ConfirmDialog
+        open={!!confirmTarget}
+        title="删除规范来源"
+        description={`确认删除来源「${confirmTarget?.name ?? ''}」？关联规则不会被删除（sourceId 置空）。`}
+        confirmText="删除"
+        danger
+        loading={deleting}
+        onConfirm={() => void confirmDeleteSource()}
+        onClose={() => { if (!deleting) setConfirmTarget(null); }}
       />
     </div>
   );

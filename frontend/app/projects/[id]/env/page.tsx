@@ -311,6 +311,7 @@ function EnvInventorySkillSheet({
   const [form, setForm] = React.useState<EnvInventorySkillPayload>(EMPTY_ENV_SKILL);
   const [saving, setSaving] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
 
   React.useEffect(() => {
     if (!open) return;
@@ -344,14 +345,8 @@ function EnvInventorySkillSheet({
     }
   };
   const remove = async () => {
-    if (!selected || selected.builtIn || !window.confirm(`删除「${selected.name}」？后续扫描将不再使用这条规则。`)) return;
-    setDeleting(true);
-    try {
-      await onDelete(selected);
-      choose(null);
-    } finally {
-      setDeleting(false);
-    }
+    if (!selected || selected.builtIn) return;
+    setConfirmDelete(true);
   };
 
   return (
@@ -507,6 +502,24 @@ function EnvInventorySkillSheet({
           </div>
         </form>
       </div>
+      <ConfirmDialog
+        open={confirmDelete}
+        title="删除环境盘点规则"
+        description={`删除后「${selected?.name ?? ''}」将不再用于后续扫描。确定删除吗？`}
+        loading={deleting}
+        onConfirm={async () => {
+          if (!selected) return;
+          setDeleting(true);
+          try {
+            await onDelete(selected);
+            setConfirmDelete(false);
+            choose(null);
+          } finally {
+            setDeleting(false);
+          }
+        }}
+        onCancel={() => { if (!deleting) setConfirmDelete(false); }}
+      />
     </Sheet>
   );
 }

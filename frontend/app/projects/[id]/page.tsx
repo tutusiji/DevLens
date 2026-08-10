@@ -25,6 +25,7 @@ import { GraphCanvas, type GraphNode } from '@/components/graph-canvas';
 import { EmptyState, FilterBar } from '@/components/filter-bar';
 import { ProgressBar, ScoreRing, StatCard } from '@/components/widgets';
 import { ForecastCard } from '@/components/forecast-card';
+import { useToast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { scoreColor } from '@/lib/utils';
 import type { AIReviewInsight, FixPriority, InsightStatus, ModuleRisk, ProjectCodeGraph, ProjectDetail, ProjectForecast, ReviewCategory } from '@/lib/types';
@@ -533,6 +534,7 @@ export default function ProjectDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
+  const { toast, ToastViewport } = useToast();
   const [detail, setDetail] = React.useState<ProjectDetail | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [tab, setTab] = React.useState('overview');
@@ -607,10 +609,11 @@ export default function ProjectDetailPage() {
     setRefreshing(true);
     api.reanalyzeProject(id)
       .then(() => {
-        window.location.reload();
+        toast.success('已触发重新分析', '页面将刷新以展示最新结果。');
+        window.setTimeout(() => window.location.reload(), 800);
       })
       .catch((e) => {
-        window.alert(e instanceof Error ? e.message : '重新分析失败');
+        toast.error('重新分析失败', e instanceof Error ? e.message : '请稍后重试');
         setRefreshing(false);
       });
   };
@@ -665,6 +668,7 @@ export default function ProjectDetailPage() {
       <InsightSheet insight={selectedInsight ? detail.aiInsights.find((insight) => insight.id === selectedInsight.id) || selectedInsight : null} onClose={() => setSelectedInsight(null)} onUpdate={updateInsight} />
       <ModuleSheet module={selectedModule} onClose={() => setSelectedModule(null)} onViewReview={viewModuleReview} />
       <FixSheet fix={activeFix || null} insight={relatedInsight} onClose={() => setSelectedFix(null)} onViewInsight={() => { setSelectedFix(null); if (relatedInsight) { setSelectedInsight(relatedInsight); setTab('review'); } }} onUpdateStatus={updateFixStatus} />
+      <ToastViewport />
     </div>
   );
 }
