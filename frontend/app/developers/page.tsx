@@ -23,6 +23,7 @@ import {
   TrendingUp,
   UsersRound,
   Settings2,
+  RefreshCw,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -479,12 +480,19 @@ export default function DevelopersPage() {
   const [detailError, setDetailError] = React.useState('');
   const [detailRequestVersion, setDetailRequestVersion] = React.useState(0);
   const [editingDeveloper, setEditingDeveloper] = React.useState<Developer | null>(null);
+  const [refreshing, setRefreshing] = React.useState(false);
   const { spaces, teamsTree } = useTeamSpace();
 
   const loadDevelopers = React.useCallback(() => {
     setLoading(true);
     api.getDevelopers().then((d) => { setDevelopers(d); setLoading(false); });
   }, []);
+
+  const handleRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    loadDevelopers();
+    window.setTimeout(() => setRefreshing(false), 700);
+  }, [loadDevelopers]);
 
   React.useEffect(() => {
     loadDevelopers();
@@ -564,16 +572,22 @@ export default function DevelopersPage() {
         title="开发者画像"
         description="从 Git 行为与代码质量推导个人能力，辅助成长而非考核"
         actions={
-          <div className="rounded-lg border border-border/70 bg-muted/20 p-1">
-            <Segmented
-              value={viewMode}
-              onChange={(value) => setViewMode(value as ViewMode)}
-              size="sm"
-              options={[
-                { value: 'cards', label: '卡片模式', icon: LayoutGrid },
-                { value: 'leaderboard', label: '活跃度排行', icon: ListOrdered },
-              ]}
-            />
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" disabled={refreshing} onClick={handleRefresh} aria-label="刷新开发者列表">
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? '刷新中' : '刷新'}
+            </Button>
+            <div className="rounded-lg border border-border/70 bg-muted/20 p-1">
+              <Segmented
+                value={viewMode}
+                onChange={(value) => setViewMode(value as ViewMode)}
+                size="sm"
+                options={[
+                  { value: 'cards', label: '卡片模式', icon: LayoutGrid },
+                  { value: 'leaderboard', label: '活跃度排行', icon: ListOrdered },
+                ]}
+              />
+            </div>
           </div>
         }
       />

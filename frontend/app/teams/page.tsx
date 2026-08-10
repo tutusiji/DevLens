@@ -7,7 +7,7 @@
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
-import { Users, AlertTriangle, BusIcon, Network, Eye, EyeOff, UserPlus, Loader2, X, Grid3x3, Mountain, Compass, Settings2, Save } from 'lucide-react';
+import { Users, AlertTriangle, BusIcon, Network, Eye, EyeOff, UserPlus, Loader2, X, Grid3x3, Mountain, Compass, Settings2, Save, RefreshCw } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -220,11 +220,24 @@ export default function TeamsPage() {
   const [savingRules, setSavingRules] = React.useState(false);
   const [rulesError, setRulesError] = React.useState('');
 
-  React.useEffect(() => {
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const loadData = React.useCallback(() => {
+    setLoading(true);
     Promise.all([api.getTeams(), api.getCapabilityGaps()]).then(([t, g]) => {
       setTeams(t); setGaps(g); setLoading(false);
-    });
+    }).catch(() => setLoading(false));
   }, []);
+
+  React.useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    loadData();
+    window.setTimeout(() => setRefreshing(false), 700);
+  }, [loadData]);
 
   const sorted = React.useMemo(() => {
     return [...teams].sort((a, b) => {
@@ -388,7 +401,16 @@ export default function TeamsPage() {
 
   return (
     <>
-      <PageHeader title="团队分析" description="从个人能力聚合团队画像，识别 Bus Factor 与能力缺口" />
+      <PageHeader
+        title="团队分析"
+        description="从个人能力聚合团队画像，识别 Bus Factor 与能力缺口"
+        actions={
+          <Button variant="outline" size="sm" disabled={refreshing} onClick={handleRefresh} aria-label="刷新团队数据">
+            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? '刷新中' : '刷新'}
+          </Button>
+        }
+      />
 
       {/* ============ 顶部：全团队对比 ============ */}
       <Card className="mb-6">

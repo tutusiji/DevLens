@@ -163,6 +163,7 @@ export default function ProjectsPage() {
   const [search, setSearch] = React.useState('');
   const [deleteTarget, setDeleteTarget] = React.useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = React.useState(false);
+  const [refreshing, setRefreshing] = React.useState(false);
   const { toast, ToastViewport } = useToast();
 
   const loadProjects = React.useCallback(() => {
@@ -172,6 +173,12 @@ export default function ProjectsPage() {
       setLoading(false);
     });
   }, []);
+
+  const handleRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    loadProjects();
+    window.setTimeout(() => setRefreshing(false), 700);
+  }, [loadProjects]);
 
   React.useEffect(() => {
     loadProjects();
@@ -245,9 +252,15 @@ export default function ProjectsPage() {
         title="项目评估"
         description="从代码质量、安全、技术债、活跃度多维度评估项目健康度"
         actions={
-          <Link href="/onboard">
-            <Button variant="accent"><Plus className="h-4.5 w-4.5" />接入项目</Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" disabled={refreshing} onClick={handleRefresh} aria-label="刷新项目列表">
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? '刷新中' : '刷新'}
+            </Button>
+            <Link href="/onboard">
+              <Button variant="accent"><Plus className="h-4.5 w-4.5" />接入项目</Button>
+            </Link>
+          </div>
         }
       />
 
