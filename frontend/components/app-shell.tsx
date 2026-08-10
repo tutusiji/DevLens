@@ -33,7 +33,7 @@ interface NavItem {
 }
 
 const ANALYSIS_NAV: NavItem[] = [
-  { href: '/', label: '决策总览', description: '结论 · 风险 · 行动', icon: Activity },
+  { href: '/dashboard', label: '决策总览', description: '结论 · 风险 · 行动', icon: Activity },
   { href: '/projects', label: '项目评估', description: '代码质量 · 健康度', icon: FolderGit2 },
   { href: '/project-portfolio', label: '项目组合对比', description: '横向评估 · 历史趋势', icon: GitCompareArrows },
   { href: '/developers', label: '开发者画像', description: '能力 · 成长 · 协作', icon: Users },
@@ -46,11 +46,17 @@ const SYSTEM_NAV: NavItem[] = [
   { href: '/skills', label: 'Skill 管理', description: '规则库 · 编组 · 规范来源', icon: ShieldCheck },
   { href: '/onboard', label: '接入项目', description: 'Git 仓库 · 身份匹配', icon: Rocket },
   { href: '/repos', label: 'Git 仓库管理', description: '仓库列表 · 同步状态', icon: GitBranch },
+  { href: '/providers', label: '代码平台集成', description: 'GitHub · GitLab · Gitee', icon: GitCompareArrows },
   { href: '/models', label: '大模型管理', description: 'OpenAI · Anthropic', icon: Bot },
   { href: '/vector-models', label: '向量模型管理', description: 'Embedding · 索引', icon: Database },
   { href: '/capability-standards', label: '能力标准', description: '角色 · 级别 · 阈值', icon: Ruler },
   { href: '/access-control', label: '租户与权限', description: '成员 · RBAC · 数据隔离', icon: UserCog },
 ];
+
+/** 非主导航、但需要在顶部面包屑展示标题的路由（如个人中心）。 */
+const EXTRA_ROUTE_LABELS: Record<string, string> = {
+  '/profile': '个人中心',
+};
 
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   const Icon = item.icon;
@@ -120,9 +126,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setActiveTeamSpaceId,
   } = useTeamSpace();
 
-  /* 登录守卫：无有效会话时跳转 /login（/login、/register 为公开页，免守卫） */
+  /* 登录守卫：无有效会话时跳转 /login（公开页免守卫） */
   React.useEffect(() => {
-    if (pathname.startsWith('/login') || pathname.startsWith('/register')) return;
+    // 公开页面：登录、注册、首页（Landing）
+    const isPublicPage = pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/register');
+    if (isPublicPage) {
+      // 公开页也尝试获取用户信息（用于显示"进入控制台"等）
+      if (getToken()) {
+        fetchMe().then(setMe).catch(() => setMe(null));
+      }
+      return;
+    }
     if (!getToken()) {
       router.replace('/login');
       return;
@@ -147,7 +161,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const isActive = (href: string) =>
-    href === '/' ? pathname === '/' : pathname.startsWith(href);
+    pathname.startsWith(href);
 
   /* ⌘K / Ctrl+K 全局唤起搜索 */
   React.useEffect(() => {
@@ -163,15 +177,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const highRiskCount = riskAlerts.filter((r) => r.level === 'high').length;
 
-  // 登录/注册页不渲染应用外壳（无侧边栏/顶栏）；置于所有 hooks 之后保证 hooks 顺序稳定
-  if (pathname.startsWith('/login') || pathname.startsWith('/register')) return <>{children}</>;
+  // 公开页不渲染应用外壳（无侧边栏/顶栏）：登录/注册页，以及首页（官网Landing）
+  const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/register');
+  const isLandingPage = pathname === '/';
+  if (isAuthPage || isLandingPage) return <>{children}</>;
 
   return (
     <div className="min-h-screen">
       {/* ============ 桌面侧边栏 - 去框化毛玻璃 ============ */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r-0 bg-sidebar/60 backdrop-blur-xl lg:flex">
-        {/* Logo 区域 */}
-        <div className="flex h-20 items-center gap-3 border-b border-border/10 px-6">
+        {/* Logo 区域 - 点击回到官网首页 */}
+        <Link
+          href="/"
+          className="flex h-20 items-center gap-3 border-b border-border/10 px-6 transition-opacity hover:opacity-80"
+        >
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/10">
             <Activity className="h-6 w-6 text-white" />
           </div>
@@ -179,7 +198,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="font-mono text-lg font-bold tracking-tight text-primary">DevLens</div>
             <div className="text-[11px] text-muted-foreground">研发棱镜 · v0.1</div>
           </div>
-        </div>
+        </Link>
 
         {/* 导航区域 */}
         <nav className="flex-1 space-y-1.5 overflow-y-auto p-4">
@@ -244,12 +263,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           />
           <aside className="absolute inset-y-0 left-0 flex w-72 flex-col bg-sidebar/90 backdrop-blur-xl">
             <div className="flex h-20 items-center justify-between border-b border-border/10 px-6">
-              <div className="flex items-center gap-3">
+              <Link href="/" className="flex items-center gap-3" onClick={() => setMobileOpen(false)}>
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/10">
                   <Activity className="h-6 w-6 text-white" />
                 </div>
                 <span className="font-mono text-lg font-bold text-primary">DevLens</span>
-              </div>
+              </Link>
               <Button variant="ghost" size="icon" onClick={() => setMobileOpen(false)}>
                 <X className="h-5 w-5" />
               </Button>
@@ -284,7 +303,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="text-foreground">DevLens</span>
             <ChevronRight className="h-4 w-4" />
             <span className="text-foreground font-medium">
-              {ANALYSIS_NAV.find((n) => isActive(n.href))?.label ||
+              {EXTRA_ROUTE_LABELS[pathname] ||
+                ANALYSIS_NAV.find((n) => isActive(n.href))?.label ||
                 SYSTEM_NAV.find((n) => isActive(n.href))?.label ||
                 '决策总览'}
             </span>

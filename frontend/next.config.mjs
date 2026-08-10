@@ -6,6 +6,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Docker Compose / standalone 部署输出
+  output: process.env.DOCKER_STANDALONE === '1' ? 'standalone' : undefined,
 };
 
 export default nextConfig;

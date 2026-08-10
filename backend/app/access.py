@@ -27,11 +27,11 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
     "owner": {"*"},
     "admin": {"*"},
     "evaluator": {
-        "project:read", "developer:read", "rules:read", "assessment:read",
+        "project:read", "developer:read", "developer:write", "rules:read", "assessment:read",
         "assessment:run", "comparison:read", "report:export",
     },
     "analyst": {
-        "project:read", "developer:read", "rules:read", "assessment:read",
+        "project:read", "developer:read", "developer:write", "rules:read", "assessment:read",
         "comparison:read", "report:export",
     },
     "viewer": {

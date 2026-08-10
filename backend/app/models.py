@@ -5,6 +5,7 @@
 """
 from sqlalchemy import (
     Column, String, Integer, Float, Text, JSON, ForeignKey, UniqueConstraint,
+    LargeBinary,
 )
 from sqlalchemy.orm import relationship
 
@@ -35,6 +36,24 @@ class TeamSpace(Base):
     tenant_id = Column(String, default="tenant-default", index=True)
 
 
+class RepositoryProviderConfig(Base):
+    """平台级凭证与 Webhook 配置（GitHub / GitLab / Gitee / Gitea 等）。
+
+    access_token / webhook_secret 均以 Fernet 加密后落库。
+    """
+    __tablename__ = "repository_provider_configs"
+    id = Column(String, primary_key=True)          # 如 github-<hash>
+    provider = Column(String, nullable=False)      # github|gitlab|gitee|gitea|bitbucket|generic
+    display_name = Column(String, default="")
+    base_url = Column(String, default="")          # 自建实例地址；空为官方
+    access_token_encrypted = Column(LargeBinary, nullable=True)
+    webhook_secret_encrypted = Column(LargeBinary, nullable=True)
+    enabled = Column(Integer, default=1)
+    created_at = Column(String)
+    updated_at = Column(String)
+    tenant_id = Column(String, default="tenant-default", index=True)
+
+
 class TeamGroup(Base):
     __tablename__ = "team_groups"
     id = Column(String, primary_key=True)
@@ -52,10 +71,13 @@ class Developer(Base):
     id = Column(String, primary_key=True)
     name = Column(String, nullable=False)
     username = Column(String)
+    email = Column(String, nullable=True)
+    employee_id = Column(String, nullable=True)  # 工号，用于身份匹配
     role = Column(String)
     role_type = Column(String)  # Role: frontend|backend|devops|algorithm|qa
     team = Column(String)
     team_id = Column(String, ForeignKey("team_spaces.id"))
+    team_space_id = Column(String, ForeignKey("team_spaces.id"), nullable=True)
     group_id = Column(String)
     level = Column(String)  # Level: D1-G3
     overall = Column(Integer)
@@ -122,11 +144,12 @@ class Repository(Base):
     __tablename__ = "repositories"
     id = Column(String, primary_key=True)
     name = Column(String)
-    path = Column(String)
-    source_type = Column(String)  # remote|local
-    provider = Column(String)     # github|gitlab|gitea|bitbucket|generic
+    path = Column(String)  # 本地缓存路径（分析时填充）
+    source_type = Column(String, default="remote")  # 当前仅支持 remote
+    provider = Column(String)     # github|gitlab|gitee|gitea|bitbucket|generic
     remote_url = Column(String)
     branch = Column(String)
+    access_token_encrypted = Column(LargeBinary, nullable=True)  # 私有仓库 access token
     team_id = Column(String)
     project_id = Column(String, ForeignKey("projects.id"))
     status = Column(String, default="synced")  # synced|syncing|failed
@@ -224,6 +247,7 @@ class IdentityMatch(Base):
     git_name = Column(String)
     git_email = Column(String)
     person_name = Column(String)
+    developer_id = Column(String, ForeignKey("developers.id"), nullable=True)
     department = Column(String)
     confidence = Column(Float)
     method = Column(String)  # email|employee_id|pinyin|fuzzy|exact
@@ -467,8 +491,9 @@ class DeveloperEvaluation(Base):
     skill_group_id = Column(String, ForeignKey("skill_groups.id"), nullable=True)
     tenant_id = Column(String, default="tenant-default", index=True)
     project_id = Column(String, ForeignKey("projects.id"), nullable=True)
-    repo_path = Column(String, nullable=False)     # 真实 git 仓库绝对路径
+    repo_path = Column(String, nullable=True)      # 评估时本地缓存路径（运行中填充）
     git_author = Column(String, nullable=False)    # git log --format=%an
+    branch = Column(String, nullable=True)         # 评估分支
     scores = Column(JSON, default=dict)            # {"code_quality": 85, ...}
     evidence = Column(JSON, default=list)          # [{dimension, summary, rules: [...]}]
     rule_snapshot = Column(JSON, default=dict)     # 评估时冻结的 Skill Group + 已启用规则

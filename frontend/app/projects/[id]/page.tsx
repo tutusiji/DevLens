@@ -590,7 +590,14 @@ export default function ProjectDetailPage() {
   };
   const refresh = () => {
     setRefreshing(true);
-    window.setTimeout(() => setRefreshing(false), 900);
+    api.reanalyzeProject(id)
+      .then(() => {
+        window.location.reload();
+      })
+      .catch((e) => {
+        window.alert(e instanceof Error ? e.message : '重新分析失败');
+        setRefreshing(false);
+      });
   };
 
   if (loading) return <div className="space-y-6"><div className="h-8 w-64 skeleton rounded" /><div className="grid gap-4 lg:grid-cols-3"><div className="h-64 skeleton rounded-xl" /><div className="h-64 skeleton rounded-xl lg:col-span-2" /></div></div>;

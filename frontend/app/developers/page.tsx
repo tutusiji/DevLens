@@ -22,15 +22,18 @@ import {
   Sparkles,
   TrendingUp,
   UsersRound,
+  Settings2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { PageHeader, ScoreRing, staggerContainer, cardItem } from '@/components/widgets';
 import { FilterBar, EmptyState } from '@/components/filter-bar';
 import { DiceBearAvatar } from '@/components/dicebear-avatar';
 import { Segmented } from '@/components/ui/segmented';
 import { api } from '@/lib/api';
-import type { Developer, DeveloperDetail } from '@/lib/types';
+import type { Developer, DeveloperDetail, TeamSpace } from '@/lib/types';
+import { useTeamSpace, type TeamTreeNode } from '@/components/team-space-provider';
 
 const LEVEL_VARIANT: Record<string, 'default' | 'secondary' | 'accent' | 'success'> = {
   // D 高阶能力层用紫色（accent），E 资深工程师用绿色，F 中高级用蓝色，G 成长层用次级色
@@ -313,26 +316,37 @@ function ActivityLeaderboard({
   );
 }
 
-function DeveloperCard({ dev }: { dev: Developer }) {
+function DeveloperCard({ dev, onEdit }: { dev: Developer; onEdit: () => void }) {
   return (
     <motion.div variants={cardItem}>
-      <Link href={`/developers/${dev.id}`} className="group block h-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60">
-        <Card className="h-full overflow-hidden border-border/70 transition-[border-color,box-shadow,transform] duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/40 group-hover:shadow-lg">
-          <div className="h-0.5 bg-gradient-to-r from-primary via-primary/55 to-transparent" />
-          <CardContent className="p-3">
-            <div className="flex items-start gap-3">
+      <Card className="group h-full overflow-hidden border-border/70 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg">
+        <div className="h-0.5 bg-gradient-to-r from-primary via-primary/55 to-transparent" />
+        <CardContent className="p-3">
+          <div className="flex items-start gap-3">
+            <Link href={`/developers/${dev.id}`} className="shrink-0">
               <DiceBearAvatar seed={dev.username} size={44} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-foreground">{dev.name}</h3>
-                  <Badge variant={levelVariant(dev.level)} className="font-mono">{dev.level}</Badge>
-                </div>
-                <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                  <span>{dev.role}</span><span>·</span><span>{dev.team}</span>
-                </div>
+            </Link>
+            <div className="flex-1 min-w-0">
+              <Link href={`/developers/${dev.id}`} className="flex items-center gap-2">
+                <h3 className="font-semibold text-foreground hover:underline">{dev.name}</h3>
+                <Badge variant={levelVariant(dev.level)} className="font-mono">{dev.level}</Badge>
+              </Link>
+              <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                <span>{dev.role}</span><span>·</span><span>{dev.team}</span>
               </div>
-              <ScoreRing score={dev.overall} size={46} stroke={4} glow={false} />
             </div>
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              <ScoreRing score={dev.overall} size={46} stroke={4} glow={false} />
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(); }}
+                className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
+                title="编辑归属"
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
 
             <div className="mt-2.5 flex flex-wrap gap-1.5">
               {dev.tags.slice(0, 3).map((tag) => <Badge key={tag} variant="outline">{tag}</Badge>)}
@@ -356,16 +370,98 @@ function DeveloperCard({ dev }: { dev: Developer }) {
               </div>
             </div>
 
-            <div className="mt-2 flex items-center justify-between text-xs font-medium text-muted-foreground">
+            <Link href={`/developers/${dev.id}`} className="mt-2 flex items-center justify-between text-xs font-medium text-muted-foreground">
               <span>进入能力画像</span>
               <span className="inline-flex items-center gap-1 text-primary transition-transform duration-200 group-hover:translate-x-0.5">
                 查看详情 <ArrowUpRight className="h-3.5 w-3.5" />
               </span>
-            </div>
+            </Link>
           </CardContent>
         </Card>
-      </Link>
     </motion.div>
+  );
+}
+
+function DeveloperEditSheet({
+  developer,
+  spaces,
+  teamsTree,
+  onClose,
+  onSave,
+}: {
+  developer: Developer;
+  spaces: TeamSpace[];
+  teamsTree: TeamTreeNode[];
+  onClose: () => void;
+  onSave: (patch: Partial<Developer>) => Promise<void>;
+}) {
+  const [teamSpaceId, setTeamSpaceId] = React.useState(developer.teamSpaceId || '');
+  const [employeeId, setEmployeeId] = React.useState(developer.employeeId || '');
+  const [email, setEmail] = React.useState(developer.email || '');
+  const [saving, setSaving] = React.useState(false);
+
+  const flattenTeams = (nodes: TeamTreeNode[]): TeamTreeNode[] => nodes.flatMap((n) => [n, ...flattenTeams(n.children)]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-end bg-black/40 p-4 sm:items-center sm:justify-center">
+      <div className="w-full max-w-md rounded-2xl border border-border bg-background p-6 shadow-xl">
+        <h3 className="text-lg font-semibold">编辑开发者归属</h3>
+        <p className="text-sm text-muted-foreground">{developer.name}（{developer.username}）</p>
+        <div className="mt-4 space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">组织树团队</label>
+            <select
+              value={teamSpaceId}
+              onChange={(e) => setTeamSpaceId(e.target.value)}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="">未分配</option>
+              {flattenTeams(teamsTree).map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.parentName ? `${t.parentName} / ${t.name}` : t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">工号</label>
+            <input
+              value={employeeId}
+              onChange={(e) => setEmployeeId(e.target.value)}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              placeholder="用于身份精确匹配"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">邮箱</label>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              placeholder="用于邮箱精确匹配"
+            />
+          </div>
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>取消</Button>
+          <Button
+            variant="accent"
+            disabled={saving}
+            onClick={async () => {
+              setSaving(true);
+              await onSave({
+                teamSpaceId: teamSpaceId || undefined,
+                employeeId: employeeId.trim() || undefined,
+                email: email.trim() || undefined,
+              });
+              setSaving(false);
+            }}
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : '保存'}
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -382,10 +478,17 @@ export default function DevelopersPage() {
   const [detailLoading, setDetailLoading] = React.useState(false);
   const [detailError, setDetailError] = React.useState('');
   const [detailRequestVersion, setDetailRequestVersion] = React.useState(0);
+  const [editingDeveloper, setEditingDeveloper] = React.useState<Developer | null>(null);
+  const { spaces, teamsTree } = useTeamSpace();
 
-  React.useEffect(() => {
+  const loadDevelopers = React.useCallback(() => {
+    setLoading(true);
     api.getDevelopers().then((d) => { setDevelopers(d); setLoading(false); });
   }, []);
+
+  React.useEffect(() => {
+    loadDevelopers();
+  }, [loadDevelopers]);
 
   const teamOptions = React.useMemo(() => {
     const teams = [...new Set(developers.map((d) => d.team))];
@@ -549,7 +652,7 @@ export default function DevelopersPage() {
         />
       ) : viewMode === 'cards' ? (
         <motion.div variants={staggerContainer} initial="hidden" animate="show" className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.map((d) => <DeveloperCard key={d.id} dev={d} />)}
+          {filtered.map((d) => <DeveloperCard key={d.id} dev={d} onEdit={() => setEditingDeveloper(d)} />)}
         </motion.div>
       ) : (
         <ActivityLeaderboard
@@ -560,6 +663,19 @@ export default function DevelopersPage() {
           detailError={detailError}
           onSelect={setSelectedDeveloperId}
           onRetry={() => setDetailRequestVersion((version) => version + 1)}
+        />
+      )}
+      {editingDeveloper && (
+        <DeveloperEditSheet
+          developer={editingDeveloper}
+          spaces={spaces}
+          teamsTree={teamsTree}
+          onClose={() => setEditingDeveloper(null)}
+          onSave={async (patch) => {
+            await api.updateDeveloper(editingDeveloper.id, patch);
+            setEditingDeveloper(null);
+            loadDevelopers();
+          }}
         />
       )}
     </>

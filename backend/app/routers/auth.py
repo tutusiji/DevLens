@@ -188,6 +188,85 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
     }
 
 
+@router.post("/auth/demo-login")
+def demo_login(db: Session = Depends(get_db)):
+    """一键Demo体验：以 viewer 角色进入测试租户（tenant-test）。
+
+    测试租户预置了完整的演示数据，访客可查看但不可修改。
+    若Demo用户不存在则自动创建。
+    """
+    from ..access import ensure_bootstrap_tenant
+    from ..seed import SEED_TENANT_ID
+
+    # 确保测试租户存在
+    ensure_bootstrap_tenant(db)
+    tenant = db.query(models.Tenant).filter_by(id=SEED_TENANT_ID).first()
+    if not tenant:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="测试租户不存在",
+        )
+
+    # Demo 用户：固定邮箱，每次重置密码（不影响体验，因为免密登录）
+    demo_email = "demo@devlens.local"
+    demo_username = "demo-viewer"
+    user = db.query(models.AccountUser).filter_by(email=demo_email).first()
+    now = _now()
+    if not user:
+        user = models.AccountUser(
+            id=f"usr-demo-{uuid.uuid4().hex[:8]}",
+            email=demo_email,
+            name="Demo 体验者",
+            username=demo_username,
+            avatar_url=_make_dicebear_url(demo_username),
+            password_hash=hash_password(secrets.token_urlsafe(32)),  # 随机密码，不对外
+            status="active",
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(user)
+        db.flush()
+
+    # 确保用户在测试租户有 viewer 角色
+    membership = db.query(models.TenantMembership).filter_by(
+        tenant_id=SEED_TENANT_ID, user_id=user.id,
+    ).first()
+    if not membership:
+        membership = models.TenantMembership(
+            id=f"tmem-demo-{uuid.uuid4().hex[:8]}",
+            tenant_id=SEED_TENANT_ID,
+            user_id=user.id,
+            role="viewer",
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(membership)
+    elif membership.role != "viewer":
+        # 固定为 viewer 角色，防止权限提升
+        membership.role = "viewer"
+        membership.updated_at = now
+
+    db.commit()
+
+    token = create_access_token(user.id, SEED_TENANT_ID, "viewer")
+    tenants = [
+        {
+            "id": SEED_TENANT_ID,
+            "role": "viewer",
+            "name": tenant.name,
+        }
+    ]
+    return {
+        "token": token,
+        "user": _user_out(user),
+        "tenant": {"id": tenant.id, "name": tenant.name, "slug": tenant.slug},
+        "role": "viewer",
+        "tenants": tenants,
+        "is_demo": True,
+        "demo_hint": "演示账号，仅可查看，不可修改数据",
+    }
+
+
 @router.post("/auth/register", status_code=status.HTTP_201_CREATED)
 def register(body: RegisterRequest, db: Session = Depends(get_db)):
     """开放自助注册：创建账号 + 个人工作区(tenant) + owner 身份，签发 JWT。
@@ -532,10 +611,15 @@ def my_profile(
     projects.sort(key=lambda x: x["commits"], reverse=True)
     result["projects"] = projects
 
-    # 所在团队
+    # 所在团队：Developer.team_id 指向 TeamSpace（组织树节点，FK -> team_spaces.id），
+    # 而团队聚合统计（members/avgScore/busFactor/riskCount）在 Team 表。两者通过名称关联。
     teams: list[dict] = []
-    if dev.team_id:
-        t = db.query(models.Team).filter_by(id=dev.team_id, tenant_id=tenant_id).first()
+    team_name = dev.team
+    if not team_name and dev.team_id:
+        ts = db.query(models.TeamSpace).filter_by(id=dev.team_id, tenant_id=tenant_id).first()
+        team_name = ts.name if ts else None
+    if team_name:
+        t = db.query(models.Team).filter_by(name=team_name, tenant_id=tenant_id).first()
         if t:
             teams.append({
                 "id": t.id,

@@ -145,3 +145,72 @@ def get_project_trend(
         "project_name": project.name,
         "snapshots": snapshots,
     }
+
+
+@router.get("/projects/{pid}/forecast")
+def get_project_forecast(
+    pid: str,
+    horizon: int = Query(default=4, ge=1, le=12),
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("comparison:read")),
+):
+    """基于历史快照做简单线性趋势外推，预测未来 N 期的健康度区间。
+
+    数据点 < 2 时无法建模，返回 only_observed=True。
+    """
+    project = db.query(models.Project).filter_by(id=pid, tenant_id=ctx.tenant_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="项目不存在")
+    ensure_project_baseline_snapshots(db, ctx.tenant_id)
+    snapshots = (
+        db.query(models.ProjectAssessmentSnapshot)
+        .filter_by(project_id=pid, tenant_id=ctx.tenant_id)
+        .order_by(models.ProjectAssessmentSnapshot.recorded_at.asc())
+        .all()
+    )
+    observed = [{"t": i, "score": s.score, "quality": s.quality, "security": s.security, "debt": s.debt} for i, s in enumerate(snapshots)]
+    if len(observed) < 2:
+        return {
+            "project_id": project.id,
+            "project_name": project.name,
+            "only_observed": True,
+            "observations": observed,
+            "forecast": [],
+            "model": "insufficient-data",
+        }
+
+    def _slope(values: list[float]) -> float:
+        n = len(values)
+        xs = list(range(n))
+        x_mean = sum(xs) / n
+        y_mean = sum(values) / n
+        num = sum((xs[i] - x_mean) * (values[i] - y_mean) for i in range(n))
+        den = sum((xs[i] - x_mean) ** 2 for i in range(n))
+        return num / den if den else 0.0
+
+    last = observed[-1]
+    forecast = []
+    for step in range(1, horizon + 1):
+        t = len(observed) - 1 + step
+        predicted_score = max(0, min(100, last["score"] + _slope([o["score"] for o in observed]) * step))
+        predicted_quality = max(0, min(100, last["quality"] + _slope([o["quality"] for o in observed]) * step))
+        predicted_security = max(0, min(100, last["security"] + _slope([o["security"] for o in observed]) * step))
+        predicted_debt = max(0, min(100, last["debt"] + _slope([o["debt"] for o in observed]) * step))
+        forecast.append({
+            "period": f"T+{step}",
+            "t": t,
+            "score": round(predicted_score),
+            "quality": round(predicted_quality),
+            "security": round(predicted_security),
+            "debt": round(predicted_debt),
+            "trend": "up" if predicted_score > last["score"] else ("down" if predicted_score < last["score"] else "stable"),
+        })
+
+    return {
+        "project_id": project.id,
+        "project_name": project.name,
+        "only_observed": False,
+        "observations": observed,
+        "forecast": forecast,
+        "model": "linear-regression",
+    }

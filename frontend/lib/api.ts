@@ -25,6 +25,7 @@ import type {
   ProjectComparisonResponse, ProjectTrendResponse, CurrentTenantContext, Tenant, TenantMembership,
   TenantRole,
   ProjectCodeGraph, ArchitectureDesign, ArchitectureDesignListResponse,
+  GlobalSearchResult, ProviderConfigM, ProviderConfigUpsert, DiscoveredRepo, RepoImportRequest,
 } from './types';
 import { LEVEL_GROUPS } from './types';
 
@@ -134,6 +135,17 @@ export async function loginAPI(email: string, password: string): Promise<LoginRe
   if (!res.ok) throw new Error(data.detail || `登录失败 ${res.status}`);
   setToken(data.token);
   return data as LoginResult;
+}
+
+export async function demoLoginAPI(): Promise<LoginResult & { is_demo?: boolean; demo_hint?: string }> {
+  const res = await fetch(`${API_BASE}/auth/demo-login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || `Demo 登录失败 ${res.status}`);
+  setToken(data.token);
+  return data;
 }
 
 export async function registerAPI(username: string, name: string, email: string, password: string): Promise<LoginResult> {
@@ -520,14 +532,25 @@ export const api = {
   getProjects: () => (USE_MOCK ? mockDelay(projects) : fetchAPI<Project[]>('/projects')),
   getProjectDetail: (id: string) =>
     USE_MOCK ? mockDelay(getProjectDetail(id)) : fetchAPI<ProjectDetail>(`/projects/${id}`),
+  globalSearch: (q: string): Promise<GlobalSearchResult> =>
+    USE_MOCK
+      ? mockDelay({
+        projects: projects.filter((p) => p.name.includes(q)).map((p) => ({ id: p.id, name: p.name, subtitle: `${p.group} · ${p.language}`, href: `/projects/${p.id}` })),
+        developers: developers.filter((d) => d.name.includes(q)).map((d) => ({ id: d.id, name: d.name, subtitle: `${d.role} · ${d.team}`, href: `/developers/${d.id}` })),
+        teamSpaces: [], teams: [],
+      })
+      : fetchAPI<GlobalSearchResult>(`/search?q=${encodeURIComponent(q)}`),
   createProject: (body: ProjectCreateRequest): Promise<RepositoryImportResult> => {
-    const repository = body.repoType === 'remote' ? body.repoUrl || '' : body.repoPath || '';
     const runId = `run-${Date.now()}`;
     mockRunStartedAt.set(runId, Date.now());
     return USE_MOCK
-      ? mockDelay({ projectId: 'p-new', runId, sourceType: body.repoType, provider: body.provider, repository, branch: body.branch, status: 'queued' as const })
+      ? mockDelay({ projectId: 'p-new', runId, sourceType: 'remote', provider: body.provider, repository: body.repoUrl, branch: body.branch, status: 'queued' as const })
       : fetchAPI<RepositoryImportResult>('/projects', { method: 'POST', body: JSON.stringify(body) });
   },
+  deleteProject: (id: string): Promise<{ ok: boolean; id: string }> =>
+    fetchAPI<{ ok: boolean; id: string }>(`/projects/${id}`, { method: 'DELETE' }),
+  reanalyzeProject: (id: string): Promise<RepositoryImportResult> =>
+    fetchAPI<RepositoryImportResult>(`/projects/${id}/reanalyze`, { method: 'POST' }),
   getAnalysisStatus: (runId: string): Promise<AnalysisRun> => {
     if (!USE_MOCK) return fetchAPI<AnalysisRun>(`/analysis-runs/${runId}`);
     const elapsed = Date.now() - (mockRunStartedAt.get(runId) || Date.now());
@@ -554,9 +577,21 @@ export const api = {
     USE_MOCK ? mockDelay(patch as TeamSpace) : fetchAPI<TeamSpace>(`/team-spaces/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
 
   // 开发者
-  getDevelopers: () => (USE_MOCK ? mockDelay(developers) : fetchAPI<Developer[]>('/developers')),
+  getDevelopers: (teamSpaceId?: string) => {
+    const qs = teamSpaceId ? `?team_space_id=${encodeURIComponent(teamSpaceId)}` : '';
+    return USE_MOCK ? mockDelay(developers) : fetchAPI<Developer[]>(`/developers${qs}`);
+  },
   getDeveloperDetail: (id: string) =>
     USE_MOCK ? mockDelay(getDeveloperDetail(id)) : fetchAPI<DeveloperDetail>(`/developers/${id}`),
+  updateDeveloper: (id: string, body: Partial<Developer>): Promise<Developer> =>
+    fetchAPI<Developer>(`/developers/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  mergeDeveloperIdentities: (id: string, sourceIds: string[]): Promise<{ ok: boolean; targetId: string; mergedIds: string[] }> =>
+    fetchAPI<{ ok: boolean; targetId: string; mergedIds: string[] }>(`/developers/${id}/merge-identities`, {
+      method: 'POST',
+      body: JSON.stringify({ source_ids: sourceIds }),
+    }),
+  generateGrowthAdvice: (id: string): Promise<{ developerId: string; advice: string }> =>
+    fetchAPI<{ developerId: string; advice: string }>(`/developers/${id}/growth-advice`, { method: 'POST' }),
   triggerDeveloperEvaluation: (
     developerId: string,
     body: EvaluateDeveloperRequest,
@@ -575,10 +610,11 @@ export const api = {
     USE_MOCK
       ? mockDelay(null)
       : fetchAPI<DeveloperEvaluation | null>(`/developers/${developerId}/evaluations/latest`),
-  getGitAuthors: (repoPath: string): Promise<string[]> =>
+
+  getGitAuthors: (projectId: string): Promise<string[]> =>
     USE_MOCK
       ? mockDelay(['Tutuhuang'])
-      : fetchAPI<string[]>(`/git-authors?repo_path=${encodeURIComponent(repoPath)}`),
+      : fetchAPI<string[]>(`/git-authors?project_id=${encodeURIComponent(projectId)}`),
 
   // 项目组合与趋势（评分历史来自持久化 snapshot）
   getProjectComparison: (projectIds: string[] = []): Promise<ProjectComparisonResponse> =>
@@ -672,6 +708,20 @@ export const api = {
 
   // 配置: LLM / 向量
   getModelProviders: () => (USE_MOCK ? mockDelay(modelProviders) : fetchAPI<any[]>('/model-providers')),
+  getProviderConfigs: (): Promise<ProviderConfigM[]> =>
+    fetchAPI<ProviderConfigM[]>('/providers'),
+  upsertProviderConfig: (body: ProviderConfigUpsert): Promise<ProviderConfigM> =>
+    fetchAPI<ProviderConfigM>('/providers', { method: 'POST', body: JSON.stringify(body) }),
+  deleteProviderConfig: (id: string): Promise<{ ok: boolean; id: string }> =>
+    fetchAPI<{ ok: boolean; id: string }>(`/providers/${id}`, { method: 'DELETE' }),
+  discoverRepos: (provider: string, org?: string, user?: string): Promise<{ provider: string; repos: DiscoveredRepo[] }> => {
+    const params = new URLSearchParams({ provider });
+    if (org) params.set('org', org);
+    if (user) params.set('user', user);
+    return fetchAPI<{ provider: string; repos: DiscoveredRepo[] }>(`/repos/discover?${params.toString()}`);
+  },
+  importRepos: (body: RepoImportRequest): Promise<{ imported: number; results: { projectId: string; name: string; status: string }[] }> =>
+    fetchAPI<{ imported: number; results: { projectId: string; name: string; status: string }[] }>('/repos/import', { method: 'POST', body: JSON.stringify(body) }),
   getTaskRoutes: () => (USE_MOCK ? mockDelay(taskRoutes) : fetchAPI<any[]>('/task-routes')),
   getVectorCollections: () => (USE_MOCK ? mockDelay(vectorCollections) : fetchAPI<any[]>('/vector-collections')),
   getEmbeddingModels: () => (USE_MOCK ? mockDelay(embeddingModels) : fetchAPI<any[]>('/embedding-models')),

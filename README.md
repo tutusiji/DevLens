@@ -6,13 +6,14 @@ DevLens 的定位是辅助工程决策与团队成长，而不是单一 KPI 考�
 
 ## 当前能力
 
-- **项目接入与仓库分析**：导入本地或远程 Git 仓库，采集提交、贡献者、语言、模块、近期变更和内部依赖边。
-- **项目评估**：生成项目概览、健康趋势、技术资产、模块风险、AI 洞察和修复优先级。
-- **开发者与团队洞察**：基于真实项目贡献进行能力评估、职级阈值对比、团队分析和项目组合比较。
+- **项目接入与仓库分析**：仅支持从 GitHub / GitLab / Gitee / Gitea / 通用 Git 远程地址拉取；私有仓库 access token 使用 Fernet 加密持久化，重新分析自动复用。支持指定分支克隆、租户级缓存隔离与项目删除/重新分析。
+- **项目评估**：生成项目概览、健康趋势、技术资产、模块风险、AI 洞察和修复优先级；内置零依赖静态安全扫描（硬编码密钥/危险函数/危险配置），并基于历史快照提供健康度趋势预测（`/projects/{pid}/forecast`）。
+- **开发者与团队洞察**：基于真实项目贡献进行能力评估、职级阈值对比、团队分析和项目组合比较；git 作者与组织人员按邮箱/工号/姓名/拼音多维度身份匹配；支持开发者归属到组织树团队、身份合并与 LLM 生成个性化成长建议。
 - **规则与能力标准**：管理 Skill 来源、规则、规则组、角色维度和能力标准，并将规则快照保留在分析/评估结果中。
 - **环境配置盘点**：扫描仓库中的环境和服务配置，识别中间件与连接信息，并在持久化前脱敏敏感值。
 - **代码图谱与语义检索**：从内部依赖边生成项目图谱；可将代码片段向量化后写入 Qdrant，支持语义搜索。
 - **组织与权限**：支持租户、成员、团队空间和 RBAC。
+- **平台集成**：GitHub / GitLab / Gitee 凭证管理、组织仓库发现与批量导入，Webhook push 触发自动重分析。
 - **报告**：支持评估报告导出与导出审计；PDF 导出依赖系统 Chrome/Chromium。
 
 ## 系统架构
@@ -271,6 +272,9 @@ NEXT_PUBLIC_API_URL=/api/v1 pnpm dev
 | `DEVLENS_REPOS_CACHE` | `/tmp/devlens-repos` | Git clone 缓存目录 |
 | `DEVLENS_ALLOW_LOCAL_ADMIN` | `true` | 缺少上游身份头时是否回退本地 owner；生产必须设为 `false` |
 | `DEVLENS_CHROME_BINARY` | 系统默认 Chrome 路径 | PDF 导出使用的 Chrome/Chromium 路径 |
+| `DEVLENS_ENCRYPTION_KEY` | 空（回退到 JWT secret） | 仓库凭证/Webhook Secret 的 Fernet 加密密钥；生产必须配置强随机值 |
+| `DEVLENS_CLONE_TIMEOUT` | `600` | 远程仓库 clone 超时秒数 |
+| `REDIS_URL` | `redis://127.0.0.1:6379/0` | Celery 任务队列（可选；默认走进程内 daemon thread） |
 | `NEXT_PUBLIC_API_URL` | 未设置时启用 Mock | 前端真实 API 基址；联调/生产应为 `/api/v1` |
 | `BACKEND_URL` | `http://127.0.0.1:8000` | Next.js API 代理的上游 FastAPI 地址 |
 

@@ -1,524 +1,251 @@
-/**
- * 决策总览 v3.0 - Bento Grid 去框化风格
- * Hero 主角区域 + 不对称网格布局
- * 三位一体热力图矩阵 + 风险预警色条卡片
- * 活跃榜单 2:1:1 不对称比例
- */
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
-  FolderGit2, Users, Network,
-  AlertTriangle, ShieldAlert, BusFront, TrendingDown, Bug,
-  RefreshCw, ChevronRight,
-  GitCommit, Eye, Code2, TrendingUp, Minus, ArrowUpRight,
-  Grid3x3, Activity,
+  Activity, ShieldAlert, Code2, Users, Compass, GitCompareArrows,
+  Sparkles, ArrowRight,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { EmptyState } from '@/components/ui/empty-state';
-import { PageHeader, OrganizationHealthSummary, ProgressBar, staggerContainer, cardItem } from '@/components/widgets';
-import { AreaTrend } from '@/components/charts';
-import { TrinityMatrix } from '@/components/trinity-matrix';
-import { api } from '@/lib/api';
-import { cn, scoreColor } from '@/lib/utils';
-import type { StatItem, TrinityMatrix as TrinityMatrixData, HealthTrendPoint, RiskAlert, DataSource, RiskLevel, ActiveProject, ActiveDeveloper, ActiveTeam, ActivityTrend, ArchitectureDesign } from '@/lib/types';
+import { demoLoginAPI } from '@/lib/api';
 
-const RISK_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  skill_gap: ShieldAlert,
-  bus_factor: BusFront,
-  high_variance: TrendingDown,
-  tech_debt: Bug,
-};
+export default function LandingPage() {
+  const router = useRouter();
+  const [demoLoading, setDemoLoading] = React.useState(false);
 
-const RISK_TYPE_LABEL: Record<string, string> = {
-  skill_gap: '能力缺口',
-  bus_factor: '关键人风险',
-  high_variance: '能力失衡',
-  tech_debt: '技术债',
-};
+  const handleDemo = async () => {
+    setDemoLoading(true);
+    try {
+      const result = await demoLoginAPI();
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('devlens-tenant-id', result.tenant.id);
+        localStorage.setItem('devlens-user-id', result.user.id);
+        localStorage.setItem('devlens-is-demo', '1');
+      }
+      router.push('/dashboard');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Demo 登录失败');
+      setDemoLoading(false);
+    }
+  };
 
-function levelVariant(level: RiskLevel): 'danger' | 'warning' | 'secondary' {
-  if (level === 'high') return 'danger';
-  if (level === 'medium') return 'warning';
-  return 'secondary';
-}
+  const features = [
+    {
+      icon: Activity,
+      title: '三位一体评估矩阵',
+      desc: '项目 × 团队 × 人员交叉评估，从 Git 提交推导组织能力分布与协作效率',
+      color: 'from-primary/20 to-primary/5',
+    },
+    {
+      icon: ShieldAlert,
+      title: '智能风险预警',
+      desc: 'AI 自动识别 Bus Factor、技术债、能力缺口、关键人风险，提前预警',
+      color: 'from-destructive/20 to-destructive/5',
+    },
+    {
+      icon: Code2,
+      title: '代码健康度分析',
+      desc: '质量 / 安全 / 复杂度多维度评分，自动生成改进建议与优先级排序',
+      color: 'from-success/20 to-success/5',
+    },
+    {
+      icon: Users,
+      title: '开发者能力画像',
+      desc: '基于实际产出构建技术能力雷达图，量化成长轨迹与团队角色',
+      color: 'from-secondary/20 to-secondary/5',
+    },
+    {
+      icon: Compass,
+      title: '架构设计图谱',
+      desc: '自动生成系统分层图、组件依赖图、技术决策记录，治理技术债务',
+      color: 'from-warning/20 to-warning/5',
+    },
+    {
+      icon: GitCompareArrows,
+      title: '项目组合对比',
+      desc: '多项目横向对比 + 历史趋势追踪，辅助资源分配与战略决策',
+      color: 'from-purple-500/20 to-purple-500/5',
+    },
+  ];
 
-const TREND_CONFIG: Record<ActivityTrend, { icon: React.ComponentType<{ className?: string }>; label: string; color: string }> = {
-  up: { icon: TrendingUp, label: '上升', color: 'var(--success)' },
-  down: { icon: TrendingDown, label: '下降', color: 'var(--destructive)' },
-  stable: { icon: Minus, label: '持平', color: 'var(--muted-foreground)' },
-};
-
-function TrendBadge({ trend }: { trend: ActivityTrend }) {
-  const config = TREND_CONFIG[trend];
-  const Icon = config.icon;
   return (
-    <span className="inline-flex items-center gap-1 text-xs" style={{ color: config.color }}>
-      <Icon className="h-3.5 w-3.5" />
-      {config.label}
-    </span>
-  );
-}
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-background via-background to-primary/5">
+      {/* 背景装饰 */}
+      <div className="pointer-events-none absolute -top-40 -right-40 h-[500px] w-[500px] rounded-full bg-primary/10 blur-3xl" />
+      <div className="pointer-events-none absolute top-1/3 -left-40 h-[400px] w-[400px] rounded-full bg-secondary/10 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-0 right-1/4 h-[300px] w-[300px] rounded-full bg-accent/10 blur-3xl" />
 
-function architectureCompleteness(design: ArchitectureDesign): number {
-  if (design.analysisStatus !== 'ready') return 0;
-
-  const layerCoverage = Math.min(design.layers.length / 4, 1);
-  const componentCoverage = Math.min(design.components.length / 12, 1);
-  const relationCoverage = Math.min(design.relations.length / 12, 1);
-  const decisionCoverage = Math.min(design.decisions.length / 3, 1);
-
-  return Math.round(
-    (layerCoverage * 0.3 + componentCoverage * 0.25 + relationCoverage * 0.25 + decisionCoverage * 0.2) * 100,
-  );
-}
-
-export default function HomePage() {
-  const [stats, setStats] = React.useState<StatItem[]>([]);
-  const [matrix, setMatrix] = React.useState<TrinityMatrixData | null>(null);
-  const [trend, setTrend] = React.useState<HealthTrendPoint[]>([]);
-  const [risks, setRisks] = React.useState<RiskAlert[]>([]);
-  const [sources, setSources] = React.useState<DataSource[]>([]);
-  const [activeProjects, setActiveProjects] = React.useState<ActiveProject[]>([]);
-  const [activeDevelopers, setActiveDevelopers] = React.useState<ActiveDeveloper[]>([]);
-  const [activeTeams, setActiveTeams] = React.useState<ActiveTeam[]>([]);
-  const [architectureDesigns, setArchitectureDesigns] = React.useState<ArchitectureDesign[]>([]);
-  const [loading, setLoading] = React.useState(true);
-
-  React.useEffect(() => {
-    Promise.all([
-      api.getOverview(),
-      api.getTrinityMatrix(),
-      api.getHealthTrend(),
-      api.getRiskAlerts(),
-      api.getDataSources(),
-      api.getActiveProjects(),
-      api.getActiveDevelopers(),
-      api.getActiveTeams(),
-      api.getArchitectureDesigns(),
-    ]).then(([s, m, t, r, ds, ap, ad, at, architecture]) => {
-      setStats(s);
-      setMatrix(m);
-      setTrend(t);
-      setRisks(r);
-      setSources(ds);
-      setActiveProjects(ap);
-      setActiveDevelopers(ad);
-      setActiveTeams(at);
-      setArchitectureDesigns(architecture.designs);
-      setLoading(false);
-    });
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-10 w-56 skeleton rounded-2xl" />
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-12 h-96 skeleton rounded-2xl lg:col-span-5" />
-          <div className="col-span-12 grid grid-cols-2 gap-4 lg:col-span-7">
-            {[0, 1, 2, 3].map((i) => <div key={i} className="h-40 skeleton rounded-2xl" />)}
+      {/* 顶部导航 */}
+      <header className="relative z-10 flex items-center justify-between px-6 py-5 md:px-12">
+        <div
+          className="flex cursor-pointer items-center gap-3"
+          onClick={() => router.push('/')}
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20">
+            <Activity className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <div className="font-mono text-lg font-bold tracking-tight">DevLens</div>
+            <div className="text-[10px] text-muted-foreground">研发棱镜</div>
           </div>
         </div>
-      </div>
-    );
-  }
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push('/login')}
+            className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            登录
+          </button>
+          <button
+            onClick={() => router.push('/register')}
+            className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary/90"
+          >
+            免费注册
+          </button>
+        </div>
+      </header>
 
-  const orgHealth = stats.find((s) => s.label === '平均健康度')?.value ?? 0;
-  const healthTrend = stats.find((s) => s.label === '平均健康度')?.delta ?? 0;
-  const highRiskCount = risks.filter((r) => r.level === 'high').length;
-  const projectStat = stats.find((s) => s.label === '接入项目');
-  const developerStat = stats.find((s) => s.label === '开发者');
-  const teamStat = stats.find((s) => s.label === '团队');
-  const hasProjects = (projectStat?.value || 0) > 0;
-  const readyArchitectureDesigns = architectureDesigns.filter((design) => design.analysisStatus === 'ready');
-  const architectureCoverage = architectureDesigns.length
-    ? Math.round((readyArchitectureDesigns.length / architectureDesigns.length) * 100)
-    : 0;
-  const architectureCompletenessAverage = readyArchitectureDesigns.length
-    ? Math.round(readyArchitectureDesigns.reduce((sum, design) => sum + architectureCompleteness(design), 0) / readyArchitectureDesigns.length)
-    : 0;
+      {/* Hero 区域 */}
+      <section className="relative z-10 mx-auto max-w-5xl px-6 pb-16 pt-16 text-center md:px-12 md:pt-24">
+        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/30 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+          </span>
+          基于 AI 的研发认知系统 · 现已开源
+        </div>
+        <h1 className="bg-gradient-to-br from-foreground via-foreground to-primary bg-clip-text text-4xl font-bold tracking-tight text-transparent md:text-6xl">
+          把 Git 仓库转化为
+          <br />
+          <span className="text-primary">组织能力画像</span>
+        </h1>
+        <p className="mx-auto mt-6 max-w-2xl text-base text-muted-foreground md:text-lg">
+          项目 · 团队 · 人员三位一体评估，AI 驱动的代码健康度分析、风险预警与架构治理，
+          让研发效能与技术资产一目了然。
+        </p>
+        <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <button
+            onClick={handleDemo}
+            disabled={demoLoading}
+            className="group flex items-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-xl shadow-primary/20 transition-all hover:bg-primary/90 hover:shadow-primary/30 disabled:opacity-70"
+          >
+            <Sparkles className="h-4 w-4" />
+            {demoLoading ? '正在进入Demo…' : '✨ 免费体验 Demo'}
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+          </button>
+          <button
+            onClick={() => router.push('/register')}
+            className="flex items-center gap-2 rounded-2xl border border-border/60 bg-background/50 px-6 py-3.5 text-sm font-medium backdrop-blur transition-all hover:bg-muted/30"
+          >
+            创建工作空间
+          </button>
+        </div>
+        <p className="mt-4 text-xs text-muted-foreground/70">
+          Demo 账号为只读权限，预置了完整的测试数据，无需注册即可体验
+        </p>
+      </section>
 
-  return (
-    <div className="overview-page">
-      <div className="overview-page__ambient" aria-hidden="true" />
-      <div className="overview-page__header">
-        <div className="overview-page__eyebrow">DECISION OVERVIEW <span>·</span> ORGANIZATION SIGNALS</div>
-        <PageHeader
-          title="决策总览"
-          description="项目 · 团队 · 人员三位一体评估，从 Git 仓库推导组织能力"
-          compact
-          actions={
-            <div className="flex items-center gap-2 rounded-xl glass-light px-3 py-2">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
-              </span>
-              <span className="text-xs text-muted-foreground">数据更新于 2 分钟前</span>
-              <RefreshCw className="h-3.5 w-3.5 text-muted-foreground transition-colors hover:text-foreground" />
+      {/* 功能特性 */}
+      <section className="relative z-10 mx-auto max-w-6xl px-6 py-16 md:px-12">
+        <div className="mb-12 text-center">
+          <h2 className="text-2xl font-bold md:text-3xl">六大核心能力</h2>
+          <p className="mt-3 text-muted-foreground">从代码提交到组织洞察，全链路 AI 赋能</p>
+        </div>
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {features.map((f) => {
+            const Icon = f.icon;
+            return (
+              <div
+                key={f.title}
+                className="group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 p-6 backdrop-blur transition-all hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5"
+              >
+                <div className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${f.color}`}>
+                  <Icon className="h-6 w-6 text-foreground" />
+                </div>
+                <h3 className="mb-2 text-base font-semibold">{f.title}</h3>
+                <p className="text-sm text-muted-foreground">{f.desc}</p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* 数据看板预览 */}
+      <section className="relative z-10 mx-auto max-w-6xl px-6 py-16 md:px-12">
+        <div className="mb-12 text-center">
+          <h2 className="text-2xl font-bold md:text-3xl">一站式研发认知平台</h2>
+          <p className="mt-3 text-muted-foreground">所有分析结果汇聚于统一工作台，所见即所得</p>
+        </div>
+        <div className="relative">
+          <div className="absolute -inset-4 rounded-3xl bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 blur-2xl" />
+          <div className="relative rounded-3xl border border-border/50 bg-card/80 p-2 shadow-2xl backdrop-blur">
+            <div className="flex items-center gap-2 border-b border-border/50 px-4 py-3">
+              <div className="flex gap-1.5">
+                <div className="h-3 w-3 rounded-full bg-destructive/60" />
+                <div className="h-3 w-3 rounded-full bg-warning/60" />
+                <div className="h-3 w-3 rounded-full bg-success/60" />
+              </div>
+              <div className="ml-4 text-xs text-muted-foreground font-mono">devlens.app/dashboard</div>
             </div>
-          }
-        />
-      </div>
-
-      {/* ============ 决策摘要：健康度、风险、组织规模与架构覆盖 ============ */}
-      <OrganizationHealthSummary
-        score={orgHealth}
-        trend={healthTrend}
-        target={85}
-        highRiskCount={highRiskCount}
-        projectCount={projectStat?.value || 0}
-        developerCount={developerStat?.value || 0}
-        teamCount={teamStat?.value || 0}
-        architectureReady={readyArchitectureDesigns.length}
-        architectureTotal={architectureDesigns.length}
-        architectureCompleteness={architectureCompletenessAverage}
-        architectureCoverage={architectureCoverage}
-        onArchitectureClick={() => { window.location.assign('/architecture-design'); }}
-      />
-
-      <motion.div
-        className="mt-4 grid grid-cols-12 gap-4 lg:gap-5"
-        variants={staggerContainer}
-        initial="hidden"
-        animate="show"
-      >
-        {/* 三位一体矩阵（带下钻，跨 8 列） */}
-        <motion.div variants={cardItem} className="col-span-12 lg:col-span-8">
-          <Card>
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                  <Network className="h-5 w-5 text-primary" />
-                    三位一体评估矩阵
-                  </CardTitle>
-                  <CardDescription className="mt-1">
-                    点击单元格查看团队 × 项目详情
-                  </CardDescription>
-                </div>
-                <Badge variant="outline">团队 × 项目</Badge>
+            <div className="grid grid-cols-12 gap-3 p-4">
+              <div className="col-span-12 h-64 rounded-2xl bg-gradient-to-br from-primary/10 to-muted/30 lg:col-span-7" />
+              <div className="col-span-12 space-y-3 lg:col-span-5">
+                <div className="h-28 rounded-2xl bg-gradient-to-br from-destructive/10 to-muted/30" />
+                <div className="h-32 rounded-2xl bg-gradient-to-br from-secondary/10 to-muted/30" />
               </div>
-            </CardHeader>
-            <CardContent>
-              {matrix && matrix.rows.length > 0 && matrix.cols.length > 0 ? (
-                <TrinityMatrix
-                  data={matrix}
-                  onSelect={() => {}}
-                />
-              ) : (
-                <EmptyState
-                  icon={Grid3x3}
-                  title="暂无团队与项目数据"
-                  description="接入仓库并完成分析后，将自动生成团队 × 项目覆盖矩阵"
-                />
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
+              <div className="col-span-4 h-40 rounded-2xl bg-gradient-to-br from-accent/10 to-muted/30" />
+              <div className="col-span-4 h-40 rounded-2xl bg-gradient-to-br from-success/10 to-muted/30" />
+              <div className="col-span-4 h-40 rounded-2xl bg-gradient-to-br from-warning/10 to-muted/30" />
+            </div>
+          </div>
+        </div>
+      </section>
 
-        {/* 风险预警（紧凑列表，右侧 4 列） */}
-        <motion.div variants={cardItem} className="col-span-12 lg:col-span-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-destructive" />
-                  风险预警
-                </CardTitle>
-                <Badge variant="danger">{highRiskCount} 高危</Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {risks.length === 0 ? (
-                <EmptyState
-                  icon={ShieldAlert}
-                  title="暂无风险预警"
-                  description={hasProjects ? '当前各项目运行平稳，暂无识别到的风险' : '接入项目并完成分析后将自动识别 Bus Factor、技术债与能力缺口'}
-                  compact
-                />
-              ) : (
-                <>
-                  {risks.slice(0, 4).map((risk) => {
-                    const RiskIcon = RISK_ICONS[risk.type] || AlertTriangle;
-                    const barClass = risk.level === 'high' ? 'risk-bar-high' : risk.level === 'medium' ? 'risk-bar-medium' : 'risk-bar-low';
-                    return (
-                      <div
-                        key={risk.id}
-                        className={`flex items-start gap-3 rounded-2xl bg-muted/15 p-3 transition-all hover:bg-muted/25 cursor-pointer ${barClass}`}
-                      >
-                        <div className={cn(
-                          'mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl',
-                          risk.level === 'high' ? 'bg-destructive/15' : risk.level === 'medium' ? 'bg-warning/15' : 'bg-muted/30'
-                        )}>
-                          <RiskIcon className={cn(
-                            'h-5 w-5',
-                            risk.level === 'high' ? 'text-destructive' : risk.level === 'medium' ? 'text-warning' : 'text-muted-foreground'
-                          )} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="truncate text-sm font-medium">{risk.title}</span>
-                          </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge variant={levelVariant(risk.level)} className="text-[10px]">
-                              {risk.level === 'high' ? '高危' : risk.level === 'medium' ? '中危' : '低危'}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground/70">{risk.time}</span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <button className="flex w-full items-center justify-center gap-1.5 pt-2 text-sm text-primary hover:underline cursor-pointer transition-colors">
-                    查看全部 {risks.length} 条
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* 健康度趋势图（底部宽格，跨 8 列） */}
-        <motion.div variants={cardItem} className="col-span-12 lg:col-span-8">
-          <Card>
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-primary" />
-                    健康度趋势
-                  </CardTitle>
-                  <CardDescription className="mt-1">质量 / 安全 / 健康度</CardDescription>
-                </div>
-                <div className="flex items-center gap-2 rounded-2xl glass-light px-1 py-1">
-                  {['7天', '30天', '90天'].map((label, i) => (
-                    <button
-                      key={label}
-                      className={`rounded-xl px-3 py-1.5 text-xs font-medium transition-all ${
-                        i === 1 ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {trend.length > 0 ? (
-                <AreaTrend
-                  data={trend}
-                  xKey="month"
-                  series={[
-                    { key: 'quality', name: '代码质量', color: 'var(--primary)' },
-                    { key: 'security', name: '安全', color: 'var(--secondary)', dashed: true },
-                    { key: 'health', name: '健康度', color: 'var(--success)' },
-                  ]}
-                  height={260}
-                />
-              ) : (
-                <EmptyState
-                  icon={Activity}
-                  title="暂无趋势数据"
-                  description="完成项目分析后，将按月生成质量 / 安全 / 健康度趋势"
-                />
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* 数据源覆盖率（右下，跨 4 列） */}
-        <motion.div variants={cardItem} className="col-span-12 lg:col-span-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <svg className="h-5 w-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <ellipse cx="12" cy="13" rx="10" ry="5" />
-                  <path d="M2.05 10.94A10.43 10.43 0 0 0 7.84" />
-                  <path d="M21.95 10.94a10.43 10.43 0 0 1-4.21-4.21" />
+      {/* CTA 区域 */}
+      <section className="relative z-10 mx-auto max-w-4xl px-6 py-20 md:px-12">
+        <div className="relative overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/15 via-primary/5 to-background p-10 text-center md:p-16">
+          <div className="pointer-events-none absolute -top-20 -right-20 h-64 w-64 rounded-full bg-primary/20 blur-3xl" />
+          <div className="relative">
+            <h2 className="text-2xl font-bold md:text-4xl">准备好提升研发效能了吗？</h2>
+            <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
+              接入你的 Git 仓库，5 分钟内获得首份研发能力评估报告
+            </p>
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <button
+                onClick={handleDemo}
+                disabled={demoLoading}
+                className="rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 disabled:opacity-70"
+              >
+                {demoLoading ? '进入中…' : '立即体验 Demo'}
+              </button>
+              <a
+                href="https://github.com/tutusiji/DevLens"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 rounded-2xl border border-border/60 px-6 py-3 text-sm font-medium transition-all hover:bg-muted/30"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
                 </svg>
-                数据源覆盖率
-              </CardTitle>
-              <CardDescription>各数据源接入情况</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {sources.map((src) => (
-                <div key={src.name} className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>{src.name}</span>
-                    <Badge
-                      variant={src.status === 'connected' ? 'success' : src.status === 'partial' ? 'warning' : 'danger'}
-                    >
-                      {src.status === 'connected' ? '已接入' : src.status === 'partial' ? '部分' : '未接入'}
-                    </Badge>
-                  </div>
-                  <ProgressBar
-                    value={src.coverage}
-                    showValue={false}
-                    indicatorClassName={
-                      src.coverage >= 90 ? 'bg-success' : src.coverage >= 60 ? 'bg-warning' : 'bg-destructive'
-                    }
-                    glow
-                  />
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </motion.div>
-      </motion.div>
+                GitHub 开源
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      {/* ============ 活跃榜单 ============ */}
-      <motion.div
-        className="mt-8 grid gap-4 lg:grid-cols-3"
-        variants={staggerContainer}
-        initial="hidden"
-        animate="show"
-      >
-        {/* 活跃项目 */}
-        <motion.div variants={cardItem}>
-          <Card className="flex flex-col h-full">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <FolderGit2 className="h-5 w-5 text-primary" />
-                  活跃项目
-                </CardTitle>
-                <Link href="/projects" className="text-sm text-primary hover:underline">
-                  查看全部 <ArrowUpRight className="inline h-4 w-4" />
-                </Link>
-              </div>
-              <CardDescription>近 30 天 commits / contributors 综合排序</CardDescription>
-            </CardHeader>
-            <CardContent className="flex-1 space-y-3">
-              {activeProjects.length === 0 ? (
-                <EmptyState icon={FolderGit2} title="暂无活跃项目" description="接入 Git 仓库后将自动汇总活跃项目" compact />
-              ) : activeProjects.map((project, index) => (
-                <Link key={project.id} href={`/projects/${project.id}`}>
-                  <div className="flex items-center gap-3 rounded-2xl p-3 transition-all hover:bg-muted/30">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted/20 font-mono text-sm font-bold text-muted-foreground">
-                      {index + 1}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate text-sm font-medium">{project.name}</span>
-                        <Badge variant="outline" className="font-mono text-[10px]">{project.language}</Badge>
-                      </div>
-                      <div className="mt-1.5 flex items-center gap-4 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1.5">
-                          <GitCommit className="h-3.5 w-3.5" />
-                          <span className="font-mono tabular-nums">{project.commits.toLocaleString()}</span>
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                          <Users className="h-3.5 w-3.5" />
-                          <span className="font-mono tabular-nums">{project.contributors}</span>
-                        </span>
-                      </div>
-                    </div>
-                    <TrendBadge trend={project.trend} />
-                  </div>
-                </Link>
-              ))}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* 活跃开发者 */}
-        <motion.div variants={cardItem}>
-          <Card className="flex flex-col h-full">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Code2 className="h-5 w-5 text-primary" />
-                  活跃开发者
-                </CardTitle>
-                <Link href="/developers" className="text-sm text-primary hover:underline">
-                  查看全部 <ArrowUpRight className="inline h-4 w-4" />
-                </Link>
-              </div>
-              <CardDescription>commits + reviews 综合活跃度排序</CardDescription>
-            </CardHeader>
-            <CardContent className="flex-1 space-y-3">
-              {activeDevelopers.length === 0 ? (
-                <EmptyState icon={Code2} title="暂无活跃开发者" description="接入仓库后将按 commits + reviews 汇总活跃度" compact />
-              ) : activeDevelopers.slice(0, 4).map((dev, index) => (
-                <Link key={dev.id} href={`/developers/${dev.id}`}>
-                  <div className="flex items-center gap-3 rounded-2xl p-3 transition-all hover:bg-muted/30">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-muted/20 font-mono text-sm font-bold text-muted-foreground">
-                      {index + 1}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate text-sm font-medium">{dev.name}</span>
-                        <Badge variant="secondary" className="text-[10px]">{dev.role}</Badge>
-                      </div>
-                      <div className="mt-1.5 flex items-center gap-4 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1.5">
-                          <GitCommit className="h-3.5 w-3.5" />
-                          <span className="font-mono tabular-nums">{dev.commits}</span>
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                          <Eye className="h-3.5 w-3.5" />
-                          <span className="font-mono tabular-nums">{dev.reviews}</span>
-                        </span>
-                      </div>
-                    </div>
-                    <TrendBadge trend={dev.trend} />
-                  </div>
-                </Link>
-              ))}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* 活跃团队 */}
-        <motion.div variants={cardItem}>
-          <Card className="flex flex-col h-full">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Network className="h-5 w-5 text-primary" />
-                  活跃团队
-                </CardTitle>
-                <Link href="/teams" className="text-sm text-primary hover:underline">
-                  查看全部 <ArrowUpRight className="inline h-4 w-4" />
-                </Link>
-              </div>
-              <CardDescription>团队规模 + 平均健康度综合排序</CardDescription>
-            </CardHeader>
-            <CardContent className="flex-1 space-y-3">
-              {activeTeams.length === 0 ? (
-                <EmptyState icon={Network} title="暂无活跃团队" description="创建团队并归属开发者后将自动汇总" compact />
-              ) : activeTeams.slice(0, 3).map((team, index) => (
-                <Link key={team.id} href="/teams">
-                  <div className="flex items-center gap-3 rounded-2xl p-3 transition-all hover:bg-muted/30">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-muted/20 font-mono text-sm font-bold text-muted-foreground">
-                      {index + 1}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate text-sm font-medium">{team.name}</span>
-                      </div>
-                      <div className="mt-1.5 flex items-center gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1.5">
-                          <Users className="h-3.5 w-3.5" />
-                          <span className="font-mono tabular-nums">{team.members}</span> 人
-                        </span>
-                        <span className="font-mono tabular-nums font-medium" style={{ color: scoreColor(team.score) }}>{team.score}</span>
-                      </div>
-                    </div>
-                    <TrendBadge trend={team.trend} />
-                  </div>
-                </Link>
-              ))}
-            </CardContent>
-          </Card>
-        </motion.div>
-      </motion.div>
+      {/* Footer */}
+      <footer className="relative z-10 border-t border-border/30 py-8">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 md:flex-row md:px-12">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="text-lg">🔬</span>
+            <span>DevLens · 研发棱镜</span>
+          </div>
+          <div className="flex items-center gap-6 text-xs text-muted-foreground/70">
+            <span>基于 AI 的研发认知系统</span>
+            <span>© 2026 DevLens</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

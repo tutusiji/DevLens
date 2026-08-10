@@ -6,7 +6,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Check, Loader2, GitBranch, UserCheck, ScanSearch, FileSearch, BarChart3, Globe, FolderOpen } from 'lucide-react';
+import { AlertCircle, Check, Loader2, GitBranch, UserCheck, ScanSearch, FileSearch, BarChart3, Globe } from 'lucide-react';
 import type { ProjectCreateRequest, RepositoryProvider, RepositoryImportResult } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -39,14 +39,14 @@ function detectProvider(value: string): RepositoryProvider | undefined {
   const normalized = value.trim().toLowerCase();
   if (normalized.includes('github.com')) return 'github';
   if (normalized.includes('gitlab')) return 'gitlab';
+  if (normalized.includes('gitee')) return 'gitee';
   if (normalized.includes('gitea')) return 'gitea';
   if (normalized.includes('bitbucket')) return 'bitbucket';
   return normalized ? 'generic' : undefined;
 }
 
-function validateRepository(value: string, type: 'remote' | 'local'): string | null {
-  if (!value.trim()) return type === 'remote' ? '请输入 Git 仓库地址' : '请输入本地仓库路径';
-  if (type === 'local') return value.includes('..') ? '本地路径不能包含 ..' : null;
+function validateRepository(value: string): string | null {
+  if (!value.trim()) return '请输入 Git 仓库地址';
   const remote = value.trim();
   if (/^javascript:|^file:/i.test(remote)) return '仓库地址协议不安全';
   if (/^git@[^:]+:.+/.test(remote)) return null;
@@ -113,8 +113,7 @@ export default function OnboardPage() {
   const { spaces, teamsTree, activeTeamSpaceId } = useTeamSpace();
   const [form, setForm] = React.useState(() => ({
     name: '',
-    repoPath: '',
-    repoType: 'remote' as 'remote' | 'local',
+    repoUrl: '',
     accessToken: '',
     branch: 'main',
     teamId: activeTeamSpaceId || '',
@@ -162,7 +161,7 @@ export default function OnboardPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError('');
-    const repositoryError = validateRepository(form.repoPath, form.repoType);
+    const repositoryError = validateRepository(form.repoUrl);
     if (repositoryError) {
       setSubmitError(repositoryError);
       return;
@@ -179,14 +178,12 @@ export default function OnboardPage() {
     try {
       const request: ProjectCreateRequest = {
         name: form.name,
-        repoType: form.repoType,
-        repoUrl: form.repoType === 'remote' ? form.repoPath.trim() : undefined,
-        repoPath: form.repoType === 'local' ? form.repoPath.trim() : undefined,
-        provider: form.repoType === 'remote' ? detectProvider(form.repoPath) : undefined,
+        repoUrl: form.repoUrl.trim(),
+        provider: detectProvider(form.repoUrl),
         branch: form.branch.trim(),
         teamId: form.teamId,
         skillGroupId: form.skillGroupId || undefined,
-        accessToken: form.repoType === 'remote' ? form.accessToken || undefined : undefined,
+        accessToken: form.accessToken || undefined,
       };
       const result = await api.createProject(request);
       setImportResult(result);
@@ -202,7 +199,7 @@ export default function OnboardPage() {
     <>
       <PageHeader
         title="接入项目"
-        description="输入 Git 仓库在线地址或本地路径，自动完成采集、解析、能力建模与报告生成"
+        description="输入 Git 仓库在线地址，自动完成采集、解析、能力建模与报告生成"
       />
 
       <Card>
@@ -249,42 +246,36 @@ export default function OnboardPage() {
                 />
               </div>
               <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <button type="button" onClick={() => setForm({ ...form, repoPath: '', repoType: 'remote' })} className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors ${form.repoType !== 'local' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'}`}><Globe className="h-3.5 w-3.5" />在线仓库</button>
-                  <button type="button" onClick={() => setForm({ ...form, repoPath: '', repoType: 'local' })} className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors ${form.repoType === 'local' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'}`}><FolderOpen className="h-3.5 w-3.5" />本地路径</button>
-                </div>
                 <div className="space-y-1.5">
-                  <label htmlFor="repoPath" className="text-sm font-medium">
-                    {form.repoType === 'local' ? '仓库路径' : 'Git 仓库地址'} <span className="text-destructive">*</span>
+                  <label htmlFor="repoUrl" className="text-sm font-medium">
+                    Git 仓库地址 <span className="text-destructive">*</span>
                   </label>
                   <Input
-                    id="repoPath"
+                    id="repoUrl"
                     required
-                    placeholder={form.repoType === 'local' ? '/home/user/projects/my-repo' : 'https://github.com/org/repo.git'}
+                    placeholder="https://github.com/org/repo.git"
                     className="font-mono"
-                    value={form.repoPath}
-                    onChange={(e) => { setSubmitError(''); setForm({ ...form, repoPath: e.target.value }); }}
+                    value={form.repoUrl}
+                    onChange={(e) => { setSubmitError(''); setForm({ ...form, repoUrl: e.target.value }); }}
                   />
                   <p className="text-xs text-muted-foreground">
-                    {form.repoType === 'local'
-                      ? '本地 Git 仓库的绝对路径，需已 git init'
-                      : `支持 GitHub / GitLab / Gitea 等平台的 HTTPS 或 SSH 地址${detectProvider(form.repoPath) ? ` · 已识别 ${detectProvider(form.repoPath)}` : ''}，如需鉴权请在下方填写 Token`}
+                    支持 GitHub / GitLab / Gitee 等平台的 HTTPS 或 SSH 地址
+                    {detectProvider(form.repoUrl) ? ` · 已识别 ${detectProvider(form.repoUrl)}` : ''}
+                    ，如需鉴权请在下方填写 Token
                   </p>
                 </div>
-                {form.repoType !== 'local' && (
-                  <div className="space-y-1.5">
-                    <label htmlFor="accessToken" className="text-sm font-medium">访问 Token <span className="text-muted-foreground">（私有仓库必填）</span></label>
-                    <Input
-                      id="accessToken"
-                      type="password"
-                      placeholder="ghp_**** 或 glpat-****"
-                      className="font-mono"
-                      value={form.accessToken}
-                      onChange={(e) => setForm({ ...form, accessToken: e.target.value })}
-                    />
-                    <p className="text-xs text-muted-foreground">用于克隆私有仓库，仅本次接入使用，不会持久化存储。</p>
-                  </div>
-                )}
+                <div className="space-y-1.5">
+                  <label htmlFor="accessToken" className="text-sm font-medium">访问 Token <span className="text-muted-foreground">（私有仓库必填）</span></label>
+                  <Input
+                    id="accessToken"
+                    type="password"
+                    placeholder="ghp_**** 或 glpat-****"
+                    className="font-mono"
+                    value={form.accessToken}
+                    onChange={(e) => setForm({ ...form, accessToken: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">用于克隆私有仓库，加密后存储。</p>
+                </div>
               </div>
               <div className="space-y-1.5">
                 <label htmlFor="skillGroupId" className="text-sm font-medium">
@@ -341,7 +332,7 @@ export default function OnboardPage() {
                 <Progress value={progress} />
                 {importResult && <div className="flex flex-wrap gap-2 text-xs text-muted-foreground"><span className="font-mono">{importResult.repository}</span><span>·</span><span>分支 {importResult.branch}</span><span>·</span><span>任务 {importResult.runId}</span></div>}
               <p className="text-xs text-muted-foreground">
-                {step === 2 && (form.repoType === 'local' ? '正在解析本地 git log / blame，提取 commit 历史与文件归属' : '正在克隆远程仓库并解析 git log / blame，提取 commit 历史与文件归属')}
+                {step === 2 && '正在克隆远程仓库并解析 git log / blame，提取 commit 历史与文件归属'}
                 {step === 3 && '正在将 Git author 匹配到组织人员，4 级匹配策略'}
                 {step === 4 && '正在用 tree-sitter 解析 AST，构建代码图谱并 embedding 入库'}
               </p>

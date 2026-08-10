@@ -14,6 +14,7 @@ from .capability import (
 )
 from .git_collect import collect_author_code
 from .llm import chat_json
+from .vcs import ensure_remote_repo
 
 
 def _now() -> str:
@@ -213,7 +214,23 @@ def evaluate_developer(db, evaluation_id: str) -> None:
         if not dimensions:
             raise ValueError(f"角色 {evaluation.role_key} 未配置能力维度")
 
-        collected = collect_author_code(evaluation.repo_path, evaluation.git_author)
+        repo = db.query(models.Repository).filter_by(
+            project_id=evaluation.project_id, tenant_id=evaluation.tenant_id,
+        ).first()
+        if not repo or not repo.remote_url:
+            raise ValueError("评估目标项目缺少远程仓库配置")
+
+        repo_path = ensure_remote_repo(
+            repo_url=repo.remote_url,
+            project_id=repo.project_id,
+            tenant_id=evaluation.tenant_id,
+            branch=evaluation.branch or repo.branch or "main",
+            access_token_encrypted=repo.access_token_encrypted,
+        )
+        evaluation.repo_path = repo_path
+        db.commit()
+
+        collected = collect_author_code(repo_path, evaluation.git_author, branch=evaluation.branch or repo.branch)
         if collected["commits"] == 0:
             raise ValueError("git 作者无提交记录")
 

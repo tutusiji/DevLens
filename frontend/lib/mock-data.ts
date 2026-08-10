@@ -507,8 +507,8 @@ export interface RepoItem {
   id: string;
   name: string;
   path: string;
-  sourceType: 'remote' | 'local';
-  provider?: 'github' | 'gitlab' | 'gitea' | 'bitbucket' | 'generic';
+  sourceType: 'remote';
+  provider?: 'github' | 'gitlab' | 'gitee' | 'gitea' | 'bitbucket' | 'generic';
   remoteUrl?: string;
   branch: string;
   teamId: string;
@@ -522,10 +522,10 @@ export interface RepoItem {
 export const repoList: RepoItem[] = [
   { id: 'r1', name: '用户中心', path: '/data/repos/user-center', sourceType: 'remote', provider: 'gitlab', remoteUrl: 'https://gitlab.example.com/platform/user-center.git', branch: 'main', teamId: 't1', projectId: 'p1', status: 'synced', lastSync: '2分钟前', commits: 1847, contributors: 4 },
   { id: 'r2', name: '订单系统', path: '/data/repos/order-sys', sourceType: 'remote', provider: 'github', remoteUrl: 'https://github.com/acme/order-system.git', branch: 'main', teamId: 't2', projectId: 'p2', status: 'synced', lastSync: '1小时前', commits: 3214, contributors: 6 },
-  { id: 'r3', name: '数据网关', path: '/data/repos/data-gateway', sourceType: 'local', branch: 'develop', teamId: 't4', projectId: 'p3', status: 'synced', lastSync: '3小时前', commits: 2456, contributors: 7 },
+  { id: 'r3', name: '数据网关', path: '/data/repos/data-gateway', sourceType: 'remote', provider: 'gitee', remoteUrl: 'https://gitee.com/acme/data-gateway.git', branch: 'develop', teamId: 't4', projectId: 'p3', status: 'synced', lastSync: '3小时前', commits: 2456, contributors: 7 },
   { id: 'r4', name: '支付平台', path: '/data/repos/payment', sourceType: 'remote', provider: 'gitlab', remoteUrl: 'https://gitlab.example.com/data/payment.git', branch: 'main', teamId: 't4', projectId: 'p4', status: 'syncing', lastSync: '同步中', commits: 4102, contributors: 4 },
   { id: 'r5', name: '内容引擎', path: '/data/repos/content-engine', sourceType: 'remote', provider: 'github', remoteUrl: 'https://github.com/acme/content-engine.git', branch: 'main', teamId: 't3', projectId: 'p5', status: 'synced', lastSync: '4小时前', commits: 2891, contributors: 5 },
-  { id: 'r6', name: '搜索中台', path: '/data/repos/search', sourceType: 'local', branch: 'main', teamId: 't4', projectId: 'p6', status: 'failed', lastSync: '2天前', commits: 1567, contributors: 3 },
+  { id: 'r6', name: '搜索中台', path: '/data/repos/search', sourceType: 'remote', provider: 'generic', remoteUrl: 'https://git.example.com/search.git', branch: 'main', teamId: 't4', projectId: 'p6', status: 'failed', lastSync: '2天前', commits: 1567, contributors: 3 },
 ];
 
 // ============ 大模型配置 mock 数据 ============

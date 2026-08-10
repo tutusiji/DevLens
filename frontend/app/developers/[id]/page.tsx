@@ -65,14 +65,16 @@ export default function DeveloperDetailPage() {
   const [evaluationLoading, setEvaluationLoading] = React.useState(true);
   const [evaluationError, setEvaluationError] = React.useState('');
   const [isEvaluating, setIsEvaluating] = React.useState(false);
-  const [repoPath, setRepoPath] = React.useState('');
+  const [projectId, setProjectId] = React.useState('');
+  const [projectOptions, setProjectOptions] = React.useState<{ id: string; name: string }[]>([]);
   const [gitAuthors, setGitAuthors] = React.useState<string[]>([]);
   const [gitAuthor, setGitAuthor] = React.useState('');
   const [authorsLoading, setAuthorsLoading] = React.useState(false);
   const [sourceError, setSourceError] = React.useState('');
-  const [availableRepoPaths, setAvailableRepoPaths] = React.useState<string[]>([]);
   const [reportExporting, setReportExporting] = React.useState<'html' | 'pdf' | null>(null);
   const [evaluationRole, setEvaluationRole] = React.useState<CapabilityRoleInfo | null>(null);
+  const [adviceGenerating, setAdviceGenerating] = React.useState(false);
+  const [adviceError, setAdviceError] = React.useState('');
   const pollingTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stopPolling = React.useCallback(() => {
@@ -116,9 +118,8 @@ export default function DeveloperDetailPage() {
     pollingTimer.current = setTimeout(poll, 3000);
   }, [id, stopPolling]);
 
-  const loadGitAuthors = React.useCallback(async (path: string) => {
-    const normalizedPath = path.trim();
-    if (!normalizedPath) {
+  const loadGitAuthors = React.useCallback(async (pid: string) => {
+    if (!pid) {
       setGitAuthors([]);
       setGitAuthor('');
       return;
@@ -126,10 +127,10 @@ export default function DeveloperDetailPage() {
     setAuthorsLoading(true);
     setSourceError('');
     try {
-      const authors = await api.getGitAuthors(normalizedPath);
+      const authors = await api.getGitAuthors(pid);
       setGitAuthors(authors);
       setGitAuthor((current) => (authors.includes(current) ? current : authors[0] || ''));
-      if (!authors.length) setSourceError('该仓库未找到 git 作者，请确认仓库路径和提交历史。');
+      if (!authors.length) setSourceError('该仓库未找到 git 作者，请确认仓库和提交历史。');
     } catch (error) {
       setGitAuthors([]);
       setGitAuthor('');
@@ -172,19 +173,19 @@ export default function DeveloperDetailPage() {
   React.useEffect(() => {
     if (!detail) return;
     let active = true;
-    api.getRepos()
-      .then((repos) => {
+    api.getProjects()
+      .then((projects) => {
         if (!active) return;
-        const availableRepos = repos.filter((repo) => Boolean(repo.path));
-        setAvailableRepoPaths(availableRepos.map((repo) => repo.path));
-        const preferredRepo = availableRepos.find((repo) => repo.teamId === detail.teamId)
-          || availableRepos[0];
-        if (!preferredRepo) return;
-        setRepoPath((current) => current || preferredRepo.path);
-        void loadGitAuthors(preferredRepo.path);
+        const options = projects.map((p) => ({ id: p.id, name: p.name }));
+        setProjectOptions(options);
+        const preferred = options.find((p) => p.id === (detail.projects?.[0]?.projectId))
+          || options[0];
+        if (!preferred) return;
+        setProjectId((current) => current || preferred.id);
+        void loadGitAuthors(preferred.id);
       })
       .catch((error) => {
-        if (active) setSourceError(error instanceof Error ? error.message : '读取仓库列表失败。');
+        if (active) setSourceError(error instanceof Error ? error.message : '读取项目列表失败。');
       });
     api.getCapabilityRole(detail.roleType)
       .then((role) => {
@@ -199,11 +200,11 @@ export default function DeveloperDetailPage() {
   }, [detail, loadGitAuthors]);
 
   const startEvaluation = async () => {
-    if (!detail || !repoPath.trim() || !gitAuthor) return;
+    if (!detail || !projectId || !gitAuthor) return;
     setEvaluationError('');
     try {
       await api.triggerDeveloperEvaluation(id, {
-        repoPath: repoPath.trim(),
+        projectId,
         gitAuthor,
         roleKey: detail.roleType,
       });
@@ -442,22 +443,22 @@ export default function DeveloperDetailPage() {
         <CardContent className="space-y-5">
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.55fr)_auto]">
             <div className="space-y-1.5">
-              <label htmlFor="evaluation-repo-path" className="text-xs font-medium text-muted-foreground">
-                仓库路径
+              <label htmlFor="evaluation-project" className="text-xs font-medium text-muted-foreground">
+                评估项目
               </label>
               <select
-                id="evaluation-repo-path"
-                value={repoPath}
+                id="evaluation-project"
+                value={projectId}
                 onChange={(event) => {
-                  setRepoPath(event.target.value);
+                  setProjectId(event.target.value);
                   setGitAuthors([]);
                   setGitAuthor('');
                   void loadGitAuthors(event.target.value);
                 }}
                 className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <option value="">请选择当前租户已接入的仓库</option>
-                {availableRepoPaths.map((path) => <option key={path} value={path}>{path}</option>)}
+                <option value="">请选择当前租户已接入的项目</option>
+                {projectOptions.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
@@ -467,7 +468,7 @@ export default function DeveloperDetailPage() {
               <select
                 id="evaluation-git-author"
                 value={gitAuthor}
-                disabled={authorsLoading || !repoPath.trim()}
+                disabled={authorsLoading || !projectId}
                 onChange={(event) => setGitAuthor(event.target.value)}
                 className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -482,7 +483,7 @@ export default function DeveloperDetailPage() {
             <div className="flex items-end">
               <Button
                 className="w-full xl:w-auto"
-                disabled={isEvaluating || authorsLoading || !repoPath.trim() || !gitAuthor}
+                disabled={isEvaluating || authorsLoading || !projectId || !gitAuthor}
                 onClick={() => void startEvaluation()}
               >
                 {isEvaluating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ClipboardCheck className="h-4 w-4" />}
@@ -520,7 +521,7 @@ export default function DeveloperDetailPage() {
               <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
               <div>
                 <div className="font-medium text-destructive">本次实测评估失败</div>
-                <p className="mt-1 text-muted-foreground">{evaluation.error || evaluationError || '请检查仓库路径、git 作者和 LLM 配置后重试。'}</p>
+                <p className="mt-1 text-muted-foreground">{evaluation.error || evaluationError || '请检查项目、git 作者和 LLM 配置后重试。'}</p>
               </div>
             </div>
           ) : evaluation?.status === 'completed' ? (() => {
@@ -550,7 +551,7 @@ export default function DeveloperDetailPage() {
                       <Database className="h-4 w-4 text-primary" />
                       {evaluation.gitAuthor}
                     </span>
-                    <span className="font-mono text-xs text-muted-foreground break-all">{evaluation.repoPath}</span>
+                    <span className="font-mono text-xs text-muted-foreground break-all">{evaluation.projectId}</span>
                   </div>
                   <span className="text-xs text-muted-foreground">{formatEvaluationTime(evaluation.createdAt)}</span>
                 </div>
@@ -685,7 +686,29 @@ export default function DeveloperDetailPage() {
             <CardDescription>基于能力模型与行为数据的个性化建议</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm leading-relaxed text-foreground/90">{detail.aiSuggestion}</p>
+            <p className="text-sm leading-relaxed text-foreground/90">{detail.aiSuggestion || '暂无成长建议。请先完成一次实测评估，再点击下方按钮生成。'}</p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-4"
+              disabled={adviceGenerating}
+              onClick={async () => {
+                setAdviceGenerating(true);
+                setAdviceError('');
+                try {
+                  const result = await api.generateGrowthAdvice(id);
+                  setDetail((current) => current ? { ...current, aiSuggestion: result.advice } : current);
+                } catch (error) {
+                  setAdviceError(error instanceof Error ? error.message : '生成成长建议失败');
+                } finally {
+                  setAdviceGenerating(false);
+                }
+              }}
+            >
+              {adviceGenerating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {adviceGenerating ? '生成中…' : '生成 / 更新成长建议'}
+            </Button>
+            {adviceError && <p className="mt-2 text-xs text-destructive">{adviceError}</p>}
           </CardContent>
         </Card>
       </div>

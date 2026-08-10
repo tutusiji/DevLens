@@ -9,7 +9,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Plus, GitCommit, Users, Clock, LayoutGrid, Table as TableIcon, FolderGit2 } from 'lucide-react';
+import { Plus, GitCommit, Users, Clock, LayoutGrid, Table as TableIcon, FolderGit2, RefreshCw, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,66 +31,74 @@ type ViewMode = 'card' | 'table';
 type SortKey = 'score' | 'name' | 'commits' | 'debt';
 
 /* 项目卡片 - 统一尺寸，去框化 */
-function ProjectCard({ project }: { project: Project }) {
+function ProjectCard({ project, onReanalyze, onDelete }: { project: Project; onReanalyze: (id: string) => void; onDelete: (id: string) => void }) {
   const status = STATUS_CONFIG[project.status];
   return (
     <motion.div variants={cardItem}>
-      <Link href={`/projects/${project.id}`}>
-        <Card className="cursor-pointer overflow-hidden transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5">
-          <CardContent className="p-5">
-            {/* 顶部：项目名 + 状态 + 健康度 */}
-            <div className="flex items-start justify-between">
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-mono font-semibold text-base">{project.name}</h3>
-                  <Badge variant={status.variant}>{status.label}</Badge>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <span>{project.group}</span>
-                  <span>·</span>
-                  <Badge variant="outline" className="font-mono">{project.language}</Badge>
-                </div>
+      <Card className="cursor-pointer overflow-hidden transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5">
+        <CardContent className="p-5">
+          {/* 顶部：项目名 + 状态 + 健康度 */}
+          <div className="flex items-start justify-between">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Link href={`/projects/${project.id}`} className="font-mono font-semibold text-base hover:underline">
+                  {project.name}
+                </Link>
+                <Badge variant={status.variant}>{status.label}</Badge>
               </div>
-              <div className="flex items-baseline gap-1">
-                <span
-                  className="font-mono font-bold text-3xl"
-                  style={{ color: scoreColor(project.score), textShadow: `0 0 20px ${scoreColor(project.score)}30` }}
-                >
-                  {project.score}
-                </span>
-                <span className="text-xs text-muted-foreground/70">健康度</span>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span>{project.group}</span>
+                <span>·</span>
+                <Badge variant="outline" className="font-mono">{project.language}</Badge>
               </div>
             </div>
-
-            {/* 中部：三维进度条 */}
-            <div className="mt-4 space-y-2.5">
-              <ProgressBar label="质量" value={project.quality} showValue={false} indicatorClassName="bg-primary" />
-              <ProgressBar label="安全" value={project.security} showValue={false} indicatorClassName="bg-success" />
-              <ProgressBar label="技术债" value={project.debt} showValue={false} indicatorClassName="bg-warning" />
+            <div className="flex items-baseline gap-1">
+              <span
+                className="font-mono font-bold text-3xl"
+                style={{ color: scoreColor(project.score), textShadow: `0 0 20px ${scoreColor(project.score)}30` }}
+              >
+                {project.score}
+              </span>
+              <span className="text-xs text-muted-foreground/70">健康度</span>
             </div>
+          </div>
 
-            {/* 底部：统计信息 */}
-            <div className="mt-4 flex flex-wrap items-center gap-4 pt-3 text-xs text-muted-foreground/80" style={{ borderTop: '1px solid color-mix(in oklch, var(--muted-foreground) 8%, transparent)' }}>
-              <span className="flex items-center gap-1.5">
-                <GitCommit className="h-3.5 w-3.5" />
-                <span className="font-mono tabular-nums font-medium">{project.commits.toLocaleString()}</span> commits
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Users className="h-3.5 w-3.5" />
-                <span className="font-mono tabular-nums font-medium">{project.contributors}</span> 贡献者
-              </span>
-              <span className="ml-auto flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5" />{project.lastAnalyzed}
-              </span>
+          {/* 中部：三维进度条 */}
+          <div className="mt-4 space-y-2.5">
+            <ProgressBar label="质量" value={project.quality} showValue={false} indicatorClassName="bg-primary" />
+            <ProgressBar label="安全" value={project.security} showValue={false} indicatorClassName="bg-success" />
+            <ProgressBar label="技术债" value={project.debt} showValue={false} indicatorClassName="bg-warning" />
+          </div>
+
+          {/* 底部：统计信息 + 操作 */}
+          <div className="mt-4 flex flex-wrap items-center gap-4 pt-3 text-xs text-muted-foreground/80" style={{ borderTop: '1px solid color-mix(in oklch, var(--muted-foreground) 8%, transparent)' }}>
+            <span className="flex items-center gap-1.5">
+              <GitCommit className="h-3.5 w-3.5" />
+              <span className="font-mono tabular-nums font-medium">{project.commits.toLocaleString()}</span> commits
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5" />
+              <span className="font-mono tabular-nums font-medium">{project.contributors}</span> 贡献者
+            </span>
+            <span className="ml-auto flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5" />{project.lastAnalyzed}
+            </span>
+            <div className="flex w-full items-center justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onReanalyze(project.id); }}>
+                <RefreshCw className="h-3.5 w-3.5" /> 重新分析
+              </Button>
+              <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(project.id); }}>
+                <Trash2 className="h-3.5 w-3.5" /> 删除
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-      </Link>
+          </div>
+        </CardContent>
+      </Card>
     </motion.div>
   );
 }
 
-function ProjectTableView({ projects }: { projects: Project[] }) {
+function ProjectTableView({ projects, onReanalyze, onDelete }: { projects: Project[]; onReanalyze: (id: string) => void; onDelete: (id: string) => void }) {
   return (
     <Card>
       <Table>
@@ -105,24 +113,35 @@ function ProjectTableView({ projects }: { projects: Project[] }) {
             <TableHead className="text-right">技术债</TableHead>
             <TableHead>状态</TableHead>
             <TableHead className="text-right">commits</TableHead>
+            <TableHead className="text-right">操作</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {projects.map((p) => {
             const status = STATUS_CONFIG[p.status];
             return (
-              <TableRow key={p.id} onClick={() => window.location.href = `/projects/${p.id}`} className="cursor-pointer">
-                <TableCell className="font-mono font-semibold">{p.name}</TableCell>
-                <TableCell className="text-muted-foreground/80">{p.group}</TableCell>
-                <TableCell><Badge variant="outline" className="font-mono">{p.language}</Badge></TableCell>
-                <TableCell className="text-right">
+              <TableRow key={p.id} className="cursor-pointer">
+                <TableCell className="font-mono font-semibold" onClick={() => window.location.href = `/projects/${p.id}`}>{p.name}</TableCell>
+                <TableCell className="text-muted-foreground/80" onClick={() => window.location.href = `/projects/${p.id}`}>{p.group}</TableCell>
+                <TableCell onClick={() => window.location.href = `/projects/${p.id}`}><Badge variant="outline" className="font-mono">{p.language}</Badge></TableCell>
+                <TableCell className="text-right" onClick={() => window.location.href = `/projects/${p.id}`}>
                   <span className="font-mono font-bold tabular-nums text-lg" style={{ color: scoreColor(p.score), textShadow: `0 0 12px ${scoreColor(p.score)}20` }}>{p.score}</span>
                 </TableCell>
-                <TableCell className="text-right font-mono tabular-nums font-medium">{p.quality}</TableCell>
-                <TableCell className="text-right font-mono tabular-nums font-medium">{p.security}</TableCell>
-                <TableCell className="text-right font-mono tabular-nums font-medium" style={{ color: 'var(--destructive)' }}>{p.debt}</TableCell>
-                <TableCell><Badge variant={status.variant}>{status.label}</Badge></TableCell>
-                <TableCell className="text-right font-mono tabular-nums text-muted-foreground/80">{p.commits.toLocaleString()}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums font-medium" onClick={() => window.location.href = `/projects/${p.id}`}>{p.quality}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums font-medium" onClick={() => window.location.href = `/projects/${p.id}`}>{p.security}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums font-medium" style={{ color: 'var(--destructive)' }} onClick={() => window.location.href = `/projects/${p.id}`}>{p.debt}</TableCell>
+                <TableCell onClick={() => window.location.href = `/projects/${p.id}`}><Badge variant={status.variant}>{status.label}</Badge></TableCell>
+                <TableCell className="text-right font-mono tabular-nums text-muted-foreground/80" onClick={() => window.location.href = `/projects/${p.id}`}>{p.commits.toLocaleString()}</TableCell>
+                <TableCell className="text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={() => onReanalyze(p.id)}>
+                      <RefreshCw className="h-3.5 w-3.5" /> 重新分析
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={() => onDelete(p.id)}>
+                      <Trash2 className="h-3.5 w-3.5" /> 删除
+                    </Button>
+                  </div>
+                </TableCell>
               </TableRow>
             );
           })}
@@ -141,11 +160,35 @@ export default function ProjectsPage() {
   const [statusFilter, setStatusFilter] = React.useState('all');
   const [search, setSearch] = React.useState('');
 
-  React.useEffect(() => {
+  const loadProjects = React.useCallback(() => {
+    setLoading(true);
     api.getProjects().then((p) => {
       setProjects(p);
       setLoading(false);
     });
+  }, []);
+
+  React.useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
+
+  const handleReanalyze = React.useCallback(async (id: string) => {
+    try {
+      await api.reanalyzeProject(id);
+      loadProjects();
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '重新分析失败');
+    }
+  }, [loadProjects]);
+
+  const handleDelete = React.useCallback(async (id: string) => {
+    if (!window.confirm('确定删除该项目？相关分析、报告、环境盘点数据将一并删除，不可恢复。')) return;
+    try {
+      await api.deleteProject(id);
+      setProjects((prev) => prev.filter((p) => p.id !== id));
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '删除失败');
+    }
   }, []);
 
   const langOptions = React.useMemo(() => {
@@ -247,11 +290,11 @@ export default function ProjectsPage() {
           className="grid gap-5 md:grid-cols-2 lg:grid-cols-3"
         >
           {filtered.map((p) => (
-            <ProjectCard key={p.id} project={p} />
+            <ProjectCard key={p.id} project={p} onReanalyze={handleReanalyze} onDelete={handleDelete} />
           ))}
         </motion.div>
       ) : (
-        <ProjectTableView projects={filtered} />
+        <ProjectTableView projects={filtered} onReanalyze={handleReanalyze} onDelete={handleDelete} />
       )}
     </>
   );

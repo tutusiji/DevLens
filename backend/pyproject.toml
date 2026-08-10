@@ -16,4 +16,13 @@ dependencies = [
     "uvicorn[standard]>=0.52.0",
     "pyjwt>=2.13.0",
     "bcrypt>=5.0.0",
+    "cryptography>=44.0.0",
+    "pypinyin>=0.53.0",
+    "alembic>=1.19.1",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
 ]

@@ -222,10 +222,13 @@ class Developer(CamelModel):
     id: str
     name: str
     username: str
+    email: Optional[str] = None
+    employee_id: Optional[str] = None
     role: str
     role_type: str
     team: str
     team_id: str
+    team_space_id: Optional[str] = None
     group_id: Optional[str] = None
     level: str
     overall: int
@@ -356,7 +359,7 @@ class Repository(CamelModel):
     id: str
     name: str
     path: str
-    source_type: str
+    source_type: str = "remote"
     provider: Optional[str] = None
     remote_url: Optional[str] = None
     branch: str
@@ -382,6 +385,7 @@ class IdentityMatch(CamelModel):
     git_name: str
     git_email: str
     person_name: str
+    developer_id: Optional[str] = None
     department: str
     confidence: float
     method: str
@@ -390,9 +394,7 @@ class IdentityMatch(CamelModel):
 # ============ 请求 ============
 class ProjectCreateRequest(CamelModel):
     name: str
-    repo_type: str
-    repo_url: Optional[str] = None
-    repo_path: Optional[str] = None
+    repo_url: str
     provider: Optional[str] = None
     branch: str
     team_id: str
@@ -414,7 +416,7 @@ class RepositoryImportResult(CamelModel):
 class ModelProviderM(CamelModel):
     key: str
     name: str
-    api_key: str
+    api_key: str  # 脱敏展示，如 sk-****...abcd
     base_url: str
     status: str
     models: list[str] = []
@@ -754,10 +756,49 @@ class DeveloperEvaluationListResponse(CamelModel):
 
 
 class EvaluateRequest(CamelModel):
-    repo_path: str
+    project_id: str
     git_author: str
     role_key: Optional[str] = None
     skill_group_id: Optional[str] = None
+
+
+# ============ 平台凭证 / 仓库发现 / Webhook ============
+class ProviderConfigM(CamelModel):
+    id: str
+    provider: str
+    display_name: str = ""
+    base_url: str = ""
+    enabled: bool = True
+    has_token: bool = False
+    token_masked: str = ""
+    has_webhook_secret: bool = False
+    created_at: str = ""
+    updated_at: str = ""
+
+
+class ProviderConfigUpsert(CamelModel):
+    provider: str
+    display_name: Optional[str] = None
+    base_url: Optional[str] = None
+    access_token: Optional[str] = None
+    webhook_secret: Optional[str] = None
+    enabled: Optional[bool] = None
+
+
+class DiscoveredRepo(CamelModel):
+    name: str
+    ssh_url: Optional[str] = None
+    http_url: Optional[str] = None
+    default_branch: str = "main"
+    description: str = ""
+    private: bool = False
+
+
+class RepoImportRequest(CamelModel):
+    provider: str
+    repos: list[DiscoveredRepo]
+    team_id: str
+    access_token: Optional[str] = None
 
 
 # ============ 可售化：项目对比 / 历史趋势 / 报告 ============

@@ -8,33 +8,15 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { Search, FolderGit2, Users, Network, CornerDownLeft, ArrowUp, ArrowDown } from 'lucide-react';
-import { projects, developers, teams } from '@/lib/mock-data';
+import { api } from '@/lib/api';
+import type { GlobalSearchItem } from '@/lib/types';
 
-interface SearchItem {
-  type: 'project' | 'developer' | 'team';
-  id: string;
-  title: string;
-  subtitle: string;
-  href: string;
+interface SearchItem extends GlobalSearchItem {
+  type: 'project' | 'developer' | 'team' | 'teamSpace';
   icon: React.ComponentType<{ className?: string }>;
 }
 
-const ALL_ITEMS: SearchItem[] = [
-  ...projects.map((p) => ({
-    type: 'project' as const, id: p.id, title: p.name, subtitle: `${p.group} · ${p.language}`,
-    href: `/projects/${p.id}`, icon: FolderGit2,
-  })),
-  ...developers.map((d) => ({
-    type: 'developer' as const, id: d.id, title: d.name, subtitle: `${d.role} · ${d.team}`,
-    href: `/developers/${d.id}`, icon: Users,
-  })),
-  ...teams.map((t) => ({
-    type: 'team' as const, id: t.id, title: t.name, subtitle: `${t.members} 人 · 均分 ${t.avgScore}`,
-    href: `/teams`, icon: Network,
-  })),
-];
-
-const TYPE_LABEL = { project: '项目', developer: '开发者', team: '团队' };
+const TYPE_LABEL = { project: '项目', developer: '开发者', team: '团队', teamSpace: '组织团队' };
 
 function fuzzyMatch(query: string, text: string): boolean {
   const q = query.toLowerCase();
@@ -54,6 +36,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   const [activeIndex, setActiveIndex] = React.useState(0);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [mounted, setMounted] = React.useState(false);
+  const [searchItems, setSearchItems] = React.useState<SearchItem[]>([]);
 
   React.useEffect(() => setMounted(true), []);
 
@@ -65,12 +48,31 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
     }
   }, [open]);
 
+  // 打开时拉取全部（空查询返回前 8 条），输入时实时过滤
+  React.useEffect(() => {
+    if (!open) return;
+    let active = true;
+    const keyword = query.trim();
+    api.globalSearch(keyword || ' ')
+      .then((result) => {
+        if (!active) return;
+        setSearchItems([
+          ...result.projects.map((p) => ({ ...p, type: 'project' as const, icon: FolderGit2 })),
+          ...result.developers.map((d) => ({ ...d, type: 'developer' as const, icon: Users })),
+          ...result.teamSpaces.map((s) => ({ ...s, type: 'teamSpace' as const, icon: Network })),
+          ...result.teams.map((t) => ({ ...t, type: 'team' as const, icon: Network })),
+        ]);
+      })
+      .catch(() => { if (active) setSearchItems([]); });
+    return () => { active = false; };
+  }, [open, query]);
+
   const results = React.useMemo(() => {
-    if (!query.trim()) return ALL_ITEMS.slice(0, 8);
-    return ALL_ITEMS.filter(
-      (item) => fuzzyMatch(query, item.title) || fuzzyMatch(query, item.subtitle)
+    if (!query.trim()) return searchItems.slice(0, 8);
+    return searchItems.filter(
+      (item) => fuzzyMatch(query, item.name) || fuzzyMatch(query, item.subtitle)
     );
-  }, [query]);
+  }, [query, searchItems]);
 
   // 分组
   const grouped = React.useMemo(() => {
@@ -156,7 +158,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                     >
                       <Icon className={`h-4 w-4 ${active ? 'text-primary' : 'text-muted-foreground'}`} />
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium">{item.title}</div>
+                        <div className="text-sm font-medium">{item.name}</div>
                         <div className="truncate text-xs text-muted-foreground">{item.subtitle}</div>
                       </div>
                       {active && <CornerDownLeft className="h-3 w-3 text-muted-foreground" />}

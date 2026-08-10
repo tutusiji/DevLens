@@ -14,6 +14,7 @@ from .db import SessionLocal
 from . import models
 from .git_collect import collect_git_meta, sample_core_files
 from .llm import chat_json
+from .vcs import ensure_remote_repo
 
 REVIEW_CATEGORIES = [
     "quality", "security", "performance", "maintainability", "architecture",
@@ -25,13 +26,22 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _update_run(db, project_id: str, status: str, progress: int, stage: str, message: str) -> None:
-    run = (
-        db.query(models.AnalysisRun)
-        .filter_by(project_id=project_id)
-        .order_by(models.AnalysisRun.id.desc())
-        .first()
-    )
+def _update_run(db, project_id: str, status: str, progress: int, stage: str, message: str, run_id: str | None = None) -> None:
+    """按 run_id 精确更新分析运行状态；未提供时回退到该项目最近更新的 run。
+
+    注意：不能按 id 字典序选 run —— run-xxx 是随机串，并发 reanalyze 时会
+    错误覆盖另一个线程的运行状态。
+    """
+    run = None
+    if run_id:
+        run = db.query(models.AnalysisRun).filter_by(id=run_id).first()
+    if not run:
+        run = (
+            db.query(models.AnalysisRun)
+            .filter_by(project_id=project_id)
+            .order_by(models.AnalysisRun.updated_at.desc())
+            .first()
+        )
     if run:
         run.status = status
         run.progress = progress
@@ -41,18 +51,15 @@ def _update_run(db, project_id: str, status: str, progress: int, stage: str, mes
         db.commit()
 
 
-def ensure_repo(repo_target: str, name: str, branch: str) -> str:
-    if os.path.isdir(os.path.join(repo_target, ".git")):
-        return repo_target
-    cache = settings.repos_cache
-    os.makedirs(cache, exist_ok=True)
-    local = os.path.join(cache, name)
-    subprocess.run(["rm", "-rf", local], check=False)
-    subprocess.run(
-        ["git", "clone", "--quiet", repo_target, local],
-        check=True, timeout=180,
+def ensure_repo(repo_url: str, project_id: str, tenant_id: str, branch: str, access_token_encrypted: bytes | None = None) -> str:
+    """统一封装远程仓库 clone（已废弃本地路径来源）。"""
+    return ensure_remote_repo(
+        repo_url=repo_url,
+        project_id=project_id,
+        tenant_id=tenant_id,
+        branch=branch,
+        access_token_encrypted=access_token_encrypted,
     )
-    return local
 
 
 def _to_int(v, default=0):
@@ -258,36 +265,45 @@ def _discover_assets(repo_path: str, meta: dict) -> dict:
 
 
 def _build_identity_matches(project_id: str, meta: dict, db) -> None:
-    """从 git contributors 生成身份匹配（git 作者 -> 组织人员）"""
+    """从 git contributors 生成身份匹配（git 作者 -> 组织人员）。
+
+    匹配优先级：
+    1. 邮箱精确匹配 Developer.email / AccountUser.email
+    2. 工号精确匹配 Developer.employee_id
+    3. 姓名精确匹配 Developer.name
+    4. 拼音模糊匹配（中文姓名转拼音）
+    5. 兜底 fuzzy / 未匹配
+    """
+    from .identity_matcher import match_git_contributor
+
     project = db.query(models.Project).filter_by(id=project_id).first()
     tenant_id = project.tenant_id if project else "tenant-default"
     db.query(models.IdentityMatch).filter_by(
         project_id=project_id, tenant_id=tenant_id,
     ).delete()
+
+    developers = db.query(models.Developer).filter_by(tenant_id=tenant_id).all()
+    users = db.query(models.AccountUser).all()
+
     for c in meta["contributors"][:10]:
         name = c["name"]
         email = c["email"].split(" / ")[0] if c["email"] else ""
-        dev = db.query(models.Developer).filter(
-            models.Developer.name == name,
-            models.Developer.tenant_id == tenant_id,
-        ).first()
-        if dev:
-            db.add(models.IdentityMatch(
-                id=f"im-{project_id}-{abs(hash(name)) % 100000}",
-                project_id=project_id, git_name=name, git_email=email,
-                person_name=dev.name, department=dev.team, confidence=0.95, method="exact",
-                tenant_id=tenant_id,
-            ))
-        else:
-            db.add(models.IdentityMatch(
-                id=f"im-{project_id}-{abs(hash(name)) % 100000}",
-                project_id=project_id, git_name=name, git_email=email,
-                person_name=name, department="未匹配", confidence=0.5, method="fuzzy",
-                tenant_id=tenant_id,
-            ))
+        match = match_git_contributor(name, email, developers, users)
+        db.add(models.IdentityMatch(
+            id=f"im-{project_id}-{abs(hash(name)) % 100000}",
+            project_id=project_id,
+            git_name=name,
+            git_email=email,
+            person_name=match.person_name,
+            developer_id=match.developer_id,
+            department=match.department,
+            confidence=match.confidence,
+            method=match.method,
+            tenant_id=tenant_id,
+        ))
 
 
-def _persist(db, project_id: str, name: str, meta: dict, result: dict, repo_path: str) -> None:
+def _persist(db, project_id: str, name: str, meta: dict, result: dict, repo_path: str, run_id: str | None = None) -> None:
     db.query(models.Insight).filter_by(project_id=project_id).delete()
     db.query(models.ModuleRisk).filter_by(project_id=project_id).delete()
     db.query(models.FixPriority).filter_by(project_id=project_id).delete()
@@ -393,10 +409,16 @@ def _persist(db, project_id: str, name: str, meta: dict, result: dict, repo_path
     # 横向对比/趋势报表以快照为准。
     latest_run = (
         db.query(models.AnalysisRun)
-        .filter_by(project_id=project_id)
-        .order_by(models.AnalysisRun.updated_at.desc())
+        .filter_by(project_id=project_id, id=run_id)
         .first()
-    )
+    ) if run_id else None
+    if not latest_run:
+        latest_run = (
+            db.query(models.AnalysisRun)
+            .filter_by(project_id=project_id)
+            .order_by(models.AnalysisRun.updated_at.desc())
+            .first()
+        )
     db.add(models.ProjectAssessmentSnapshot(
         id=f"psnap-{uuid.uuid4().hex[:12]}",
         tenant_id=p.tenant_id or "tenant-default",
@@ -416,14 +438,14 @@ def _persist(db, project_id: str, name: str, meta: dict, result: dict, repo_path
     db.commit()
 
 
-def _analyze(project_id: str, repo_target: str, name: str, branch: str, group_id: str | None = None) -> None:
+def _analyze(project_id: str, repo_url: str, tenant_id: str, name: str, branch: str, access_token_encrypted: bytes | None = None, group_id: str | None = None, run_id: str | None = None) -> None:
     db = SessionLocal()
     try:
-        _update_run(db, project_id, "cloning", 10, "git_collect", "克隆仓库")
-        repo_path = ensure_repo(repo_target, name, branch)
-        _update_run(db, project_id, "analyzing", 30, "git_collect", "采集 git 元数据")
-        meta = collect_git_meta(repo_path)
-        _update_run(db, project_id, "analyzing", 50, "code_parse", "LLM 分析代码")
+        _update_run(db, project_id, "cloning", 10, "git_collect", "克隆仓库", run_id=run_id)
+        repo_path = ensure_repo(repo_url, project_id, tenant_id, branch, access_token_encrypted)
+        _update_run(db, project_id, "analyzing", 30, "git_collect", "采集 git 元数据", run_id=run_id)
+        meta = collect_git_meta(repo_path, branch=branch)
+        _update_run(db, project_id, "analyzing", 50, "code_parse", "LLM 分析代码", run_id=run_id)
         samples = sample_core_files(repo_path, meta)
         # RAG：索引代码 chunk 到 Qdrant（语义检索基础设施）
         try:
@@ -437,13 +459,8 @@ def _analyze(project_id: str, repo_target: str, name: str, branch: str, group_id
         group = None
         if group_id:
             group = _load_group_rules(db, group_id)
-        else:
-            run = (
-                db.query(models.AnalysisRun)
-                .filter_by(project_id=project_id)
-                .order_by(models.AnalysisRun.id.desc())
-                .first()
-            )
+        elif run_id:
+            run = db.query(models.AnalysisRun).filter_by(id=run_id).first()
             if run and run.skill_group_id:
                 group = _load_group_rules(db, run.skill_group_id)
             else:
@@ -453,6 +470,32 @@ def _analyze(project_id: str, repo_target: str, name: str, branch: str, group_id
                     group = _load_group_rules(db, default.id)
 
         result = _llm_analyze(meta, samples, name, group)
+
+        # 静态安全扫描：基于代码内容的可解释发现，合并进 AI 审查结果
+        try:
+            from .security_scanner import scan_repository
+            security_findings = scan_repository(repo_path, meta)
+            if security_findings:
+                existing = result.get("aiInsights") or []
+                result["aiInsights"] = existing + [
+                    {
+                        "title": f["title"],
+                        "module": f["file_path"].split("/")[0] if "/" in f["file_path"] else "",
+                        "category": f["category"],
+                        "severity": f["severity"],
+                        "evidence": f["evidence"],
+                        "confidence": 0.9,
+                        "status": "open",
+                        "filePath": f["file_path"],
+                        "startLine": f["start_line"],
+                        "impact": "静态扫描发现的可疑模式，建议人工复核并修复。",
+                        "action": "检查相关配置或代码，移除硬编码凭证或加固调用方式。",
+                        "skillGroup": "security-scan",
+                    }
+                    for f in security_findings
+                ]
+        except Exception as e:
+            print(f"  静态安全扫描跳过: {e}")
 
         # 记录 SkillGroupRun 快照（保证可复现：组名 + 规则 id + 规则全文）
         if group:
@@ -474,19 +517,30 @@ def _analyze(project_id: str, repo_target: str, name: str, branch: str, group_id
             ))
             db.commit()
 
-        _update_run(db, project_id, "analyzing", 80, "project_snapshot", "生成报告入库")
-        _persist(db, project_id, name, meta, result, repo_path)
-        _update_run(db, project_id, "completed", 100, "report", "分析完成")
+        _update_run(db, project_id, "analyzing", 80, "project_snapshot", "生成报告入库", run_id=run_id)
+        _persist(db, project_id, name, meta, result, repo_path, run_id=run_id)
+        _update_run(db, project_id, "completed", 100, "report", "分析完成", run_id=run_id)
         print(f"✓ 分析完成 {project_id} ({name})")
     except Exception as e:
-        _update_run(db, project_id, "failed", 0, "error", str(e)[:200])
+        _update_run(db, project_id, "failed", 0, "error", str(e)[:200], run_id=run_id)
         print(f"✗ 分析失败 {project_id}: {e}")
     finally:
         db.close()
 
 
-def analyze_repository(project_id: str, repo_target: str, name: str, branch: str = "", background: bool = False, group_id: str | None = None) -> None:
+def analyze_repository(
+    project_id: str,
+    repo_url: str,
+    tenant_id: str,
+    name: str,
+    branch: str = "",
+    access_token_encrypted: bytes | None = None,
+    background: bool = False,
+    group_id: str | None = None,
+    run_id: str | None = None,
+) -> None:
+    args = (project_id, repo_url, tenant_id, name, branch, access_token_encrypted, group_id, run_id)
     if background:
-        threading.Thread(target=_analyze, args=(project_id, repo_target, name, branch, group_id), daemon=True).start()
+        threading.Thread(target=_analyze, args=args, daemon=True).start()
     else:
-        _analyze(project_id, repo_target, name, branch, group_id)
+        _analyze(*args)

@@ -43,7 +43,7 @@ export default function RegisterPage() {
         localStorage.setItem('devlens-tenant-id', result.tenant.id);
         localStorage.setItem('devlens-user-id', result.user.id);
       }
-      router.push('/');
+      router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : '注册失败，请重试');
     } finally {

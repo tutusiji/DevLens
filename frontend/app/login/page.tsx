@@ -4,7 +4,8 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { loginAPI } from '@/lib/api';
+import { loginAPI, demoLoginAPI } from '@/lib/api';
+import { Sparkles } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,6 +13,7 @@ export default function LoginPage() {
   const [password, setPassword] = React.useState('');
   const [error, setError] = React.useState('');
   const [loading, setLoading] = React.useState(false);
+  const [demoLoading, setDemoLoading] = React.useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,11 +26,29 @@ export default function LoginPage() {
         localStorage.setItem('devlens-tenant-id', result.tenant.id);
         localStorage.setItem('devlens-user-id', result.user.id);
       }
-      router.push('/');
+      router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败，请重试');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleDemoLogin() {
+    setError('');
+    setDemoLoading(true);
+    try {
+      const result = await demoLoginAPI();
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('devlens-tenant-id', result.tenant.id);
+        localStorage.setItem('devlens-user-id', result.user.id);
+        localStorage.setItem('devlens-is-demo', '1');
+      }
+      router.push('/dashboard');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Demo 登录失败，请重试');
+    } finally {
+      setDemoLoading(false);
     }
   }
 
@@ -46,6 +66,26 @@ export default function LoginPage() {
             </div>
             <h1 className="text-2xl font-semibold tracking-tight">DevLens · 研发棱镜</h1>
             <p className="mt-1.5 text-sm text-muted-foreground">登录以继续访问你的研发认知空间</p>
+          </div>
+
+          {/* Demo 快速体验按钮 */}
+          <Button
+            variant="accent"
+            className="mb-5 w-full gap-2"
+            onClick={handleDemoLogin}
+            disabled={demoLoading || loading}
+          >
+            <Sparkles className="h-4 w-4" />
+            {demoLoading ? '正在进入Demo…' : '✨ 快速体验 Demo（无需注册）'}
+          </Button>
+
+          <div className="relative mb-5">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border/60" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card/70 px-3 text-muted-foreground/70">或使用邮箱登录</span>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">

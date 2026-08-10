@@ -51,8 +51,6 @@ export default function ReposPage() {
       <div className="mb-4 flex items-center gap-4 rounded-lg border border-border bg-muted/20 px-4 py-2 text-sm">
         <span>共 <span className="font-mono tabular-nums font-medium">{repos.length}</span> 个仓库</span>
         <span className="text-muted-foreground">·</span>
-        <span>远程 <span className="font-mono tabular-nums font-medium text-primary">{repos.filter((repo) => repo.sourceType === 'remote').length}</span></span>
-        <span className="text-muted-foreground">·</span>
         <span>已同步 <span className="font-mono tabular-nums font-medium text-success">{syncedCount}</span></span>
         <span className="text-muted-foreground">·</span>
         <span>总 commits <span className="font-mono tabular-nums font-medium">{totalCommits.toLocaleString()}</span></span>
@@ -84,8 +82,8 @@ export default function ReposPage() {
                   <TableCell className="font-mono font-medium">{repo.name}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline">{repo.sourceType === 'remote' ? repo.provider || '远程' : '本地'}</Badge>
-                      <span className="max-w-[280px] truncate font-mono text-xs text-muted-foreground" title={repo.sourceType === 'remote' ? repo.remoteUrl : repo.path}>{repo.sourceType === 'remote' ? repo.remoteUrl : repo.path}</span>
+                      <Badge variant="outline">{repo.provider || '远程'}</Badge>
+                      <span className="max-w-[280px] truncate font-mono text-xs text-muted-foreground" title={repo.remoteUrl}>{repo.remoteUrl}</span>
                     </div>
                   </TableCell>
                   <TableCell>

@@ -1,0 +1,77 @@
+# DevLens 完整开发/演示编排：PostgreSQL + Qdrant + Backend + Frontend
+#
+# 用法：
+#   docker compose up -d
+#   （首次启动后访问 http://localhost:3800，API 代理指向 backend:8000）
+#
+# 生产建议：仍沿用 systemd + Nginx 部署（deploy/），本编排用于本地联调与演示。
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: devlens
+      POSTGRES_USER: devlens
+      POSTGRES_PASSWORD: devlens
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devlens -d devlens"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    volumes:
+      - qdrantdata:/qdrant/storage
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg2://devlens:devlens@postgres:5432/devlens
+      QDRANT_URL: http://qdrant:6333
+      DEVLENS_REPOS_CACHE: /data/repos
+      DEVLENS_ALLOW_LOCAL_ADMIN: "true"
+      DEVLENS_JWT_SECRET: ${DEVLENS_JWT_SECRET:-devlens-compose-secret-change-me}
+      DEVLENS_ADMIN_EMAIL: local-admin@devlens.local
+      DEVLENS_ADMIN_PASSWORD: ${DEVLENS_ADMIN_PASSWORD:-DevLens@2026}
+      COPILOT_PROVIDER_BASE_URL: ${COPILOT_PROVIDER_BASE_URL:-https://api.deepseek.com/anthropic}
+      COPILOT_PROVIDER_API_KEY: ${COPILOT_PROVIDER_API_KEY:-}
+      COPILOT_MODEL: ${COPILOT_MODEL:-deepseek-v4-pro}
+      DEVLENS_ENCRYPTION_KEY: ${DEVLENS_ENCRYPTION_KEY:-}
+    volumes:
+      - repocache:/data/repos
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: /api/v1
+    environment:
+      BACKEND_URL: http://backend:8000
+      PORT: 3800
+    depends_on:
+      - backend
+    ports:
+      - "3800:3800"
+
+volumes:
+  pgdata:
+  qdrantdata:
+  repocache:

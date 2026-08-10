@@ -14,7 +14,7 @@ from .auth import hash_password
 from .config import settings
 from .routers import (
     overview, projects, developers, teams, repos, config, skills, env_inventory, evaluations,
-    portfolio, reports, tenants, architecture_designs, auth,
+    portfolio, reports, tenants, architecture_designs, auth, providers,
 )
 
 
@@ -209,6 +209,23 @@ def ensure_migrate():
                 )
         conn.commit()
 
+        # 网络仓库接入 v2：access_token 加密落库、开发者组织树归属 + 身份匹配增强
+        column_additions = {
+            "repositories": {"access_token_encrypted": "BYTEA"},
+            "developers": {"team_space_id": "VARCHAR", "employee_id": "VARCHAR", "email": "VARCHAR"},
+            "identity_matches": {"developer_id": "VARCHAR"},
+            "developer_evaluations": {"repo_path": "VARCHAR", "branch": "VARCHAR"},
+        }
+        existing_tables = set(insp.get_table_names())
+        for table_name, columns in column_additions.items():
+            if table_name not in existing_tables:
+                continue
+            existing_columns = {column["name"] for column in insp.get_columns(table_name)}
+            for name, column_type in columns.items():
+                if name not in existing_columns:
+                    conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {name} {column_type}"))
+        conn.commit()
+
         # v0.5 起能力角色按租户隔离。早期 PostgreSQL schema 对 key 有全局唯一
         # 约束，须在 tenant_id 回填后替换为 (tenant_id, key) 复合唯一约束。
         if engine.dialect.name == "postgresql":
@@ -367,6 +384,7 @@ app.include_router(portfolio.router, prefix="/api/v1")
 app.include_router(reports.router, prefix="/api/v1")
 app.include_router(tenants.router, prefix="/api/v1")
 app.include_router(architecture_designs.router, prefix="/api/v1")
+app.include_router(providers.router, prefix="/api/v1")
 
 
 @app.get("/")

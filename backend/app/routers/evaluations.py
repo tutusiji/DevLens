@@ -81,15 +81,22 @@ def trigger_evaluation(
     )
     if not developer:
         raise HTTPException(status_code=404, detail="开发者不存在")
-    repository = (
-        db.query(models.Repository)
-        .filter_by(path=body.repo_path, tenant_id=ctx.tenant_id)
+    project = (
+        db.query(models.Project)
+        .filter_by(id=body.project_id, tenant_id=ctx.tenant_id)
         .first()
     )
-    if not repository:
+    if not project:
+        raise HTTPException(status_code=404, detail="评估目标项目不存在")
+    repository = (
+        db.query(models.Repository)
+        .filter_by(project_id=body.project_id, tenant_id=ctx.tenant_id)
+        .first()
+    )
+    if not repository or not repository.remote_url:
         raise HTTPException(
             status_code=422,
-            detail="评估仓库必须是当前租户已接入的 Repository，禁止传入任意本地路径",
+            detail="评估项目必须已接入远程仓库",
         )
     role_key = body.role_key or developer.role_type
     if not role_key:
@@ -116,8 +123,9 @@ def trigger_evaluation(
         skill_group_id=skill_group_id,
         tenant_id=ctx.tenant_id,
         project_id=repository.project_id,
-        repo_path=body.repo_path,
+        repo_path="",
         git_author=body.git_author,
+        branch=repository.branch,
         scores={},
         evidence=[],
         gaps=[],
@@ -201,21 +209,38 @@ def get_evaluation(
     return evaluation
 
 
+def _project_repo_path(
+    db: Session, tenant_id: str, project_id: str
+) -> str:
+    repository = (
+        db.query(models.Repository)
+        .filter_by(project_id=project_id, tenant_id=tenant_id)
+        .first()
+    )
+    if not repository or not repository.remote_url:
+        raise ValueError("项目未配置远程仓库")
+    from ..vcs import ensure_remote_repo
+    return ensure_remote_repo(
+        repo_url=repository.remote_url,
+        project_id=project_id,
+        tenant_id=tenant_id,
+        branch=repository.branch or "main",
+        access_token_encrypted=repository.access_token_encrypted,
+    )
+
+
 @router.get("/git-authors", response_model=list[str])
 def list_git_authors(
-    repo_path: str = Query(...),
+    project_id: str = Query(...),
     db: Session = Depends(get_db),
     ctx: TenantContext = Depends(require_permission("assessment:run")),
 ):
     """按最近提交顺序返回仓库中的唯一提交作者名。"""
-    repository = (
-        db.query(models.Repository)
-        .filter_by(path=repo_path, tenant_id=ctx.tenant_id)
-        .first()
-    )
-    if not repository:
-        raise HTTPException(status_code=404, detail="当前租户未接入该仓库")
+    project = db.query(models.Project).filter_by(id=project_id, tenant_id=ctx.tenant_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="项目不存在")
     try:
+        repo_path = _project_repo_path(db, ctx.tenant_id, project_id)
         return read_git_authors(repo_path)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

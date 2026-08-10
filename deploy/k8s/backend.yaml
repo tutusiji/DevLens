@@ -1,0 +1,219 @@
+# DevLens 后端（FastAPI）
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devlens-backend
+  namespace: devlens
+  labels:
+    app: devlens-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: devlens-backend
+  template:
+    metadata:
+      labels:
+        app: devlens-backend
+    spec:
+      containers:
+        - name: backend
+          image: devlens-backend:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: devlens-secrets
+                  key: database-url
+            - name: DEVLENS_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: devlens-secrets
+                  key: jwt-secret
+            - name: DEVLENS_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: devlens-secrets
+                  key: encryption-key
+            - name: COPILOT_PROVIDER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: devlens-secrets
+                  key: llm-api-key
+            - name: DEVLENS_ALLOW_LOCAL_ADMIN
+              value: "false"
+            - name: COPILOT_PROVIDER_BASE_URL
+              value: "https://api.deepseek.com/anthropic"
+            - name: COPILOT_MODEL
+              value: "deepseek-v4-pro"
+            - name: QDRANT_URL
+              value: "http://devlens-qdrant:6333"
+          volumeMounts:
+            - name: repos-cache
+              mountPath: /data/repos
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+            initialDelaySeconds: 5
+      volumes:
+        - name: repos-cache
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devlens-backend
+  namespace: devlens
+spec:
+  selector:
+    app: devlens-backend
+  ports:
+    - port: 8000
+      targetPort: 8000
+---
+# Celery Worker（可选，用于替换 daemon thread 后台任务）
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devlens-worker
+  namespace: devlens
+  labels:
+    app: devlens-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: devlens-worker
+  template:
+    metadata:
+      labels:
+        app: devlens-worker
+    spec:
+      containers:
+        - name: worker
+          image: devlens-backend:latest
+          command: ["uv", "run", "celery", "-A", "app.celery_app", "worker", "--loglevel=info"]
+          env:
+            - name: REDIS_URL
+              value: "redis://devlens-redis:6379/0"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: devlens-secrets
+                  key: database-url
+            - name: DEVLENS_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: devlens-secrets
+                  key: encryption-key
+          volumeMounts:
+            - name: repos-cache
+              mountPath: /data/repos
+      volumes:
+        - name: repos-cache
+          emptyDir: {}
+---
+# PostgreSQL
+apiVersion: v1
+kind: Service
+metadata:
+  name: devlens-postgres
+  namespace: devlens
+spec:
+  selector:
+    app: devlens-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: devlens-postgres
+  namespace: devlens
+spec:
+  serviceName: devlens-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: devlens-postgres
+  template:
+    metadata:
+      labels:
+        app: devlens-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - name: POSTGRES_DB
+              value: devlens
+            - name: POSTGRES_USER
+              value: devlens
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: devlens-secrets
+                  key: postgres-password
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: pgdata
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+---
+# Qdrant
+apiVersion: v1
+kind: Service
+metadata:
+  name: devlens-qdrant
+  namespace: devlens
+spec:
+  selector:
+    app: devlens-qdrant
+  ports:
+    - port: 6333
+      targetPort: 6333
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: devlens-qdrant
+  namespace: devlens
+spec:
+  serviceName: devlens-qdrant
+  replicas: 1
+  selector:
+    matchLabels:
+      app: devlens-qdrant
+  template:
+    metadata:
+      labels:
+        app: devlens-qdrant
+    spec:
+      containers:
+        - name: qdrant
+          image: qdrant/qdrant:latest
+          ports:
+            - containerPort: 6333
+          volumeMounts:
+            - name: qdrantdata
+              mountPath: /qdrant/storage
+  volumeClaimTemplates:
+    - metadata:
+        name: qdrantdata
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi

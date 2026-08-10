@@ -1,0 +1,43 @@
+# DevLens 前端（Next.js standalone）
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devlens-frontend
+  namespace: devlens
+  labels:
+    app: devlens-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: devlens-frontend
+  template:
+    metadata:
+      labels:
+        app: devlens-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: devlens-frontend:latest
+          ports:
+            - containerPort: 3800
+          env:
+            - name: BACKEND_URL
+              value: http://devlens-backend:8000
+          readinessProbe:
+            httpGet:
+              path: /login
+              port: 3800
+            initialDelaySeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devlens-frontend
+  namespace: devlens
+spec:
+  selector:
+    app: devlens-frontend
+  ports:
+    - port: 80
+      targetPort: 3800

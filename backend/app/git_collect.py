@@ -25,6 +25,7 @@ def _safe(repo: str, args: list[str]) -> str:
 def collect_author_code(
     repo_path: str,
     author: str,
+    branch: str | None = None,
     max_files: int = 10,
     max_bytes: int = 6000,
 ) -> dict:
@@ -44,9 +45,10 @@ def collect_author_code(
             "totalCommits": 0,
         }
 
+    log_ref = [branch] if branch else ["--all"]
     raw_files = _safe(
         repo_path,
-        ["log", f"--author={author}", "--name-only", "--pretty=format:", "--"],
+        ["log", f"--author={author}", "--name-only", "--pretty=format:"] + log_ref + ["--"],
     ).splitlines()
     # 保持 git 日志的最近优先顺序，同时过滤非代码文件和重复路径。
     files: list[str] = []
@@ -63,9 +65,10 @@ def collect_author_code(
         seen.add(path)
         files.append(path)
 
+    count_ref = [branch] if branch else ["HEAD"]
     try:
         commits = int(
-            _safe(repo_path, ["rev-list", "--count", f"--author={author}", "HEAD"]).strip()
+            _safe(repo_path, ["rev-list", "--count", f"--author={author}"] + count_ref).strip()
             or "0"
         )
     except ValueError:
@@ -250,19 +253,23 @@ def _parse_imports(repo_path: str, files: list[str]) -> list[dict]:
     return [{"source": source, "target": target} for source, target in sorted(edges)]
 
 
-def collect_git_meta(repo_path: str) -> dict:
-    branch = _safe(repo_path, ["branch", "--show-current"]).strip() or "main"
-    head = _safe(repo_path, ["log", "-1", "--pretty=format:%H|%h|%s"]).split("|")
+def collect_git_meta(repo_path: str, branch: str | None = None) -> dict:
+    resolved_branch = branch or _safe(repo_path, ["branch", "--show-current"]).strip() or "main"
+    head_ref = ["log", "-1", "--pretty=format:%H|%h|%s"]
+    if branch:
+        head_ref += [branch]
+    head = _safe(repo_path, head_ref).split("|")
     commit_sha = head[0] if head and head[0] else ""
     commit_short = head[1] if len(head) > 1 else ""
     commit_msg = "|".join(head[2:]) if len(head) > 2 else ""
+    count_ref = ["rev-list", "--count", branch if branch else "HEAD"]
     try:
-        total = int(_safe(repo_path, ["rev-list", "--count", "HEAD"]).strip() or "0")
+        total = int(_safe(repo_path, count_ref).strip() or "0")
     except ValueError:
         total = 0
 
     # 贡献者
-    shortlog = _safe(repo_path, ["shortlog", "-sn", "--all"]).strip().split("\n")
+    shortlog = _safe(repo_path, ["shortlog", "-sn", branch if branch else "--all"]).strip().split("\n")
     raw: list[tuple[str, str, int]] = []
     for line in shortlog:
         line = line.strip()
@@ -334,7 +341,7 @@ def collect_git_meta(repo_path: str) -> dict:
             recent.append({"sha": parts[0], "author": parts[1], "date": parts[2], "message": parts[3]})
 
     return {
-        "branch": branch, "commitSha": commit_sha, "commitShort": commit_short,
+        "branch": resolved_branch, "commitSha": commit_sha, "commitShort": commit_short,
         "commitMessage": commit_msg, "totalCommits": total,
         "contributors": contributors, "files": files, "fileCount": len(files),
         "codeFiles": code_files, "languages": languages, "modules": modules,

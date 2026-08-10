@@ -195,10 +195,13 @@ export interface Developer {
   id: string;
   name: string;
   username: string;
+  email?: string;
+  employeeId?: string;
   role: string;
   roleType: Role; // 开发角色 key
   team: string;
   teamId: string;
+  teamSpaceId?: string;
   groupId?: string;
   level: Level; // D1-G3 公司能力职级
   overall: number; // 综合评分
@@ -240,14 +243,13 @@ export interface CapabilityGap {
 
 // ============ 接入与仓库来源 ============
 
-export type RepositorySourceType = 'remote' | 'local';
-export type RepositoryProvider = 'github' | 'gitlab' | 'gitea' | 'bitbucket' | 'generic';
+export type RepositoryProvider = 'github' | 'gitlab' | 'gitee' | 'gitea' | 'bitbucket' | 'generic';
 
 export interface Repository {
   id: string;
   name: string;
   path: string;
-  sourceType: RepositorySourceType;
+  sourceType: 'remote';
   provider?: RepositoryProvider;
   remoteUrl?: string;
   branch: string;
@@ -261,9 +263,7 @@ export interface Repository {
 
 export interface ProjectCreateRequest {
   name: string;
-  repoType: RepositorySourceType;
-  repoUrl?: string;
-  repoPath?: string;
+  repoUrl: string;
   provider?: RepositoryProvider;
   branch: string;
   teamId: string;
@@ -274,7 +274,7 @@ export interface ProjectCreateRequest {
 export interface RepositoryImportResult {
   projectId: string;
   runId: string;
-  sourceType: RepositorySourceType;
+  sourceType: 'remote';
   provider?: RepositoryProvider;
   repository: string;
   branch: string;
@@ -841,7 +841,8 @@ export interface DeveloperEvaluation {
   developerId: string;
   roleKey: Role;
   skillGroupId?: string | null;
-  repoPath: string;
+  projectId: string;
+  repoPath?: string;
   gitAuthor: string;
   scores: Record<string, number>;
   evidence: DeveloperEvaluationEvidence[];
@@ -856,7 +857,7 @@ export interface DeveloperEvaluation {
 }
 
 export interface EvaluateDeveloperRequest {
-  repoPath: string;
+  projectId: string;
   gitAuthor: string;
   roleKey?: Role;
   skillGroupId?: string | null;
@@ -865,6 +866,60 @@ export interface EvaluateDeveloperRequest {
 export interface TriggerDeveloperEvaluationResponse {
   id: string;
   status: 'queued';
+}
+
+// ============ 全局搜索（命令面板） ============
+export interface GlobalSearchItem {
+  id: string;
+  name: string;
+  subtitle: string;
+  href: string;
+}
+
+export interface GlobalSearchResult {
+  projects: GlobalSearchItem[];
+  developers: GlobalSearchItem[];
+  teamSpaces: GlobalSearchItem[];
+  teams: GlobalSearchItem[];
+}
+
+// ============ 平台凭证 / 仓库发现 / Webhook ============
+export interface ProviderConfigM {
+  id: string;
+  provider: string;
+  displayName: string;
+  baseUrl: string;
+  enabled: boolean;
+  hasToken: boolean;
+  tokenMasked: string;
+  hasWebhookSecret: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProviderConfigUpsert {
+  provider: string;
+  displayName?: string;
+  baseUrl?: string;
+  accessToken?: string;
+  webhookSecret?: string;
+  enabled?: boolean;
+}
+
+export interface DiscoveredRepo {
+  name: string;
+  sshUrl?: string;
+  httpUrl?: string;
+  defaultBranch: string;
+  description: string;
+  private: boolean;
+}
+
+export interface RepoImportRequest {
+  provider: string;
+  repos: DiscoveredRepo[];
+  teamId: string;
+  accessToken?: string;
 }
 
 // ============ 可售化：项目组合 / 报告 / 多租户权限 ============

@@ -204,6 +204,15 @@ def delete_env_inventory_skill(
     return {"ok": True, "id": skill_id}
 
 
+def _mask_secret_value(value: str) -> str:
+    """对标记为敏感的值进行脱敏展示。"""
+    if not value:
+        return ""
+    if len(value) <= 8:
+        return "*" * len(value)
+    return f"{value[:4]}****{value[-2:]}"
+
+
 # ============ 条目列表 ============
 
 @router.get("/projects/{pid}/env-inventory", response_model=list[schemas.EnvInventoryEntryM])
@@ -243,6 +252,12 @@ def list_env_inventory(
             or ql in (e.username or "").lower()
             or ql in (e.database or "").lower()
         ]
+    # 敏感值脱敏，防止密钥泄露
+    for e in entries:
+        if e.is_secret and e.value:
+            e.value = _mask_secret_value(e.value)
+        if e.is_secret and e.previous_value:
+            e.previous_value = _mask_secret_value(e.previous_value)
     return entries
 
 
@@ -500,6 +515,12 @@ def get_scan_detail(
         .order_by(models.EnvInventoryEntry.source_file, models.EnvInventoryEntry.key)
         .all()
     )
+    # 敏感值脱敏
+    for e in entries:
+        if e.is_secret and e.value:
+            e.value = _mask_secret_value(e.value)
+        if e.is_secret and e.previous_value:
+            e.previous_value = _mask_secret_value(e.previous_value)
     return {
         "scan": schemas.EnvInventoryScanM.model_validate(scan).model_dump(by_alias=True),
         "entries": [
