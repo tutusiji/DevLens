@@ -26,7 +26,7 @@ import type {
   TenantRole,
   ProjectCodeGraph, ArchitectureDesign, ArchitectureDesignListResponse,
   GlobalSearchResult, ProviderConfigM, ProviderConfigUpsert, DiscoveredRepo, RepoImportRequest,
-  ProjectForecast, TeamForecast, CareerPathResult,
+  ProjectForecast, TeamForecast, CareerPathResult, RiskCenter, ApiTokenM,
 } from './types';
 import { LEVEL_GROUPS } from './types';
 
@@ -637,6 +637,14 @@ export const api = {
     fetchAPI<{ teamId: string; teamName: string; advice: string }>(`/teams/${teamId}/hiring-advice`, { method: 'POST' }),
   getDeveloperCareerPath: (developerId: string): Promise<CareerPathResult> =>
     fetchAPI<CareerPathResult>(`/developers/${developerId}/career-path`, { method: 'POST' }),
+  getRiskCenter: (): Promise<RiskCenter> =>
+    fetchAPI<RiskCenter>('/risk-center'),
+  getApiTokens: (): Promise<ApiTokenM[]> =>
+    fetchAPI<ApiTokenM[]>('/api-tokens'),
+  createApiToken: (body: { name: string; scope: 'read' | 'write' }): Promise<ApiTokenM & { token: string }> =>
+    fetchAPI<ApiTokenM & { token: string }>('/api-tokens', { method: 'POST', body: JSON.stringify(body) }),
+  deleteApiToken: (id: string): Promise<{ ok: boolean; id: string }> =>
+    fetchAPI<{ ok: boolean; id: string }>(`/api-tokens/${id}`, { method: 'DELETE' }),
   getProjectTrend: (projectId: string): Promise<ProjectTrendResponse> => {
     if (!USE_MOCK) return fetchAPI<ProjectTrendResponse>(`/projects/${projectId}/trend`);
     const project = getProjectDetail(projectId);

@@ -54,6 +54,31 @@ class RepositoryProviderConfig(Base):
     tenant_id = Column(String, default="tenant-default", index=True)
 
 
+class ApiToken(Base):
+    """应用级 API Token（开放平台）：按租户隔离，scope 控制可访问域。"""
+    __tablename__ = "api_tokens"
+    id = Column(String, primary_key=True)          # atk-xxx
+    name = Column(String, nullable=False)
+    token_hash = Column(String, nullable=False)    # sha256(token)，明文只返回一次
+    scope = Column(String, default="read")         # read|write
+    last_used_at = Column(String)
+    expires_at = Column(String)
+    created_at = Column(String)
+    tenant_id = Column(String, default="tenant-default", index=True)
+
+
+class ApiAccessLog(Base):
+    """API Token 调用审计：每次 X-API-Key 请求记录时间戳与路径。"""
+    __tablename__ = "api_access_logs"
+    id = Column(String, primary_key=True)          # aal-xxx
+    token_id = Column(String, nullable=False)
+    method = Column(String, default="")
+    path = Column(String, default="")
+    status = Column(Integer, default=0)
+    created_at = Column(String, index=True)
+    tenant_id = Column(String, default="tenant-default", index=True)
+
+
 class TeamGroup(Base):
     __tablename__ = "team_groups"
     id = Column(String, primary_key=True)

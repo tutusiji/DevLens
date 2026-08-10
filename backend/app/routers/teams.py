@@ -255,6 +255,93 @@ def team_forecast(
     }
 
 
+@router.get("/risk-center")
+def risk_center(
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("project:read")),
+):
+    """组织风险预警中心：聚合 Bus Factor / 能力缺口 / 技术债 / 项目健康，
+    按阈值分级为 P0（立即处理）/ P1（两周内）/ P2（持续关注）。"""
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    alerts: list[dict] = []
+
+    # 1. Bus Factor 风险：按团队聚合开发者的模块 ownership 分布估算
+    teams = db.query(models.Team).filter_by(tenant_id=ctx.tenant_id).all()
+    for team in teams:
+        if team.bus_factor is not None and team.bus_factor <= 2:
+            alerts.append({
+                "level": "P0" if team.bus_factor <= 1 else "P1",
+                "category": "bus_factor",
+                "title": f"团队「{team.name}」关键人风险（Bus Factor {team.bus_factor}）",
+                "detail": "核心贡献集中在极少数人，需尽快补充备份负责人或知识交接。",
+                "owner": team.name,
+            })
+
+    # 2. 能力缺口：capability_gaps 缺口 >= 30 视为高危
+    gaps = db.query(models.CapabilityGap).filter_by(tenant_id=ctx.tenant_id).all()
+    for gap in gaps:
+        diff = (gap.target or 0) - (gap.current or 0)
+        if diff >= 30:
+            alerts.append({
+                "level": "P0" if diff >= 40 else "P1",
+                "category": "skill_gap",
+                "title": f"能力缺口严重：{gap.capability}（当前 {gap.current or 0} → 目标 {gap.target or 0}）",
+                "detail": f"差距 {diff} 分，负责人 {gap.owner or '未分配'}",
+                "owner": gap.owner or "",
+            })
+
+    # 3. 项目健康：score < 60 或债务高
+    projects = db.query(models.Project).filter_by(tenant_id=ctx.tenant_id).all()
+    for p in projects:
+        score = p.score or 0
+        if score and score < 60:
+            alerts.append({
+                "level": "P1",
+                "category": "tech_debt",
+                "title": f"项目「{p.name}」健康度偏低（{score}）",
+                "detail": "低于 60 分阈值，建议安排技术债治理。",
+                "owner": p.team_id or "",
+            })
+
+    # 4. 无评估记录的高危团队：长期未做能力评估
+    stale_days_threshold = 90
+    for team in teams:
+        devs = _team_developers(db, team.id)
+        if not devs:
+            continue
+        evaluated = False
+        for dev in devs[:8]:
+            if db.query(models.DeveloperEvaluation).filter_by(
+                developer_id=dev.id, tenant_id=ctx.tenant_id, status="completed",
+            ).first():
+                evaluated = True
+                break
+        if not evaluated:
+            alerts.append({
+                "level": "P2",
+                "category": "stale_assessment",
+                "title": f"团队「{team.name}」缺少近期能力评估",
+                "detail": f"{len(devs)} 名成员均无完成的实测评估，能力盲区持续。",
+                "owner": team.name,
+            })
+
+    # 排序：P0 > P1 > P2
+    level_rank = {"P0": 0, "P1": 1, "P2": 2}
+    alerts.sort(key=lambda a: (level_rank.get(a["level"], 9), a["category"]))
+    return {
+        "generated_at": now.isoformat(),
+        "summary": {
+            "total": len(alerts),
+            "P0": sum(1 for a in alerts if a["level"] == "P0"),
+            "P1": sum(1 for a in alerts if a["level"] == "P1"),
+            "P2": sum(1 for a in alerts if a["level"] == "P2"),
+        },
+        "alerts": alerts,
+    }
+
+
 @router.post("/teams/{tid}/hiring-advice")
 def team_hiring_advice(
     tid: str,

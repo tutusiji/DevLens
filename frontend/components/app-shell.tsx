@@ -50,6 +50,7 @@ const SYSTEM_NAV: NavItem[] = [
   { href: '/models', label: '大模型管理', description: 'OpenAI · Anthropic', icon: Bot },
   { href: '/vector-models', label: '向量模型管理', description: 'Embedding · 索引', icon: Database },
   { href: '/capability-standards', label: '能力标准', description: '角色 · 级别 · 阈值', icon: Ruler },
+  { href: '/open-platform', label: '开放平台', description: 'API Token · 风险预警', icon: ShieldCheck },
   { href: '/access-control', label: '租户与权限', description: '成员 · RBAC · 数据隔离', icon: UserCog },
 ];
 

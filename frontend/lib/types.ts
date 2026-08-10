@@ -919,6 +919,31 @@ export interface CareerPathResult {
   careerPath: string;
 }
 
+// ============ P6：开放平台与风险预警 ============
+export interface RiskAlertItem {
+  level: 'P0' | 'P1' | 'P2';
+  category: string;
+  title: string;
+  detail: string;
+  owner: string;
+}
+
+export interface RiskCenter {
+  generatedAt: string;
+  summary: { total: number; P0: number; P1: number; P2: number };
+  alerts: RiskAlertItem[];
+}
+
+export interface ApiTokenM {
+  id: string;
+  name: string;
+  scope: 'read' | 'write';
+  lastUsedAt: string;
+  expiresAt: string;
+  createdAt: string;
+  token?: string;
+}
+
 // ============ 平台凭证 / 仓库发现 / Webhook ============
 export interface ProviderConfigM {
   id: string;

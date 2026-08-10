@@ -14,7 +14,7 @@ from .auth import hash_password
 from .config import settings
 from .routers import (
     overview, projects, developers, teams, repos, config, skills, env_inventory, evaluations,
-    portfolio, reports, tenants, architecture_designs, auth, providers,
+    portfolio, reports, tenants, architecture_designs, auth, providers, open_api,
 )
 
 
@@ -369,6 +369,58 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# ============ 监控指标（P6） ============
+from fastapi.responses import PlainTextResponse  # noqa: E402
+
+REQUEST_COUNT = 0
+REQUEST_ERROR_COUNT = 0
+
+
+@app.middleware("http")
+async def count_requests(request, call_next):
+    """轻量请求计数，暴露给 Prometheus 抓取。"""
+    global REQUEST_COUNT, REQUEST_ERROR_COUNT
+    REQUEST_COUNT += 1
+    response = await call_next(request)
+    if response.status_code >= 500:
+        REQUEST_ERROR_COUNT += 1
+    return response
+
+
+@app.get("/metrics", response_class=PlainTextResponse)
+def metrics():
+    """Prometheus 文本格式指标。"""
+    from .db import SessionLocal
+    try:
+        with SessionLocal() as db:
+            projects = db.query(models.Project).count()
+            developers = db.query(models.Developer).count()
+            teams = db.query(models.TeamSpace).count()
+            evaluations = db.query(models.DeveloperEvaluation).count()
+    except Exception:
+        projects = developers = teams = evaluations = -1
+    return "\n".join([
+        "# HELP devlens_http_requests_total 累计 HTTP 请求数",
+        "# TYPE devlens_http_requests_total counter",
+        f"devlens_http_requests_total {REQUEST_COUNT}",
+        "# HELP devlens_http_errors_total 累计 5xx 错误数",
+        "# TYPE devlens_http_errors_total counter",
+        f"devlens_http_errors_total {REQUEST_ERROR_COUNT}",
+        "# HELP devlens_projects 项目总数",
+        "# TYPE devlens_projects gauge",
+        f"devlens_projects {projects}",
+        "# HELP devlens_developers 开发者总数",
+        "# TYPE devlens_developers gauge",
+        f"devlens_developers {developers}",
+        "# HELP devlens_team_spaces 团队空间总数",
+        "# TYPE devlens_team_spaces gauge",
+        f"devlens_team_spaces {teams}",
+        "# HELP devlens_developer_evaluations 开发者评估总数",
+        "# TYPE devlens_developer_evaluations gauge",
+        f"devlens_developer_evaluations {evaluations}",
+    ])
+
 app.include_router(overview.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(projects.router, prefix="/api/v1")
@@ -385,6 +437,7 @@ app.include_router(reports.router, prefix="/api/v1")
 app.include_router(tenants.router, prefix="/api/v1")
 app.include_router(architecture_designs.router, prefix="/api/v1")
 app.include_router(providers.router, prefix="/api/v1")
+app.include_router(open_api.router, prefix="/api/v1")
 
 
 @app.get("/")
