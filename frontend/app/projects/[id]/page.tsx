@@ -592,11 +592,15 @@ export default function ProjectDetailPage() {
     setSelectedInsight(null);
   };
   const updateFixStatus = (fixId: string, status: InsightStatus) => {
-    api.updateFixStatus(id, fixId, { status }).catch(() => {});
+    api.updateFixStatus(id, fixId, { status })
+      .then(() => toast.success('修复项状态已更新'))
+      .catch(() => toast.error('更新失败', '状态变更未保存，请重试'));
     setFixes((current) => current.map((fix) => fix.id === fixId ? { ...fix, status } : fix));
   };
   const updateInsight = (insightId: string, patch: { status?: InsightStatus; assignee?: string }) => {
-    api.updateInsightStatus(id, insightId, patch).catch(() => {});
+    api.updateInsightStatus(id, insightId, patch)
+      .then(() => toast.success(patch.status ? '洞察状态已更新' : '洞察已指派'))
+      .catch(() => toast.error('更新失败', '洞察变更未保存，请重试'));
     setDetail((current) => current ? { ...current, aiInsights: current.aiInsights.map((insight) => insight.id === insightId ? { ...insight, ...patch } : insight) } : current);
   };
   const viewModuleReview = (module: string) => {
