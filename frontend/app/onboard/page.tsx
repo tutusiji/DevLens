@@ -106,6 +106,7 @@ export default function OnboardPage() {
   const [step, setStep] = React.useState(1);
   const [progress, setProgress] = React.useState(0);
   const [matches, setMatches] = React.useState<IdentityMatch[]>([]);
+  const [realMatches, setRealMatches] = React.useState<IdentityMatch[]>([]);
   const [importResult, setImportResult] = React.useState<RepositoryImportResult | null>(null);
   const [submitError, setSubmitError] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
@@ -144,6 +145,10 @@ export default function OnboardPage() {
       setProgress(run.progress);
       if (run.status === 'completed') {
         setStep(5);
+        // 拉取本次分析产出的真实身份匹配（而非全局预览数据）
+        api.getProjectIdentityMatches(importResult.projectId)
+          .then((data) => { if (!cancelled) setRealMatches(data); })
+          .catch(() => {});
       }
     };
     poll();
@@ -384,9 +389,9 @@ export default function OnboardPage() {
             </div>
           )}
 
-          {/* 步骤 5: 完成 */}
+          {/* 步骤 5: 完成（展示本次分析的真实身份匹配） */}
           {step === 5 && (
-            <div className="mt-6 flex flex-col items-center justify-center py-8 text-center">
+            <div className="mt-6 flex flex-col items-center py-8 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-success/15">
                 <Check className="h-8 w-8 text-success" />
               </div>
@@ -395,6 +400,28 @@ export default function OnboardPage() {
                 项目「{form.name}」已完成仓库导入与初始分析，可查看报告
               </p>
               {importResult && <div className="mt-3 flex flex-wrap justify-center gap-2 text-xs text-muted-foreground"><Badge variant="outline">远程 · {importResult.provider || 'generic'}</Badge><Badge variant="outline">{importResult.repository}</Badge><Badge variant="outline">团队 {spaces.find((space) => space.id === form.teamId)?.name || '未选择'}</Badge></div>}
+
+              {/* 真实身份匹配结果（来自本次分析） */}
+              {importResult && realMatches.length > 0 && (
+                <div className="mt-6 w-full max-w-2xl rounded-xl border border-border/60 p-4 text-left">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-sm font-medium">本次身份匹配（{realMatches.length}）</span>
+                    <span className="text-[10px] text-muted-foreground">邮箱 / 工号 / 姓名 / 拼音 多维度匹配</span>
+                  </div>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {realMatches.slice(0, 10).map((m, i) => (
+                      <div key={i} className="flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-xs">
+                        <span className="font-mono text-muted-foreground">{m.gitName}</span>
+                        <span className="text-muted-foreground/50">→</span>
+                        <span className={m.personName === m.gitName ? 'text-muted-foreground' : 'font-medium'}>{m.personName}</span>
+                        <Badge variant="secondary" className="text-[9px]">{METHOD_LABEL[m.method] || m.method}</Badge>
+                        <span className="font-mono text-[9px] text-muted-foreground">{Math.round((m.confidence || 0) * 100)}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="mt-4 flex gap-2">
                 <Button variant="outline" onClick={() => router.push('/dashboard')}>
                   返回总览
