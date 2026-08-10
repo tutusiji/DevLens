@@ -15,6 +15,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { PageHeader, staggerContainer, cardItem } from '@/components/widgets';
 import { CapabilityRadar, GroupedBars } from '@/components/charts';
 import { ForecastCard } from '@/components/forecast-card';
+import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { scoreColor } from '@/lib/utils';
 import type { Team, CapabilityGap, TeamForecast, SkillsMatrix, Iceberg, SwotResult, SkillGroup, Skill, SkillGroupAnalysisType } from '@/lib/types';
@@ -316,6 +317,7 @@ export default function TeamsPage() {
     setRulesError('');
     try {
       await api.updateSkillGroup(ruleGroup.id, { promptTemplate: promptDraft });
+      toast.success('规则组已保存', '后续分析将使用新规则。');
       setRulesOpen(false);
     } catch (e) {
       setRulesError(e instanceof Error ? e.message : '保存规则失败');
@@ -330,6 +332,7 @@ export default function TeamsPage() {
     setRuleSkills((prev) => prev.map((s) => s.id === skill.id ? { ...s, enabled: nextEnabled } : s));
     try {
       await api.updateSkill(skill.id, { enabled: nextEnabled });
+      toast.info(`规则「${skill.name}」已${nextEnabled ? '启用' : '停用'}`);
     } catch {
       // 回滚
       setRuleSkills((prev) => prev.map((s) => s.id === skill.id ? { ...s, enabled: skill.enabled } : s));

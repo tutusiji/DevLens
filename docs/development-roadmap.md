@@ -128,6 +128,21 @@
 
 ---
 
+## UI/UX 持续优化（2026-08-11 批次）
+
+> 按"持续打磨细节"原则推进，每批独立提交。
+
+- [x] 统一 ConfirmDialog + Toast，替换全部原生 `window.alert/confirm`（8 处）
+- [x] Toast 全局单例化（根 layout 挂载，任意组件直接调用）
+- [x] PasswordInput 密码可见性（login/register/profile 改密码）
+- [x] 全局 404 页 + 错误边界页（重试 + 错误码）
+- [x] dashboard 加载失败错误态（不再卡 loading）+ 手动刷新
+- [x] 列表页（项目/开发者/团队）手动刷新按钮
+- [x] 登录记住邮箱（localStorage 回填）
+- [x] onboard 完成态直达项目详情
+- [x] 路由切换顶部进度条（导航感知）
+- [x] 浏览器标签页标题跟随路由
+
 ## 技术债务与维护
 
 - [ ] tree-sitter AST 解析（替代正则 import 提取）
