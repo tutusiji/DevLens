@@ -920,6 +920,55 @@ export interface CareerPathResult {
 }
 
 // ============ P6：开放平台与风险预警 ============
+// ============ 团队分析模型（技能矩阵/冰山/SWOT） ============
+export interface SkillsMatrixMember {
+  id: string;
+  name: string;
+  role: string;
+  level: string;
+  scores: Record<string, number | null>;
+}
+
+export interface SkillsMatrix {
+  teamId: string;
+  teamName: string;
+  dimensions: string[];
+  dimensionLabels: Record<string, string>;
+  members: SkillsMatrixMember[];
+  teamAverage: Record<string, number>;
+  memberCount: number;
+}
+
+export interface IcebergItem {
+  label: string;
+  score: number;
+  value?: number;
+  unit?: string;
+  benchmark?: number;
+  description?: string;
+}
+
+export interface Iceberg {
+  teamId: string;
+  teamName: string;
+  explicit: IcebergItem[];
+  implicit: IcebergItem[];
+  memberCount: number;
+}
+
+export interface SwotData {
+  strengths: string[];
+  weaknesses: string[];
+  opportunities: string[];
+  threats: string[];
+}
+
+export interface SwotResult {
+  teamId: string;
+  teamName: string;
+  swot: SwotData;
+}
+
 export interface RiskAlertItem {
   level: 'P0' | 'P1' | 'P2';
   category: string;

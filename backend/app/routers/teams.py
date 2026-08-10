@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from ..db import get_db
 from .. import models, schemas
 from ..access import TenantContext, require_permission
+from ..capability import DIMENSION_LABELS
 from ..llm import chat
 
 router = APIRouter()
@@ -28,6 +29,29 @@ def _team_developers(db: Session, team_id: str) -> list[models.Developer]:
         )
         .all()
     )
+
+
+def _member_dimension_scores(db: Session, dev: models.Developer) -> dict[str, int]:
+    """聚合成员能力分：优先 capability 向量，其次最近一次评估分数。"""
+    cap = dev.capability or {}
+    if cap:
+        return {k: _to_score(v) for k, v in cap.items() if isinstance(v, (int, float))}
+    latest = (
+        db.query(models.DeveloperEvaluation)
+        .filter_by(developer_id=dev.id, status="completed")
+        .order_by(models.DeveloperEvaluation.created_at.desc())
+        .first()
+    )
+    if latest and latest.scores:
+        return {k: _to_score(v) for k, v in latest.scores.items()}
+    return {}
+
+
+def _to_score(value) -> int:
+    try:
+        return max(0, min(100, int(value)))
+    except (TypeError, ValueError):
+        return 0
 
 
 def _resolve_team_name(db: Session, tid: str, tenant_id: str) -> str | None:
@@ -382,3 +406,187 @@ def team_hiring_advice(
         raise HTTPException(status_code=502, detail=f"生成招聘建议失败: {exc}") from exc
 
     return {"team_id": tid, "team_name": team_name, "advice": advice}
+
+
+# ============ 团队分析模型：技能矩阵 / 冰山模型 / SWOT ============
+@router.get("/teams/{tid}/skills-matrix", response_model=schemas.SkillsMatrixM)
+def team_skills_matrix(
+    tid: str,
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("project:read")),
+):
+    """技能矩阵（Skills Matrix）：团队成员 × 能力维度 分数矩阵。"""
+    team_name = _resolve_team_name(db, tid, ctx.tenant_id) or tid
+    devs = _team_developers(db, tid)
+
+    members = []
+    for dev in devs:
+        scores = _member_dimension_scores(db, dev)
+        members.append({
+            "id": dev.id,
+            "name": dev.name,
+            "role": dev.role or dev.role_type or "",
+            "level": dev.level or "",
+            "scores": scores,
+        })
+
+    # 统一维度：按出现频率排序，取前 12 个
+    dim_count: dict[str, int] = {}
+    for m in members:
+        for dim in m["scores"]:
+            dim_count[dim] = dim_count.get(dim, 0) + 1
+    dimensions = sorted(dim_count, key=lambda d: (-dim_count[d], d))[:12]
+
+    # 团队平均分
+    team_avg: dict[str, float] = {}
+    for dim in dimensions:
+        values = [m["scores"].get(dim) for m in members if m["scores"].get(dim) is not None]
+        team_avg[dim] = round(sum(values) / len(values), 1) if values else 0.0
+
+    return {
+        "team_id": tid,
+        "team_name": team_name,
+        "dimensions": dimensions,
+        "dimension_labels": {d: DIMENSION_LABELS.get(d, d) for d in dimensions},
+        "members": members,
+        "team_average": team_avg,
+        "member_count": len(members),
+    }
+
+
+@router.get("/teams/{tid}/iceberg", response_model=schemas.IcebergM)
+def team_iceberg(
+    tid: str,
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("project:read")),
+):
+    """冰山模型（Iceberg Model）：显性能力（水面以上）vs 隐性特质（水面以下）。
+
+    显性层来自能力分数；隐性层来自行为证据（节奏/稳定性/协作等）与协作类维度。
+    """
+    team_name = _resolve_team_name(db, tid, ctx.tenant_id) or tid
+    devs = _team_developers(db, tid)
+
+    # 显性：团队平均能力分（8 个标准维度）
+    explicit: list[dict] = []
+    dim_scores: dict[str, list[int]] = {}
+    for dev in devs:
+        for dim, score in _member_dimension_scores(db, dev).items():
+            dim_scores.setdefault(dim, []).append(score)
+    for dim, values in dim_scores.items():
+        explicit.append({
+            "label": DIMENSION_LABELS.get(dim, dim),
+            "score": round(sum(values) / len(values)),
+            "description": f"{len(values)} 名成员有效数据",
+        })
+    explicit.sort(key=lambda x: x["score"], reverse=True)
+
+    # 隐性：行为证据聚合（每成员取最近评估关联的 behavior_evidence）
+    implicit: list[dict] = []
+    behavior_agg: dict[str, list[float]] = {}
+    for dev in devs:
+        for item in (dev.behavior_evidence or []):
+            label = item.get("label", "")
+            value = item.get("value")
+            if label and isinstance(value, (int, float)):
+                behavior_agg.setdefault(label, []).append(value)
+    for label, values in behavior_agg.items():
+        avg = sum(values) / len(values)
+        # 规整到 0-100（对比 benchmark 的超越比例）
+        benchmark = None
+        for dev in devs:
+            for item in (dev.behavior_evidence or []):
+                if item.get("label") == label:
+                    benchmark = item.get("benchmark")
+                    break
+            if benchmark is not None:
+                break
+        normalized = 50
+        if benchmark:
+            normalized = max(0, min(100, round(50 + (avg - benchmark) / benchmark * 50)))
+        implicit.append({
+            "label": label,
+            "value": round(avg, 2),
+            "score": normalized,
+            "benchmark": benchmark or 0,
+            "description": f"样本 {len(values)} 人",
+        })
+
+    # 兜底：若行为数据不足，用协作/成长类维度作为隐性代理
+    if not implicit:
+        for key in ("collaboration", "growth_velocity"):
+            if key in dim_scores:
+                implicit.append({
+                    "label": DIMENSION_LABELS.get(key, key),
+                    "value": round(sum(dim_scores[key]) / len(dim_scores[key]), 2),
+                    "score": round(sum(dim_scores[key]) / len(dim_scores[key])),
+                    "benchmark": 0,
+                    "description": "由能力维度推导",
+                })
+
+    return {
+        "team_id": tid,
+        "team_name": team_name,
+        "explicit": explicit[:10],
+        "implicit": implicit[:10],
+        "member_count": len(devs),
+    }
+
+
+@router.post("/teams/{tid}/swot", response_model=schemas.SwotResultM)
+def team_swot(
+    tid: str,
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("assessment:run")),
+):
+    """SWOT 模型分析（LLM）：基于团队能力、成员结构、项目健康与风险生成四象限。"""
+    team_name = _resolve_team_name(db, tid, ctx.tenant_id)
+    if not team_name:
+        raise HTTPException(status_code=404, detail="团队不存在")
+    devs = _team_developers(db, tid)
+
+    # 团队能力均值
+    dim_scores: dict[str, list[int]] = {}
+    for dev in devs:
+        for dim, score in _member_dimension_scores(db, dev).items():
+            dim_scores.setdefault(dim, []).append(score)
+    cap_lines = "\n".join(
+        f"- {DIMENSION_LABELS.get(k, k)}: {round(sum(v) / len(v))}"
+        for k, v in sorted(dim_scores.items(), key=lambda x: -sum(x[1]) / len(x[1]))[:8]
+    ) or "- 暂无能力数据"
+    member_lines = "\n".join(
+        f"- {d.name}（{d.role or d.role_type or '角色未知'}，职级 {d.level or '未定'}，综合 {d.overall or 0}）"
+        for d in devs[:12]
+    ) or "- 成员数据不足"
+    # 团队所在项目健康
+    projects = db.query(models.Project).filter_by(tenant_id=ctx.tenant_id).all()
+    proj_lines = "\n".join(
+        f"- {p.name}: 健康度 {p.score or 0}，commits {p.commits or 0}"
+        for p in sorted(projects, key=lambda x: x.score or 0)[:5]
+    ) or "- 无关联项目数据"
+    gaps = db.query(models.CapabilityGap).filter_by(tenant_id=ctx.tenant_id).all()
+    gap_lines = "\n".join(f"- {g.capability}: 差距 {(g.target or 0) - (g.current or 0)}" for g in gaps[:5]) or "- 无能力缺口记录"
+
+    prompt = (
+        "你是组织发展顾问。请基于以下团队数据生成 SWOT 分析：\n"
+        f"团队：{team_name}\n"
+        f"团队成员：\n{member_lines}\n"
+        f"团队能力均值：\n{cap_lines}\n"
+        f"相关项目健康度：\n{proj_lines}\n"
+        f"能力缺口：\n{gap_lines}\n"
+        "请输出严格 JSON（不要多余文字）：\n"
+        '{"strengths":["..."],"weaknesses":["..."],"opportunities":["..."],"threats":["..."]}\n'
+        "每类 3-4 条，每条一句话，务实具体、基于给定数据，不要编造。"
+    )
+    import json
+    try:
+        text = chat([{"role": "user", "content": prompt}], max_tokens=2000)
+        m = text[text.find("{"): text.rfind("}") + 1]
+        data = json.loads(m)
+        for key in ("strengths", "weaknesses", "opportunities", "threats"):
+            if not isinstance(data.get(key), list):
+                data[key] = []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"生成 SWOT 分析失败: {exc}") from exc
+
+    return {"team_id": tid, "team_name": team_name, "swot": data}

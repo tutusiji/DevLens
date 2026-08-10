@@ -27,6 +27,7 @@ import type {
   ProjectCodeGraph, ArchitectureDesign, ArchitectureDesignListResponse,
   GlobalSearchResult, ProviderConfigM, ProviderConfigUpsert, DiscoveredRepo, RepoImportRequest,
   ProjectForecast, TeamForecast, CareerPathResult, RiskCenter, ApiTokenM,
+  SkillsMatrix, Iceberg, SwotResult,
 } from './types';
 import { LEVEL_GROUPS } from './types';
 
@@ -635,6 +636,12 @@ export const api = {
     fetchAPI<TeamForecast>(`/teams/${teamId}/forecast`),
   getTeamHiringAdvice: (teamId: string): Promise<{ teamId: string; teamName: string; advice: string }> =>
     fetchAPI<{ teamId: string; teamName: string; advice: string }>(`/teams/${teamId}/hiring-advice`, { method: 'POST' }),
+  getTeamSkillsMatrix: (teamId: string): Promise<SkillsMatrix> =>
+    fetchAPI<SkillsMatrix>(`/teams/${teamId}/skills-matrix`),
+  getTeamIceberg: (teamId: string): Promise<Iceberg> =>
+    fetchAPI<Iceberg>(`/teams/${teamId}/iceberg`),
+  getTeamSwot: (teamId: string): Promise<SwotResult> =>
+    fetchAPI<SwotResult>(`/teams/${teamId}/swot`, { method: 'POST' }),
   getDeveloperCareerPath: (developerId: string): Promise<CareerPathResult> =>
     fetchAPI<CareerPathResult>(`/developers/${developerId}/career-path`, { method: 'POST' }),
   getRiskCenter: (): Promise<RiskCenter> =>

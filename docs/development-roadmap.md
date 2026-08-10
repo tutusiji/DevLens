@@ -100,6 +100,7 @@
 - [x] Prometheus 监控：`GET /metrics`（请求计数 / 5xx / 业务 gauge）
 - [x] 组织风险预警中心：`GET /risk-center`（Bus Factor / 能力缺口 / 技术债 / 评估盲区，P0/P1/P2 分级）
 - [x] 前端 `/open-platform`：Token 管理 + 风险预警看板
+- [x] 团队分析模型：技能矩阵（Skills Matrix）/ 冰山模型（Iceberg）/ SWOT（LLM）
 - [x] Celery 骨架（P4）可直接启用替换 daemon thread
 - [ ] 大规模仓库性能优化（增量分析、缓存复用）→ 技术债务
 - [ ] 行业基准对标数据（评分百分位参照）→ 技术债务

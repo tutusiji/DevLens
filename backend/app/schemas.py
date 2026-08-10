@@ -762,6 +762,55 @@ class EvaluateRequest(CamelModel):
     skill_group_id: Optional[str] = None
 
 
+# ============ 团队分析模型（技能矩阵 / 冰山 / SWOT） ============
+class SkillsMatrixMemberM(CamelModel):
+    id: str
+    name: str
+    role: str = ""
+    level: str = ""
+    scores: dict[str, Any] = {}
+
+
+class SkillsMatrixM(CamelModel):
+    team_id: str
+    team_name: str
+    dimensions: list[str] = []
+    dimension_labels: dict[str, str] = {}
+    members: list[SkillsMatrixMemberM] = []
+    team_average: dict[str, float] = {}
+    member_count: int = 0
+
+
+class IcebergItemM(CamelModel):
+    label: str
+    score: int = 0
+    value: float = 0
+    unit: str = ""
+    benchmark: float = 0
+    description: str = ""
+
+
+class IcebergM(CamelModel):
+    team_id: str
+    team_name: str
+    explicit: list[IcebergItemM] = []
+    implicit: list[IcebergItemM] = []
+    member_count: int = 0
+
+
+class SwotQuadrantM(CamelModel):
+    strengths: list[str] = []
+    weaknesses: list[str] = []
+    opportunities: list[str] = []
+    threats: list[str] = []
+
+
+class SwotResultM(CamelModel):
+    team_id: str
+    team_name: str
+    swot: SwotQuadrantM
+
+
 # ============ 平台凭证 / 仓库发现 / Webhook ============
 class ProviderConfigM(CamelModel):
     id: str
