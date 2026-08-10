@@ -29,6 +29,58 @@ def list_developers(
     return q.all()
 
 
+@router.post("/developers/{did}/career-path")
+def recommend_career_path(
+    did: str,
+    db: Session = Depends(get_db),
+    ctx: TenantContext = Depends(require_permission("assessment:run")),
+):
+    """基于能力差距推荐晋升路径（LLM），并持久化到 ai_suggestion 后缀。"""
+    dev = db.query(models.Developer).filter_by(id=did, tenant_id=ctx.tenant_id).first()
+    if not dev:
+        raise HTTPException(status_code=404, detail="开发者不存在")
+
+    evaluation = (
+        db.query(models.DeveloperEvaluation)
+        .filter_by(developer_id=did, tenant_id=ctx.tenant_id)
+        .order_by(models.DeveloperEvaluation.created_at.desc())
+        .first()
+    )
+    if not evaluation or evaluation.status != "completed":
+        raise HTTPException(status_code=400, detail="请先完成一次实测评估，再生成晋升路径")
+
+    scores = evaluation.scores or {}
+    gaps = evaluation.gaps or []
+    gap_lines = "\n".join(
+        f"- {g.get('dimension')}: 当前 {g.get('current')}，目标 {g.get('target')}（差距 {g.get('gap')}）"
+        for g in gaps[:6]
+    ) or "- 各维度均达到当前职级标准"
+    score_lines = "\n".join(f"- {k}: {v}" for k, v in list(scores.items())[:8])
+
+    prompt = (
+        "你是研发职级评审专家。请为该开发者推荐合理的晋升路径。\n"
+        f"开发者：{dev.name}（当前职级 {dev.level or '未定'}，角色 {dev.role or dev.role_type or '未定'}）\n"
+        f"能力实测评分：\n{score_lines}\n"
+        f"与职级标准差距：\n{gap_lines}\n"
+        "请用中文输出，结构：\n"
+        "1. 当前职级定位判断（距离下一职级的整体成熟度 %）\n"
+        "2. 达成下一职级最关键的 2-3 个差距点与量化标准\n"
+        "3. 建议的时间线（按季度划分，如 Q3 达标 → Q4 申报）\n"
+        "4. 需要上级/团队提供的支持（1-2 条）\n"
+        "控制在 400 字以内，标准要可衡量。"
+    )
+    try:
+        advice = chat([{"role": "user", "content": prompt}], max_tokens=1500)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"生成晋升路径失败: {exc}") from exc
+
+    # 追加到成长建议末尾，保留历史内容
+    base = dev.ai_suggestion or ""
+    dev.ai_suggestion = (base + "\n\n===== 晋升路径推荐 =====\n" + advice)[:4000]
+    db.commit()
+    return {"developer_id": did, "career_path": advice}
+
+
 @router.post("/developers/{did}/growth-advice")
 def generate_growth_advice(
     did: str,

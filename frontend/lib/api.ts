@@ -26,6 +26,7 @@ import type {
   TenantRole,
   ProjectCodeGraph, ArchitectureDesign, ArchitectureDesignListResponse,
   GlobalSearchResult, ProviderConfigM, ProviderConfigUpsert, DiscoveredRepo, RepoImportRequest,
+  ProjectForecast, TeamForecast, CareerPathResult,
 } from './types';
 import { LEVEL_GROUPS } from './types';
 
@@ -628,6 +629,14 @@ export const api = {
         })), generatedAt: new Date().toISOString(),
       })
       : fetchAPI<ProjectComparisonResponse>(`/project-comparisons${projectIds.length ? `?project_ids=${encodeURIComponent(projectIds.join(','))}` : ''}`),
+  getProjectForecast: (projectId: string): Promise<ProjectForecast> =>
+    fetchAPI<ProjectForecast>(`/projects/${projectId}/forecast`),
+  getTeamForecast: (teamId: string): Promise<TeamForecast> =>
+    fetchAPI<TeamForecast>(`/teams/${teamId}/forecast`),
+  getTeamHiringAdvice: (teamId: string): Promise<{ teamId: string; teamName: string; advice: string }> =>
+    fetchAPI<{ teamId: string; teamName: string; advice: string }>(`/teams/${teamId}/hiring-advice`, { method: 'POST' }),
+  getDeveloperCareerPath: (developerId: string): Promise<CareerPathResult> =>
+    fetchAPI<CareerPathResult>(`/developers/${developerId}/career-path`, { method: 'POST' }),
   getProjectTrend: (projectId: string): Promise<ProjectTrendResponse> => {
     if (!USE_MOCK) return fetchAPI<ProjectTrendResponse>(`/projects/${projectId}/trend`);
     const project = getProjectDetail(projectId);

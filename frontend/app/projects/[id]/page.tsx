@@ -24,9 +24,10 @@ import { DiceBearAvatar } from '@/components/dicebear-avatar';
 import { GraphCanvas, type GraphNode } from '@/components/graph-canvas';
 import { EmptyState, FilterBar } from '@/components/filter-bar';
 import { ProgressBar, ScoreRing, StatCard } from '@/components/widgets';
+import { ForecastCard } from '@/components/forecast-card';
 import { api } from '@/lib/api';
 import { scoreColor } from '@/lib/utils';
-import type { AIReviewInsight, FixPriority, InsightStatus, ModuleRisk, ProjectCodeGraph, ProjectDetail, ReviewCategory } from '@/lib/types';
+import type { AIReviewInsight, FixPriority, InsightStatus, ModuleRisk, ProjectCodeGraph, ProjectDetail, ProjectForecast, ReviewCategory } from '@/lib/types';
 
 const TREND_ARROW = { up: '↑', down: '↓', stable: '→' };
 const TREND_COLOR = { up: 'var(--success)', down: 'var(--destructive)', stable: 'var(--muted-foreground)' };
@@ -544,6 +545,8 @@ export default function ProjectDetailPage() {
   const [projectGraph, setProjectGraph] = React.useState<ProjectCodeGraph | null>(null);
   const [graphLoading, setGraphLoading] = React.useState(false);
   const [graphError, setGraphError] = React.useState('');
+  const [forecast, setForecast] = React.useState<ProjectForecast | null>(null);
+  const [forecastLoading, setForecastLoading] = React.useState(false);
 
   React.useEffect(() => {
     setLoading(true);
@@ -570,6 +573,18 @@ export default function ProjectDetailPage() {
       .finally(() => { if (active) setGraphLoading(false); });
     return () => { active = false; };
   }, [id, tab, projectGraph]);
+
+  // P5：概览页加载健康度趋势预测
+  React.useEffect(() => {
+    if (tab !== 'overview' || forecast) return;
+    let active = true;
+    setForecastLoading(true);
+    api.getProjectForecast(id)
+      .then((data) => { if (active) setForecast(data); })
+      .catch(() => { if (active) setForecast(null); })
+      .finally(() => { if (active) setForecastLoading(false); });
+    return () => { active = false; };
+  }, [id, tab, forecast]);
 
   const selectFix = (fix: FixPriority) => {
     setSelectedFix(fix);
@@ -632,7 +647,16 @@ export default function ProjectDetailPage() {
           ]}
         />
       </div>
-      {tab === 'overview' && <OverviewTab detail={detail} fixes={fixes} onSelectInsight={setSelectedInsight} onSelectFix={selectFix} onOpenReview={() => setTab('review')} />}
+      {tab === 'overview' && (
+        <>
+          {forecastLoading ? (
+            <div className="h-56 rounded-2xl skeleton" />
+          ) : forecast ? (
+            <ForecastCard projectId={id} observations={forecast.observations} forecast={forecast.forecast} model={forecast.model} />
+          ) : null}
+          <OverviewTab detail={detail} fixes={fixes} onSelectInsight={setSelectedInsight} onSelectFix={selectFix} onOpenReview={() => setTab('review')} />
+        </>
+      )}
       {tab === 'review' && <ReviewTab detail={detail} insights={reviewInsights} onSelectInsight={setSelectedInsight} />}
       {tab === 'modules' && <ModulesTab detail={detail} onSelectModule={setSelectedModule} />}
       {tab === 'graph' && <CodeGraphTab graph={projectGraph} loading={graphLoading} error={graphError} />}

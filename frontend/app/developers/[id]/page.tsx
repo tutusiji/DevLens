@@ -74,6 +74,7 @@ export default function DeveloperDetailPage() {
   const [reportExporting, setReportExporting] = React.useState<'html' | 'pdf' | null>(null);
   const [evaluationRole, setEvaluationRole] = React.useState<CapabilityRoleInfo | null>(null);
   const [adviceGenerating, setAdviceGenerating] = React.useState(false);
+  const [careerGenerating, setCareerGenerating] = React.useState(false);
   const [adviceError, setAdviceError] = React.useState('');
   const pollingTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -687,27 +688,48 @@ export default function DeveloperDetailPage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm leading-relaxed text-foreground/90">{detail.aiSuggestion || '暂无成长建议。请先完成一次实测评估，再点击下方按钮生成。'}</p>
-            <Button
-              size="sm"
-              variant="outline"
-              className="mt-4"
-              disabled={adviceGenerating}
-              onClick={async () => {
-                setAdviceGenerating(true);
-                setAdviceError('');
-                try {
-                  const result = await api.generateGrowthAdvice(id);
-                  setDetail((current) => current ? { ...current, aiSuggestion: result.advice } : current);
-                } catch (error) {
-                  setAdviceError(error instanceof Error ? error.message : '生成成长建议失败');
-                } finally {
-                  setAdviceGenerating(false);
-                }
-              }}
-            >
-              {adviceGenerating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {adviceGenerating ? '生成中…' : '生成 / 更新成长建议'}
-            </Button>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={adviceGenerating}
+                onClick={async () => {
+                  setAdviceGenerating(true);
+                  setAdviceError('');
+                  try {
+                    const result = await api.generateGrowthAdvice(id);
+                    setDetail((current) => current ? { ...current, aiSuggestion: result.advice } : current);
+                  } catch (error) {
+                    setAdviceError(error instanceof Error ? error.message : '生成成长建议失败');
+                  } finally {
+                    setAdviceGenerating(false);
+                  }
+                }}
+              >
+                {adviceGenerating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {adviceGenerating ? '生成中…' : '生成成长建议'}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={careerGenerating}
+                onClick={async () => {
+                  setCareerGenerating(true);
+                  setAdviceError('');
+                  try {
+                    const result = await api.getDeveloperCareerPath(id);
+                    setDetail((current) => current ? { ...current, aiSuggestion: result.careerPath } : current);
+                  } catch (error) {
+                    setAdviceError(error instanceof Error ? error.message : '生成晋升路径失败');
+                  } finally {
+                    setCareerGenerating(false);
+                  }
+                }}
+              >
+                {careerGenerating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <TrendingUp className="h-4 w-4" />}
+                {careerGenerating ? '生成中…' : '晋升路径推荐'}
+              </Button>
+            </div>
             {adviceError && <p className="mt-2 text-xs text-destructive">{adviceError}</p>}
           </CardContent>
         </Card>

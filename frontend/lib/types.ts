@@ -883,6 +883,42 @@ export interface GlobalSearchResult {
   teams: GlobalSearchItem[];
 }
 
+// ============ P5：预测与推荐 ============
+export interface ForecastPoint {
+  period: string;
+  score: number;
+  trend?: 'up' | 'down' | 'stable';
+  t?: number;
+  quality?: number;
+  security?: number;
+  debt?: number;
+}
+
+export interface ProjectForecast {
+  projectId: string;
+  projectName: string;
+  onlyObserved: boolean;
+  observations: ForecastPoint[];
+  forecast: ForecastPoint[];
+  model: string;
+}
+
+export interface TeamForecast {
+  teamId: string;
+  teamName: string;
+  onlyObserved: boolean;
+  dimensions: string[];
+  dimensionScores: Record<string, number>;
+  observations: ForecastPoint[];
+  forecast: ForecastPoint[];
+  model: string;
+}
+
+export interface CareerPathResult {
+  developerId: string;
+  careerPath: string;
+}
+
 // ============ 平台凭证 / 仓库发现 / Webhook ============
 export interface ProviderConfigM {
   id: string;

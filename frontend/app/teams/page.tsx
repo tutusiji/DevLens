@@ -7,15 +7,17 @@
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
-import { Users, AlertTriangle, BusIcon, Network, Eye, EyeOff } from 'lucide-react';
+import { Users, AlertTriangle, BusIcon, Network, Eye, EyeOff, UserPlus, Loader2, X } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { PageHeader, staggerContainer, cardItem } from '@/components/widgets';
 import { CapabilityRadar, GroupedBars } from '@/components/charts';
+import { ForecastCard } from '@/components/forecast-card';
 import { api } from '@/lib/api';
 import { scoreColor } from '@/lib/utils';
-import type { Team, CapabilityGap } from '@/lib/types';
+import type { Team, CapabilityGap, TeamForecast } from '@/lib/types';
 
 const CAPABILITY_LABELS: Record<string, string> = {
   code_quality: '代码质量', architecture: '架构能力', stability: '稳定性',
@@ -41,6 +43,13 @@ export default function TeamsPage() {
   const [sortBy, setSortBy] = React.useState('avgScore');
   // 默认所有团队都亮
   const [hiddenTeams, setHiddenTeams] = React.useState<Set<string>>(new Set());
+  // P5：招聘建议弹窗
+  const [adviceTeam, setAdviceTeam] = React.useState<Team | null>(null);
+  const [advice, setAdvice] = React.useState('');
+  const [adviceLoading, setAdviceLoading] = React.useState(false);
+  const [adviceError, setAdviceError] = React.useState('');
+  const [teamForecast, setTeamForecast] = React.useState<TeamForecast | null>(null);
+  const [forecastLoading, setForecastLoading] = React.useState(false);
 
   React.useEffect(() => {
     Promise.all([api.getTeams(), api.getCapabilityGaps()]).then(([t, g]) => {
@@ -70,6 +79,23 @@ export default function TeamsPage() {
       else next.add(id);
       return next;
     });
+  };
+
+  const openHiringAdvice = async (team: Team) => {
+    setAdviceTeam(team);
+    setAdvice('');
+    setAdviceError('');
+    setTeamForecast(null);
+    setAdviceLoading(true);
+    setForecastLoading(true);
+    api.getTeamHiringAdvice(team.id)
+      .then((res) => setAdvice(res.advice))
+      .catch((e) => setAdviceError(e instanceof Error ? e.message : '生成招聘建议失败'))
+      .finally(() => setAdviceLoading(false));
+    api.getTeamForecast(team.id)
+      .then((fc) => setTeamForecast(fc))
+      .catch(() => setTeamForecast(null))
+      .finally(() => setForecastLoading(false));
   };
 
   // 雷达图 series
@@ -264,12 +290,58 @@ export default function TeamsPage() {
                   <div className="mt-2 text-center text-[10px] text-muted-foreground">
                     {isActive ? '点击隐藏对比' : '点击恢复对比'}
                   </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="mt-3 w-full"
+                    onClick={(e) => { e.stopPropagation(); void openHiringAdvice(team); }}
+                  >
+                    <UserPlus className="h-3.5 w-3.5" />
+                    生成招聘建议
+                  </Button>
                 </CardContent>
               </Card>
             </motion.div>
           );
         })}
       </motion.div>
+
+      {/* ============ 招聘建议弹窗（P5） ============ */}
+      {adviceTeam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setAdviceTeam(null)}>
+          <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-background p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold">{adviceTeam.name} · 招聘建议</h3>
+                <p className="text-sm text-muted-foreground">基于团队能力缺口由 AI 生成</p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setAdviceTeam(null)}><X className="h-4 w-4" /></Button>
+            </div>
+
+            {forecastLoading ? (
+              <div className="mt-4 h-44 rounded-xl skeleton" />
+            ) : teamForecast ? (
+              <div className="mt-4">
+                <ForecastCard projectId={teamForecast.teamId} observations={teamForecast.observations} forecast={teamForecast.forecast} model={teamForecast.model} />
+              </div>
+            ) : null}
+
+            <div className="mt-4">
+              {adviceLoading ? (
+                <div className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-primary">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  正在生成招聘建议…
+                </div>
+              ) : adviceError ? (
+                <p className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{adviceError}</p>
+              ) : (
+                <div className="whitespace-pre-wrap rounded-xl border border-border/60 bg-muted/20 p-4 text-sm leading-relaxed">{advice}</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ============ 能力缺口矩阵 ============ */}
       <Card className="mt-6">
