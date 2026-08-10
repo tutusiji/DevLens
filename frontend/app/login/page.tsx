@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { PasswordInput } from '@/components/ui/password-input';
 import { loginAPI, demoLoginAPI } from '@/lib/api';
 import { Sparkles } from 'lucide-react';
 
@@ -104,15 +105,13 @@ export default function LoginPage() {
             </div>
             <div className="space-y-1.5">
               <label htmlFor="password" className="text-sm font-medium text-muted-foreground">密码</label>
-              <input
+              <PasswordInput
                 id="password"
-                type="password"
-                required
+                value={password}
+                onChange={setPassword}
                 autoComplete="current-password"
                 placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-11 w-full rounded-xl border border-border/70 bg-background/80 px-4 text-sm outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
+                required
               />
             </div>
             {error && (

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader, OrganizationHealthSummary, ProgressBar, staggerContainer, cardItem } from '@/components/widgets';
@@ -81,8 +82,12 @@ export default function DashboardPage() {
   const [activeTeams, setActiveTeams] = React.useState<ActiveTeam[]>([]);
   const [architectureDesigns, setArchitectureDesigns] = React.useState<ArchitectureDesign[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState('');
+  const [refreshing, setRefreshing] = React.useState(false);
 
-  React.useEffect(() => {
+  const loadData = React.useCallback(() => {
+    setLoading(true);
+    setError('');
     Promise.all([
       api.getOverview(),
       api.getTrinityMatrix(),
@@ -104,8 +109,32 @@ export default function DashboardPage() {
       setActiveTeams(at);
       setArchitectureDesigns(architecture.designs);
       setLoading(false);
+    }).catch((e) => {
+      setError(e instanceof Error ? e.message : '加载总览数据失败');
+      setLoading(false);
     });
   }, []);
+
+  React.useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  if (error && !loading) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="决策总览" description="结论 · 风险 · 行动" />
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
+            <AlertTriangle className="h-8 w-8 text-destructive" />
+            <p className="text-sm text-destructive">{error}</p>
+            <Button variant="outline" size="sm" onClick={loadData}>
+              <RefreshCw className="h-4 w-4" />重试
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -146,13 +175,28 @@ export default function DashboardPage() {
           description="项目 · 团队 · 人员三位一体评估，从 Git 仓库推导组织能力"
           compact
           actions={
-            <div className="flex items-center gap-2 rounded-xl glass-light px-3 py-2">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
-              </span>
-              <span className="text-xs text-muted-foreground">数据更新于 2 分钟前</span>
-              <RefreshCw className="h-3.5 w-3.5 text-muted-foreground transition-colors hover:text-foreground" />
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 rounded-xl glass-light px-3 py-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+                </span>
+                <span className="text-xs text-muted-foreground">数据更新于 2 分钟前</span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={refreshing || loading}
+                onClick={() => {
+                  setRefreshing(true);
+                  loadData();
+                  window.setTimeout(() => setRefreshing(false), 900);
+                }}
+                aria-label="刷新数据"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? '刷新中' : '刷新'}
+              </Button>
             </div>
           }
         />

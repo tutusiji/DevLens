@@ -12,6 +12,7 @@ import {
 } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Badge } from '@/components/ui/badge';
 import { Modal, ModalHeader, ModalBody, ModalFooter } from '@/components/ui/modal';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -570,19 +571,15 @@ export default function ProfilePage() {
           <form onSubmit={handleChangePassword} className="space-y-4">
             <div className="space-y-1.5">
               <label htmlFor="p-old" className="text-sm font-medium text-muted-foreground">当前密码</label>
-              <input id="p-old" type="password" required autoComplete="current-password"
-                value={oldPwd} onChange={(e) => setOldPwd(e.target.value)} className={INPUT_CLS} />
+              <PasswordInput id="p-old" value={oldPwd} onChange={setOldPwd} autoComplete="current-password" required />
             </div>
             <div className="space-y-1.5">
               <label htmlFor="p-new" className="text-sm font-medium text-muted-foreground">新密码</label>
-              <input id="p-new" type="password" required autoComplete="new-password"
-                placeholder="字母+数字+符号，至少 8 位"
-                value={newPwd} onChange={(e) => setNewPwd(e.target.value)} className={INPUT_CLS} />
+              <PasswordInput id="p-new" value={newPwd} onChange={setNewPwd} autoComplete="new-password" placeholder="字母+数字+符号，至少 8 位" required />
             </div>
             <div className="space-y-1.5">
               <label htmlFor="p-confirm" className="text-sm font-medium text-muted-foreground">确认新密码</label>
-              <input id="p-confirm" type="password" required autoComplete="new-password"
-                value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} className={INPUT_CLS} />
+              <PasswordInput id="p-confirm" value={confirmPwd} onChange={setConfirmPwd} autoComplete="new-password" required />
             </div>
             {pwdMsg && (
               <div className={`rounded-xl border px-4 py-2.5 text-sm ${pwdMsg.ok ? 'border-success/30 bg-success/10 text-success' : 'border-destructive/30 bg-destructive/10 text-destructive'}`}>
