@@ -185,6 +185,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen">
+      {/* 路由切换进度条：pathname 变化时短暂显示，提升导航感知 */}
+      <RouteProgress pathname={pathname} />
       {/* ============ 桌面侧边栏 - 去框化毛玻璃 ============ */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r-0 bg-sidebar/60 backdrop-blur-xl lg:flex">
         {/* Logo 区域 - 点击回到官网首页 */}
@@ -406,6 +408,38 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* 全局搜索 Command Palette */}
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+    </div>
+  );
+}
+
+/** 顶部路由进度条：pathname 变化时短暂动画，提示页面切换 */
+function RouteProgress({ pathname }: { pathname: string }) {
+  const [visible, setVisible] = React.useState(false);
+  const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevPath = React.useRef(pathname);
+
+  React.useEffect(() => {
+    if (prevPath.current === pathname) return;
+    prevPath.current = pathname;
+    setVisible(true);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setVisible(false), 450);
+    return () => { if (timer.current) clearTimeout(timer.current); };
+  }, [pathname]);
+
+  return (
+    <div
+      className="pointer-events-none fixed inset-x-0 top-0 z-[90] h-0.5 overflow-hidden bg-transparent"
+      aria-hidden
+    >
+      <div
+        className="h-full bg-primary transition-all duration-450 ease-out"
+        style={{
+          width: visible ? '100%' : '0%',
+          opacity: visible ? 1 : 0,
+          boxShadow: '0 0 12px var(--primary)',
+        }}
+      />
     </div>
   );
 }
