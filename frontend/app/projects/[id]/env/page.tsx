@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { EmptyState } from '@/components/filter-bar';
 import { PageHeader } from '@/components/widgets';
+import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import type {
@@ -560,7 +561,7 @@ export default function EnvInventoryPage() {
       api.getEnvInventorySkills().then(setSkills),
       api.getProjectDetail(pid).then((p) => setProjectName(p?.name || '')),
     ])
-      .catch(() => undefined)
+      .catch(() => toast.error('加载环境盘点数据失败', '请检查后端服务后重试'))
       .finally(() => setLoading(false));
   }, [reload, pid]);
 
