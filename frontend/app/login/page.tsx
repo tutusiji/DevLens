@@ -12,9 +12,17 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
+  const [rememberEmail, setRememberEmail] = React.useState(true);
   const [error, setError] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [demoLoading, setDemoLoading] = React.useState(false);
+
+  // 回填上次登录邮箱
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const saved = localStorage.getItem('devlens-remember-email');
+    if (saved) setEmail(saved);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -26,6 +34,8 @@ export default function LoginPage() {
       if (typeof window !== 'undefined') {
         localStorage.setItem('devlens-tenant-id', result.tenant.id);
         localStorage.setItem('devlens-user-id', result.user.id);
+        if (rememberEmail) localStorage.setItem('devlens-remember-email', email.trim());
+        else localStorage.removeItem('devlens-remember-email');
       }
       router.push('/dashboard');
     } catch (err) {
@@ -103,6 +113,15 @@ export default function LoginPage() {
                 className="h-11 w-full rounded-xl border border-border/70 bg-background/80 px-4 text-sm outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
               />
             </div>
+            <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={rememberEmail}
+                onChange={(e) => setRememberEmail(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-border accent-primary"
+              />
+              记住邮箱
+            </label>
             <div className="space-y-1.5">
               <label htmlFor="password" className="text-sm font-medium text-muted-foreground">密码</label>
               <PasswordInput

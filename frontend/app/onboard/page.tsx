@@ -394,13 +394,13 @@ export default function OnboardPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 项目「{form.name}」已完成仓库导入与初始分析，可查看报告
               </p>
-              {importResult && <div className="mt-3 flex flex-wrap justify-center gap-2 text-xs text-muted-foreground"><Badge variant="outline">{importResult.sourceType === 'remote' ? `远程 · ${importResult.provider || 'generic'}` : '本地仓库'}</Badge><Badge variant="outline">{importResult.repository}</Badge><Badge variant="outline">团队 {spaces.find((space) => space.id === form.teamId)?.name || '未选择'}</Badge></div>}
+              {importResult && <div className="mt-3 flex flex-wrap justify-center gap-2 text-xs text-muted-foreground"><Badge variant="outline">远程 · {importResult.provider || 'generic'}</Badge><Badge variant="outline">{importResult.repository}</Badge><Badge variant="outline">团队 {spaces.find((space) => space.id === form.teamId)?.name || '未选择'}</Badge></div>}
               <div className="mt-4 flex gap-2">
-                <Button variant="outline" onClick={() => router.push('/')}>
+                <Button variant="outline" onClick={() => router.push('/dashboard')}>
                   返回总览
                 </Button>
-                <Button variant="accent" onClick={() => router.push('/projects')}>
-                  查看项目
+                <Button variant="accent" onClick={() => importResult && router.push(`/projects/${importResult.projectId}`)}>
+                  查看项目详情
                 </Button>
               </div>
             </div>
