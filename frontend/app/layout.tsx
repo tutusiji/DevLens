@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Fira_Sans, Fira_Code } from 'next/font/google';
 import { AppShell } from '@/components/app-shell';
 import { TeamSpaceProvider } from '@/components/team-space-provider';
+import { GlobalToastProvider } from '@/components/ui/toast';
 import './globals.css';
 import './overview-styles.css';
 
@@ -52,6 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <TeamSpaceProvider>
           <AppShell>{children}</AppShell>
         </TeamSpaceProvider>
+        <GlobalToastProvider />
       </body>
     </html>
   );

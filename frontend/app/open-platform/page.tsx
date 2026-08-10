@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/widgets';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { useToast } from '@/components/ui/toast';
+import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import type { ApiTokenM, RiskCenter } from '@/lib/types';
 
@@ -54,7 +54,6 @@ export default function OpenPlatformPage() {
 
   const [deleteTarget, setDeleteTarget] = React.useState<ApiTokenM | null>(null);
   const [deleteLoading, setDeleteLoading] = React.useState(false);
-  const { toast, ToastViewport } = useToast();
 
   const removeToken = async (id: string) => {
     const token = tokens.find((t) => t.id === id);
@@ -198,7 +197,6 @@ export default function OpenPlatformPage() {
         onConfirm={() => void confirmDeleteToken()}
         onClose={() => { if (!deleteLoading) setDeleteTarget(null); }}
       />
-      <ToastViewport />
     </>
   );
 }

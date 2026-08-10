@@ -17,7 +17,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { PageHeader, ProgressBar, staggerContainer, cardItem } from '@/components/widgets';
 import { FilterBar, EmptyState } from '@/components/filter-bar';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { useToast } from '@/components/ui/toast';
+import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { scoreColor } from '@/lib/utils';
 import type { Project, ProjectStatus } from '@/lib/types';
@@ -164,7 +164,6 @@ export default function ProjectsPage() {
   const [deleteTarget, setDeleteTarget] = React.useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = React.useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
-  const { toast, ToastViewport } = useToast();
 
   const loadProjects = React.useCallback(() => {
     setLoading(true);
@@ -335,7 +334,6 @@ export default function ProjectsPage() {
         onConfirm={() => void confirmDelete()}
         onClose={() => { if (!deleteLoading) setDeleteTarget(null); }}
       />
-      <ToastViewport />
     </>
   );
 }
