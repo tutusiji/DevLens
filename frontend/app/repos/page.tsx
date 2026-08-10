@@ -12,6 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { PageHeader } from '@/components/widgets';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useToast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import type { Repository, Project, TeamSpace } from '@/lib/types';
 
@@ -26,11 +28,48 @@ export default function ReposPage() {
   const [projects, setProjects] = React.useState<Project[]>([]);
   const [teamSpaces, setTeamSpaces] = React.useState<TeamSpace[]>([]);
   const [loading, setLoading] = React.useState(true);
-  React.useEffect(() => {
+  const [syncingId, setSyncingId] = React.useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = React.useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = React.useState(false);
+  const { toast, ToastViewport } = useToast();
+
+  const loadAll = React.useCallback(() => {
+    setLoading(true);
     Promise.all([api.getRepos(), api.getProjects(), api.getTeamSpaces()])
       .then(([r, p, t]) => { setRepos(r); setProjects(p); setTeamSpaces(t); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
+
+  React.useEffect(() => { loadAll(); }, [loadAll]);
+
+  const handleSync = async (repo: Repository) => {
+    if (!repo.projectId || syncingId) return;
+    setSyncingId(repo.id);
+    try {
+      await api.reanalyzeProject(repo.projectId);
+      toast.success('已触发重新分析', `仓库「${repo.name}」将在后台拉取最新代码。`);
+    } catch (e) {
+      toast.error('重新分析失败', e instanceof Error ? e.message : '请稍后重试');
+    } finally {
+      setSyncingId(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    try {
+      await api.deleteProject(deleteTarget);
+      toast.success('项目已删除', '相关数据已一并清理。');
+      setDeleteTarget(null);
+      loadAll();
+    } catch (e) {
+      toast.error('删除失败', e instanceof Error ? e.message : '请稍后重试');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   if (loading) return <div className="space-y-6"><div className="h-8 w-64 skeleton rounded" /><div className="h-96 skeleton rounded-xl" /></div>;
   const totalCommits = repos.reduce((s, r) => s + r.commits, 0);
   const syncedCount = repos.filter((r) => r.status === 'synced').length;
@@ -100,13 +139,37 @@ export default function ReposPage() {
                   <TableCell className="text-xs text-muted-foreground">{repo.lastSync}</TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="重新同步">
-                        <RefreshCw className="h-3.5 w-3.5" />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        aria-label="重新分析"
+                        title="触发重新分析"
+                        disabled={repo.id === syncingId}
+                        onClick={() => void handleSync(repo)}
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${repo.id === syncingId ? 'animate-spin' : ''}`} />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="查看详情">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        aria-label="查看详情"
+                        title="打开项目详情"
+                        disabled={!repo.projectId}
+                        onClick={() => repo.projectId && (window.location.href = `/projects/${repo.projectId}`)}
+                      >
                         <Eye className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive" aria-label="删除">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 hover:text-destructive"
+                        aria-label="删除"
+                        title="删除项目"
+                        disabled={!repo.projectId || repo.id === syncingId}
+                        onClick={() => repo.projectId && setDeleteTarget(repo.projectId)}
+                      >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -117,6 +180,18 @@ export default function ReposPage() {
           </TableBody>
         </Table>
       </Card>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="删除项目"
+        description="项目、分析结果、报告与环境盘点数据将一并删除，且无法恢复。确定继续吗？"
+        confirmText="删除"
+        danger
+        loading={deleteLoading}
+        onConfirm={() => void confirmDelete()}
+        onClose={() => { if (!deleteLoading) setDeleteTarget(null); }}
+      />
+      <ToastViewport />
     </>
   );
 }
