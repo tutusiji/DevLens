@@ -7,7 +7,7 @@
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
-import { Users, AlertTriangle, BusIcon, Network, Eye, EyeOff, UserPlus, Loader2, X, Grid3x3, Mountain, Compass } from 'lucide-react';
+import { Users, AlertTriangle, BusIcon, Network, Eye, EyeOff, UserPlus, Loader2, X, Grid3x3, Mountain, Compass, Settings2, Save } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ import { CapabilityRadar, GroupedBars } from '@/components/charts';
 import { ForecastCard } from '@/components/forecast-card';
 import { api } from '@/lib/api';
 import { scoreColor } from '@/lib/utils';
-import type { Team, CapabilityGap, TeamForecast, SkillsMatrix, Iceberg, SwotResult } from '@/lib/types';
+import type { Team, CapabilityGap, TeamForecast, SkillsMatrix, Iceberg, SwotResult, SkillGroup, Skill, SkillGroupAnalysisType } from '@/lib/types';
 
 const CAPABILITY_LABELS: Record<string, string> = {
   code_quality: '代码质量', architecture: '架构能力', stability: '稳定性',
@@ -36,60 +36,74 @@ const TEAM_COLORS = [
   '#8b5cf6', // violet
 ];
 
-function scoreTone(score: number): string {
-  if (score >= 80) return 'bg-success text-white';
-  if (score >= 65) return 'bg-success/70 text-white';
-  if (score >= 50) return 'bg-warning/70 text-foreground';
-  if (score >= 35) return 'bg-destructive/60 text-white';
-  return 'bg-destructive text-white';
+function heatColor(score: number | null | undefined): string {
+  if (score === null || score === undefined) return 'bg-muted/30 text-muted-foreground/40';
+  if (score >= 85) return 'bg-emerald-500 text-white';
+  if (score >= 70) return 'bg-emerald-400/80 text-emerald-950';
+  if (score >= 55) return 'bg-amber-400/80 text-amber-950';
+  if (score >= 40) return 'bg-orange-500/80 text-white';
+  return 'bg-rose-600 text-white';
 }
 
-/** 技能矩阵：成员 × 维度 热力表 */
+/** 技能矩阵：成员 × 维度 矩阵热力图（色块网格） */
 function SkillsMatrixView({ data }: { data: SkillsMatrix }) {
+  const dims = data.dimensions;
   return (
     <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">{data.memberCount} 名成员 · {data.dimensions.length} 个能力维度 · 团队均值列在底部</p>
-      <div className="overflow-x-auto rounded-xl border border-border/60">
-        <table className="w-full min-w-[480px] text-xs">
-          <thead>
-            <tr className="border-b border-border/60 bg-muted/30">
-              <th className="sticky left-0 bg-muted/30 px-3 py-2 text-left font-medium">成员</th>
-              {data.dimensions.map((dim) => (
-                <th key={dim} className="px-2 py-2 text-center font-medium">{data.dimensionLabels[dim]}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.members.map((m) => (
-              <tr key={m.id} className="border-b border-border/40 last:border-0">
-                <td className="sticky left-0 bg-background px-3 py-1.5">
-                  <div className="font-medium">{m.name}</div>
-                  <div className="text-[10px] text-muted-foreground">{m.role || '—'} · {m.level || '—'}</div>
-                </td>
-                {data.dimensions.map((dim) => {
-                  const score = m.scores[dim];
-                  return (
-                    <td key={dim} className="px-2 py-1.5 text-center">
-                      {score !== undefined && score !== null ? (
-                        <span className={`inline-flex h-6 min-w-[34px] items-center justify-center rounded font-mono text-[11px] font-semibold ${scoreTone(score)}`}>
-                          {score}
-                        </span>
-                      ) : <span className="text-muted-foreground/40">—</span>}
-                    </td>
-                  );
-                })}
-              </tr>
+      <p className="text-xs text-muted-foreground">
+        {data.memberCount} 名成员 · {dims.length} 个能力维度 · 色块越绿越强
+      </p>
+      <div className="overflow-x-auto rounded-xl border border-border/60 p-3">
+        <div className="min-w-[520px]">
+          {/* 维度表头 */}
+          <div className="flex">
+            <div className="w-32 shrink-0 pr-2" />
+            {dims.map((dim) => (
+              <div key={dim} className="flex-1 text-center text-[10px] font-medium text-muted-foreground">
+                {data.dimensionLabels[dim]}
+              </div>
             ))}
-            <tr className="border-t border-border/60 bg-muted/20">
-              <td className="px-3 py-2 font-medium">团队均值</td>
-              {data.dimensions.map((dim) => (
-                <td key={dim} className="px-2 py-2 text-center font-mono font-semibold">
-                  {data.teamAverage[dim] > 0 ? data.teamAverage[dim] : '—'}
-                </td>
-              ))}
-            </tr>
-          </tbody>
-        </table>
+          </div>
+          {/* 成员行 */}
+          <div className="mt-1 space-y-1">
+            {data.members.map((m) => (
+              <div key={m.id} className="flex items-center">
+                <div className="w-32 shrink-0 truncate pr-2">
+                  <div className="truncate text-xs font-medium">{m.name}</div>
+                  <div className="truncate text-[10px] text-muted-foreground">{m.role || '—'} · {m.level || '—'}</div>
+                </div>
+                <div className="flex flex-1 gap-1">
+                  {dims.map((dim) => {
+                    const score = m.scores[dim];
+                    return (
+                      <div
+                        key={dim}
+                        title={`${m.name} · ${data.dimensionLabels[dim]}: ${score ?? '无数据'}`}
+                        className={`flex h-9 flex-1 items-center justify-center rounded font-mono text-xs font-semibold transition-transform hover:scale-105 ${heatColor(score)}`}
+                      >
+                        {score ?? '—'}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* 团队均值行 */}
+          <div className="mt-2 flex items-center border-t border-border/60 pt-2">
+            <div className="w-32 shrink-0 truncate pr-2 text-xs font-semibold">团队均值</div>
+            <div className="flex flex-1 gap-1">
+              {dims.map((dim) => {
+                const avg = data.teamAverage[dim];
+                return (
+                  <div key={dim} className={`flex h-7 flex-1 items-center justify-center rounded font-mono text-[11px] ${avg > 0 ? 'bg-primary/15 font-semibold text-primary' : 'bg-muted/30 text-muted-foreground/40'}`}>
+                    {avg > 0 ? avg : '—'}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -137,27 +151,40 @@ function IcebergView({ data }: { data: Iceberg }) {
   );
 }
 
-/** SWOT 四象限 */
+/** SWOT 四格图（标准 2×2：内部分析 S/W 在上，外部环境 O/T 在下） */
 function SwotView({ data }: { data: SwotResult }) {
-  const quadrants: Array<{ key: 'strengths' | 'weaknesses' | 'opportunities' | 'threats'; title: string; tone: string; items: string[] }> = [
-    { key: 'strengths', title: '优势 Strengths', tone: 'border-success/30 bg-success/5 text-success', items: data.swot.strengths ?? [] },
-    { key: 'weaknesses', title: '劣势 Weaknesses', tone: 'border-destructive/30 bg-destructive/5 text-destructive', items: data.swot.weaknesses ?? [] },
-    { key: 'opportunities', title: '机会 Opportunities', tone: 'border-primary/30 bg-primary/5 text-primary', items: data.swot.opportunities ?? [] },
-    { key: 'threats', title: '威胁 Threats', tone: 'border-warning/30 bg-warning/5 text-warning', items: data.swot.threats ?? [] },
+  const quadrants: Array<{ key: 'strengths' | 'weaknesses' | 'opportunities' | 'threats'; corner: string; title: string; tone: string; items: string[] }> = [
+    { key: 'strengths', corner: 'S', title: '优势 Strengths', tone: 'text-success', items: data.swot.strengths ?? [] },
+    { key: 'weaknesses', corner: 'W', title: '劣势 Weaknesses', tone: 'text-destructive', items: data.swot.weaknesses ?? [] },
+    { key: 'opportunities', corner: 'O', title: '机会 Opportunities', tone: 'text-primary', items: data.swot.opportunities ?? [] },
+    { key: 'threats', corner: 'T', title: '威胁 Threats', tone: 'text-warning', items: data.swot.threats ?? [] },
   ];
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {quadrants.map((q) => (
-        <div key={q.key} className={`rounded-xl border p-4 ${q.tone}`}>
-          <div className="text-sm font-semibold">{q.title}</div>
-          <ul className="mt-2 space-y-1.5">
-            {q.items.map((item, i) => (
-              <li key={i} className="flex gap-2 text-xs leading-relaxed"><span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-current" />{item}</li>
-            ))}
-          </ul>
-          {q.items.length === 0 && <p className="mt-2 text-xs opacity-60">暂无数据</p>}
-        </div>
-      ))}
+    <div>
+      {/* 轴标签 */}
+      <div className="mb-1 flex justify-between px-1 text-[10px] font-medium text-muted-foreground">
+        <span>有利 / 有利因素</span>
+        <span>不利 / 不利因素</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {quadrants.map((q) => (
+          <div key={q.key} className="rounded-lg border border-border/70 bg-muted/10 p-3">
+            <div className="flex items-center gap-2">
+              <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md font-mono text-xs font-bold ${q.tone}`}>{q.corner}</span>
+              <span className="text-xs font-semibold">{q.title}</span>
+            </div>
+            <ul className="mt-2 space-y-1.5">
+              {q.items.map((item, i) => (
+                <li key={i} className="flex gap-1.5 text-xs leading-relaxed text-foreground/90">
+                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-current opacity-50" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+            {q.items.length === 0 && <p className="mt-2 text-xs text-muted-foreground/60">暂无数据</p>}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -184,6 +211,14 @@ export default function TeamsPage() {
   const [swot, setSwot] = React.useState<SwotResult | null>(null);
   const [analysisLoading, setAnalysisLoading] = React.useState(false);
   const [analysisError, setAnalysisError] = React.useState('');
+  // Skill 驱动：规则组编辑抽屉
+  const [rulesOpen, setRulesOpen] = React.useState(false);
+  const [ruleGroup, setRuleGroup] = React.useState<SkillGroup | null>(null);
+  const [ruleSkills, setRuleSkills] = React.useState<Skill[]>([]);
+  const [ruleGroups, setRuleGroups] = React.useState<SkillGroup[]>([]);
+  const [promptDraft, setPromptDraft] = React.useState('');
+  const [savingRules, setSavingRules] = React.useState(false);
+  const [rulesError, setRulesError] = React.useState('');
 
   React.useEffect(() => {
     Promise.all([api.getTeams(), api.getCapabilityGaps()]).then(([t, g]) => {
@@ -240,6 +275,52 @@ export default function TeamsPage() {
     Promise.all([loadForecast, loadMain])
       .catch((e) => setAnalysisError(e instanceof Error ? e.message : '加载团队分析失败'))
       .finally(() => setAnalysisLoading(false));
+  };
+
+  const openRulesEditor = async (analysisType: SkillGroupAnalysisType) => {
+    setRulesError('');
+    setRuleSkills([]);
+    setPromptDraft('');
+    setRulesOpen(true);
+    try {
+      const groups = await api.getSkillGroups();
+      setRuleGroups(groups);
+      const group = groups.find((g) => g.analysisType === analysisType);
+      setRuleGroup(group || null);
+      setPromptDraft(group?.promptTemplate || '');
+      if (group) {
+        const skills = await api.getSkills();
+        setRuleSkills(skills.filter((s) => (group.skillIds || []).includes(s.id)));
+      }
+    } catch (e) {
+      setRulesError(e instanceof Error ? e.message : '加载规则组失败');
+    }
+  };
+
+  const saveRules = async () => {
+    if (!ruleGroup) return;
+    setSavingRules(true);
+    setRulesError('');
+    try {
+      await api.updateSkillGroup(ruleGroup.id, { promptTemplate: promptDraft });
+      setRulesOpen(false);
+    } catch (e) {
+      setRulesError(e instanceof Error ? e.message : '保存规则失败');
+    } finally {
+      setSavingRules(false);
+    }
+  };
+
+  const toggleRuleEnabled = async (skill: Skill) => {
+    if (!ruleGroup) return;
+    const nextEnabled = skill.enabled ? 0 : 1;
+    setRuleSkills((prev) => prev.map((s) => s.id === skill.id ? { ...s, enabled: nextEnabled } : s));
+    try {
+      await api.updateSkill(skill.id, { enabled: nextEnabled });
+    } catch {
+      // 回滚
+      setRuleSkills((prev) => prev.map((s) => s.id === skill.id ? { ...s, enabled: skill.enabled } : s));
+    }
   };
 
   const switchAnalysis = (team: Team, model: typeof analysisModel) => {
@@ -486,7 +567,13 @@ export default function TeamsPage() {
                 <h3 className="text-lg font-semibold">{analysisTeam.name} · 团队分析</h3>
                 <p className="text-sm text-muted-foreground">切换分析模型查看不同视角</p>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setAnalysisTeam(null)}><X className="h-4 w-4" /></Button>
+              <div className="flex items-center gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={() => void openRulesEditor(analysisModel as SkillGroupAnalysisType)}>
+                  <Settings2 className="h-3.5 w-3.5" />
+                  编辑规则组
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => setAnalysisTeam(null)}><X className="h-4 w-4" /></Button>
+              </div>
             </div>
 
             {/* 模型切换 */}
@@ -535,6 +622,86 @@ export default function TeamsPage() {
                 <ForecastCard projectId={teamForecast.teamId} observations={teamForecast.observations} forecast={teamForecast.forecast} model={teamForecast.model} />
               </div>
             ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* ============ 规则组编辑抽屉（Skill 驱动） ============ */}
+      {rulesOpen && (
+        <div className="fixed inset-0 z-[60] flex justify-end bg-black/40" onClick={() => setRulesOpen(false)}>
+          <div
+            className="flex h-full w-full max-w-md flex-col bg-background shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <div>
+                <h3 className="text-base font-semibold">编辑规则组</h3>
+                <p className="text-xs text-muted-foreground">该模块的评估规则（Skill 资产），修改立即生效于后续分析</p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setRulesOpen(false)}><X className="h-4 w-4" /></Button>
+            </div>
+
+            <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+              {ruleGroup ? (
+                <>
+                  <div className="rounded-lg border border-border/60 p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{ruleGroup.name}</span>
+                      <Badge variant="secondary" className="font-mono text-[10px]">{ruleGroup.analysisType}</Badge>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">{ruleGroup.description}</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Prompt 模板</label>
+                    <p className="text-[11px] text-muted-foreground">支持 {`{team_name}`}、{`{member_lines}`}、{`{gap_lines}`}、{`{rules}`} 等占位符</p>
+                    <textarea
+                      value={promptDraft}
+                      onChange={(e) => setPromptDraft(e.target.value)}
+                      rows={10}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">组内规则（{ruleSkills.length}）</label>
+                    <p className="text-[11px] text-muted-foreground">启停即时生效；如需编辑规则正文请前往「Skill 管理」</p>
+                    <div className="space-y-1.5">
+                      {ruleSkills.map((s) => (
+                        <label key={s.id} className="flex cursor-pointer items-center gap-2 rounded-lg border border-border/60 p-2.5 hover:bg-muted/40">
+                          <input
+                            type="checkbox"
+                            checked={s.enabled === 1}
+                            onChange={() => void toggleRuleEnabled(s)}
+                            className="h-4 w-4 shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-medium">{s.name}</div>
+                            <div className="truncate text-[11px] text-muted-foreground">{s.ruleContent}</div>
+                          </div>
+                          <Badge variant={s.enabled === 1 ? 'success' : 'secondary'} className="text-[10px]">{s.enabled === 1 ? '启用' : '停用'}</Badge>
+                        </label>
+                      ))}
+                      {ruleSkills.length === 0 && <p className="text-xs text-muted-foreground">该组暂无规则</p>}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  该分析模块暂无规则组，请先在「Skill 管理」创建 analysis_type 对应的编组。
+                </p>
+              )}
+
+              {rulesError && <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{rulesError}</p>}
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
+              <Button variant="outline" onClick={() => setRulesOpen(false)}>取消</Button>
+              <Button variant="accent" disabled={savingRules || !ruleGroup} onClick={() => void saveRules()}>
+                {savingRules ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                保存规则
+              </Button>
+            </div>
           </div>
         </div>
       )}

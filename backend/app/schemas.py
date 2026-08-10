@@ -535,6 +535,7 @@ class SkillGroupM(CamelModel):
     description: str = ""
     skill_ids: list[str] = []
     analysis_type: str = "repo_analysis"
+    prompt_template: str = ""
     enabled: int = 1
     created_at: str = ""
     updated_at: str = ""

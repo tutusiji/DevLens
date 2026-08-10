@@ -9,7 +9,7 @@
 import * as React from 'react';
 import {
   BookOpenCheck, Plus, Sparkles, Trash2, Pencil, Layers, FileText,
-  CheckCircle2, XCircle, AlertCircle, ShieldCheck, GripVertical,
+  CheckCircle2, XCircle, AlertCircle, ShieldCheck, GripVertical, Loader2,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 import type {
   SkillSource, Skill, SkillGroup, SkillCategory, SkillSeverity,
   SkillSourceCreateRequest, SkillCreateRequest, SkillGroupCreateRequest, ExtractResult,
+  SkillGroupAnalysisType,
 } from '@/lib/types';
 
 type Tab = 'groups' | 'skills' | 'sources';
@@ -33,6 +34,20 @@ const TABS: { value: Tab; label: string }[] = [
   { value: 'skills', label: '规则库' },
   { value: 'sources', label: '规范来源' },
 ];
+
+/** Skill 驱动架构：分析模块 → 编组类型 中文名 */
+const ANALYSIS_TYPE_LABEL: Record<string, string> = {
+  repo_analysis: '仓库分析',
+  developer_review: '开发者评估',
+  team_aggregation: '团队聚合',
+  skills_matrix: '技能矩阵',
+  iceberg: '冰山模型',
+  swot: 'SWOT 分析',
+  hiring_advice: '招聘建议',
+  growth_advice: '成长建议',
+  career_path: '晋升路径',
+  env_scan: '环境盘点',
+};
 
 const CATEGORIES: { value: SkillCategory; label: string }[] = [
   { value: 'quality', label: '质量' }, { value: 'security', label: '安全' },
@@ -168,6 +183,7 @@ function GroupsTab({ groups, skills, reload, show }: {
 }) {
   const [creating, setCreating] = React.useState(false);
   const [previewGroup, setPreviewGroup] = React.useState<SkillGroup | null>(null);
+  const [editingGroup, setEditingGroup] = React.useState<SkillGroup | null>(null);
 
   const toggleEnabled = async (g: SkillGroup) => {
     await api.updateSkillGroup(g.id, { enabled: g.enabled ? 0 : 1 });
@@ -214,11 +230,14 @@ function GroupsTab({ groups, skills, reload, show }: {
                   <div className="flex items-center gap-2 text-xs">
                     <Badge variant="outline">{ruleCount} 条规则</Badge>
                     <Badge variant="secondary">{enabledRules} 启用</Badge>
-                    <Badge variant="default">{g.analysisType === 'repo_analysis' ? '仓库分析' : g.analysisType}</Badge>
+                    <Badge variant="default">{ANALYSIS_TYPE_LABEL[g.analysisType] || g.analysisType}</Badge>
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" className="flex-1" onClick={() => setPreviewGroup(g)}>
                       <FileText className="h-3 w-3" />查看规则
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => setEditingGroup(g)} aria-label="编辑规则组">
+                      <Pencil className="h-4 w-4 text-muted-foreground" />
                     </Button>
                     <Button variant="ghost" size="icon" onClick={() => del(g)} aria-label="删除">
                       <Trash2 className="h-4 w-4 text-muted-foreground" />
@@ -244,6 +263,13 @@ function GroupsTab({ groups, skills, reload, show }: {
       />
 
       <GroupPreviewSheet group={previewGroup} skills={skills} onClose={() => setPreviewGroup(null)} />
+
+      <GroupEditSheet
+        group={editingGroup}
+        skills={skills}
+        onClose={() => setEditingGroup(null)}
+        onSaved={async () => { setEditingGroup(null); await reload(); show('规则组已更新'); }}
+      />
     </div>
   );
 }
@@ -345,7 +371,7 @@ function GroupPreviewSheet({ group, skills, onClose }: {
   const ordered = (group?.skillIds || []).map((id) => map.get(id)).filter(Boolean) as Skill[];
   if (!group) return null;
   return (
-    <Sheet open={!!group} onClose={onClose} title={group.name} description={`${ordered.length} 条规则 · ${group.analysisType === 'repo_analysis' ? '仓库分析' : group.analysisType}`} width="lg">
+    <Sheet open={!!group} onClose={onClose} title={group.name} description={`${ordered.length} 条规则 · ${ANALYSIS_TYPE_LABEL[group.analysisType] || group.analysisType}`} width="lg">
       {group.description && <p className="mb-4 rounded-lg bg-muted/25 p-3 text-sm text-muted-foreground">{group.description}</p>}
       <div className="space-y-3">
         {ordered.map((s, i) => (
@@ -365,6 +391,101 @@ function GroupPreviewSheet({ group, skills, onClose }: {
           </div>
         ))}
         {ordered.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">组内无规则</p>}
+      </div>
+    </Sheet>
+  );
+}
+
+/** 编辑编组：基本信息 + prompt 模板（Skill 驱动核心入口） */
+function GroupEditSheet({ group, skills, onClose, onSaved }: {
+  group: SkillGroup | null; skills: Skill[]; onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [name, setName] = React.useState('');
+  const [description, setDescription] = React.useState('');
+  const [analysisType, setAnalysisType] = React.useState<SkillGroupAnalysisType>('repo_analysis');
+  const [promptTemplate, setPromptTemplate] = React.useState('');
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!group) return;
+    setName(group.name);
+    setDescription(group.description || '');
+    setAnalysisType(group.analysisType);
+    setPromptTemplate(group.promptTemplate || '');
+  }, [group]);
+
+  if (!group) return null;
+
+  return (
+    <Sheet open={!!group} onClose={onClose} title="编辑规则组" description="修改即时影响该模块的后续分析（Skill 驱动）" width="lg">
+      <div className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">组名</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">分析模块</label>
+            <select value={analysisType} onChange={(e) => setAnalysisType(e.target.value as SkillGroupAnalysisType)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none">
+              {Object.entries(ANALYSIS_TYPE_LABEL).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">说明</label>
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">Prompt 模板</label>
+          <p className="text-[11px] text-muted-foreground">分析 prompt 骨架，支持 {`{rules}`} 及模块专属占位符；组内规则会自动注入 {`{rules}`}</p>
+          <textarea value={promptTemplate} onChange={(e) => setPromptTemplate(e.target.value)} rows={12} className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="未设置时使用内置默认模板" />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">组内规则（{group.skillIds.length}）</label>
+          <div className="max-h-48 space-y-1.5 overflow-y-auto">
+            {group.skillIds.map((id) => {
+              const s = skills.find((x) => x.id === id);
+              if (!s) return null;
+              return (
+                <div key={s.id} className="rounded-lg border border-border/60 p-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium">{s.name}</span>
+                    <Badge variant={s.enabled ? 'success' : 'secondary'} className="text-[10px]">{s.enabled ? '启用' : '停用'}</Badge>
+                  </div>
+                  <p className="mt-1 line-clamp-1 text-[11px] text-muted-foreground">{s.ruleContent}</p>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-muted-foreground">规则的启停与正文请在「规则库」页维护</p>
+        </div>
+      </div>
+      <div className="flex justify-end gap-2 border-t border-border/60 pt-4">
+        <Button type="button" variant="outline" onClick={onClose}>取消</Button>
+        <Button
+          type="button"
+          variant="accent"
+          disabled={saving || !name.trim()}
+          onClick={async () => {
+            setSaving(true);
+            try {
+              await api.updateSkillGroup(group.id, {
+                name: name.trim(),
+                description: description.trim(),
+                analysisType,
+                promptTemplate,
+              });
+              await onSaved();
+            } finally {
+              setSaving(false);
+            }
+          }}
+        >
+          {saving && <Loader2 className="h-4 w-4 animate-spin" />}保存
+        </Button>
       </div>
     </Sheet>
   );

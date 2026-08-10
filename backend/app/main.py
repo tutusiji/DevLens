@@ -209,6 +209,12 @@ def ensure_migrate():
                 )
         conn.commit()
 
+        # Skill 驱动架构：评估组绑定分析模块 + prompt 模板（规则资产化）
+        cols = {c["name"] for c in insp.get_columns("skill_groups")}
+        if "prompt_template" not in cols:
+            conn.execute(text("ALTER TABLE skill_groups ADD COLUMN prompt_template TEXT"))
+            conn.commit()
+
         # 网络仓库接入 v2：access_token 加密落库、开发者组织树归属 + 身份匹配增强
         column_additions = {
             "repositories": {"access_token_encrypted": "BYTEA"},
@@ -357,6 +363,13 @@ async def lifespan(app: FastAPI):
         seed.seed_capability()
     else:
         db.close()
+    # Skill 驱动架构：为每个租户补齐分析模块（swot/hiring/growth/career/skills_matrix/iceberg）
+    # 的默认 SkillGroup（内置 prompt 模板 + 规则），幂等。
+    from .analysis_rules import seed_module_groups
+    db = SessionLocal()
+    for (tenant_id,) in db.query(models.Tenant.id).all():
+        seed_module_groups(db, tenant_id)
+    db.close()
     yield
 
 

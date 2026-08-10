@@ -608,7 +608,17 @@ export type SkillSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 export type SkillCheckType = 'llm' | 'static';
 
 /** 分析编组类型 */
-export type SkillGroupAnalysisType = 'repo_analysis' | 'developer_review' | 'team_aggregation';
+export type SkillGroupAnalysisType =
+  | 'repo_analysis'
+  | 'developer_review'
+  | 'team_aggregation'
+  | 'skills_matrix'
+  | 'iceberg'
+  | 'swot'
+  | 'hiring_advice'
+  | 'growth_advice'
+  | 'career_path'
+  | 'env_scan';
 
 /** 合规/违规示例（few-shot） */
 export interface SkillExample {
@@ -655,6 +665,7 @@ export interface SkillGroup {
   description: string;
   skillIds: string[];
   analysisType: SkillGroupAnalysisType;
+  promptTemplate: string; // 分析 prompt 骨架（{变量} 占位）
   enabled: number; // 0|1
   createdAt: string;
   updatedAt: string;

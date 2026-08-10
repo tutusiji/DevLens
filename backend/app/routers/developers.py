@@ -35,7 +35,9 @@ def recommend_career_path(
     db: Session = Depends(get_db),
     ctx: TenantContext = Depends(require_permission("assessment:run")),
 ):
-    """基于能力差距推荐晋升路径（LLM），并持久化到 ai_suggestion 后缀。"""
+    """基于能力差距推荐晋升路径（Skill 驱动），并持久化到 ai_suggestion 后缀。"""
+    from ..analysis_rules import get_group, render_prompt
+
     dev = db.query(models.Developer).filter_by(id=did, tenant_id=ctx.tenant_id).first()
     if not dev:
         raise HTTPException(status_code=404, detail="开发者不存在")
@@ -56,19 +58,23 @@ def recommend_career_path(
         for g in gaps[:6]
     ) or "- 各维度均达到当前职级标准"
     score_lines = "\n".join(f"- {k}: {v}" for k, v in list(scores.items())[:8])
+    dev_name = dev.name or ""
+    dev_level = dev.level or "未定"
+    dev_role = dev.role or dev.role_type or "未定"
 
-    prompt = (
-        "你是研发职级评审专家。请为该开发者推荐合理的晋升路径。\n"
-        f"开发者：{dev.name}（当前职级 {dev.level or '未定'}，角色 {dev.role or dev.role_type or '未定'}）\n"
-        f"能力实测评分：\n{score_lines}\n"
-        f"与职级标准差距：\n{gap_lines}\n"
-        "请用中文输出，结构：\n"
-        "1. 当前职级定位判断（距离下一职级的整体成熟度 %）\n"
-        "2. 达成下一职级最关键的 2-3 个差距点与量化标准\n"
-        "3. 建议的时间线（按季度划分，如 Q3 达标 → Q4 申报）\n"
-        "4. 需要上级/团队提供的支持（1-2 条）\n"
-        "控制在 400 字以内，标准要可衡量。"
-    )
+    group = get_group(db, ctx.tenant_id, "career_path")
+    if group:
+        prompt = render_prompt(
+            group, db,
+            dev_name=dev_name, dev_level=dev_level, dev_role=dev_role,
+            score_lines=score_lines, gap_lines=gap_lines,
+        )
+    else:
+        from ..analysis_rules import BUILTIN_GROUP_TEMPLATES
+        prompt = BUILTIN_GROUP_TEMPLATES["career_path"].format(
+            dev_name=dev_name, dev_level=dev_level, dev_role=dev_role,
+            score_lines=score_lines, gap_lines=gap_lines, rules="- 无额外规则",
+        )
     try:
         advice = chat([{"role": "user", "content": prompt}], max_tokens=1500)
     except Exception as exc:  # noqa: BLE001
@@ -87,7 +93,9 @@ def generate_growth_advice(
     db: Session = Depends(get_db),
     ctx: TenantContext = Depends(require_permission("assessment:run")),
 ):
-    """基于最近一次实测评估生成个性化成长建议，并持久化到 ai_suggestion。"""
+    """基于最近一次实测评估生成个性化成长建议（Skill 驱动），并持久化到 ai_suggestion。"""
+    from ..analysis_rules import get_group, render_prompt
+
     dev = db.query(models.Developer).filter_by(id=did, tenant_id=ctx.tenant_id).first()
     if not dev:
         raise HTTPException(status_code=404, detail="开发者不存在")
@@ -108,18 +116,23 @@ def generate_growth_advice(
         for g in gaps[:5]
     ) or "- 各维度均达到当前职级标准"
     score_lines = "\n".join(f"- {k}: {v}" for k, v in list(scores.items())[:8])
+    dev_name = dev.name or ""
+    dev_level = dev.level or "未定"
+    dev_role = dev.role or dev.role_type or "未定"
 
-    prompt = (
-        "你是一名软件研发团队的技术负责人。请为一名开发者生成个性化的成长建议。\n"
-        f"开发者：{dev.name}（职级 {dev.level or '未定'}，角色 {dev.role or dev.role_type or '未定'}）\n"
-        f"最近一次能力实测评分：\n{score_lines}\n"
-        f"与职级标准的差距：\n{gap_lines}\n"
-        "请用中文输出，结构为：\n"
-        "1. 一句话总评（当前能力定位）\n"
-        "2. 最值得优先提升的 2-3 个维度，各给一条可执行行动（具体到做事的动作，而非口号）\n"
-        "3. 建议的学习/实践路径（按周划分，最多 3 条）\n"
-        "控制在 400 字以内，语气务实、不空泛。"
-    )
+    group = get_group(db, ctx.tenant_id, "growth_advice")
+    if group:
+        prompt = render_prompt(
+            group, db,
+            dev_name=dev_name, dev_level=dev_level, dev_role=dev_role,
+            score_lines=score_lines, gap_lines=gap_lines,
+        )
+    else:
+        from ..analysis_rules import BUILTIN_GROUP_TEMPLATES
+        prompt = BUILTIN_GROUP_TEMPLATES["growth_advice"].format(
+            dev_name=dev_name, dev_level=dev_level, dev_role=dev_role,
+            score_lines=score_lines, gap_lines=gap_lines, rules="- 无额外规则",
+        )
     try:
         advice = chat([{"role": "user", "content": prompt}], max_tokens=1500)
     except Exception as exc:  # noqa: BLE001

@@ -366,13 +366,20 @@ class Skill(Base):
 
 
 class SkillGroup(Base):
-    """评估编组：每次评估选择一组规则"""
+    """评估编组：每次评估选择一组规则。
+
+    analysis_type 标识绑定的分析模块（repo_analysis / developer_evaluation /
+    skills_matrix / iceberg / swot / hiring_advice / growth_advice / career_path / env_scan），
+    同类型只有一个默认启用组。prompt_template 为分析 prompt 骨架（支持 {变量} 占位），
+    组内 skills 的 rule_content 会注入其中 —— 规则全部资产化，不写死在分析代码里。
+    """
     __tablename__ = "skill_groups"
     id = Column(String, primary_key=True)          # skg-xxx
     name = Column(String, nullable=False)          # 组名，如「Java后端规范组」
     description = Column(Text, default="")
     skill_ids = Column(JSON, default=list)          # [skill_id, ...] 有序
-    analysis_type = Column(String, default="repo_analysis")  # repo_analysis|developer_review|team_aggregation
+    analysis_type = Column(String, default="repo_analysis")  # 模块标识，见类注释
+    prompt_template = Column(Text, default="")       # 分析 prompt 骨架（{变量} 占位）
     enabled = Column(Integer, default=1)
     created_at = Column(String)
     updated_at = Column(String)

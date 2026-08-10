@@ -239,9 +239,14 @@ def list_skill_groups(
     db: Session = Depends(get_db),
     ctx: TenantContext = Depends(require_permission("rules:read")),
 ):
-    return db.query(models.SkillGroup).filter_by(
+    groups = db.query(models.SkillGroup).filter_by(
         tenant_id=ctx.tenant_id,
     ).order_by(models.SkillGroup.created_at.desc()).all()
+    # 存量数据 prompt_template 可能为 NULL，归一化为空串保证响应类型稳定
+    for g in groups:
+        if g.prompt_template is None:
+            g.prompt_template = ""
+    return groups
 
 
 @router.post("/skill-groups", response_model=schemas.SkillGroupM)
@@ -276,7 +281,7 @@ def update_skill_group(
     group = db.query(models.SkillGroup).filter_by(id=group_id, tenant_id=ctx.tenant_id).first()
     if not group:
         raise HTTPException(status_code=404, detail="编组不存在")
-    allowed = {"name", "description", "skill_ids", "analysis_type", "enabled"}
+    allowed = {"name", "description", "skill_ids", "analysis_type", "enabled", "prompt_template"}
     for k, v in body.items():
         if k in allowed:
             setattr(group, k, v)

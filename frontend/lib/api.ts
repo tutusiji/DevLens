@@ -454,8 +454,8 @@ const mockSkills: Skill[] = [
 ];
 
 const mockSkillGroups: SkillGroup[] = [
-  { id: 'skg-seed-java', name: 'Java 后端规范组', description: 'Java 后端服务默认评估编组（安全/事务/SQL/日志）', skillIds: ['sk-seed-1', 'sk-seed-2', 'sk-seed-3', 'sk-seed-5'], analysisType: 'repo_analysis', enabled: 1, createdAt: '2026-08-01T00:00:00Z', updatedAt: '2026-08-01T00:00:00Z' },
-  { id: 'skg-seed-fe', name: '前端规范组', description: '前端工程默认评估编组（调试/样式/接口）', skillIds: ['sk-seed-6', 'sk-seed-7', 'sk-seed-8'], analysisType: 'repo_analysis', enabled: 1, createdAt: '2026-08-01T00:00:00Z', updatedAt: '2026-08-01T00:00:00Z' },
+  { id: 'skg-seed-java', name: 'Java 后端规范组', description: 'Java 后端服务默认评估编组（安全/事务/SQL/日志）', skillIds: ['sk-seed-1', 'sk-seed-2', 'sk-seed-3', 'sk-seed-5'], analysisType: 'repo_analysis', promptTemplate: '', enabled: 1, createdAt: '2026-08-01T00:00:00Z', updatedAt: '2026-08-01T00:00:00Z' },
+  { id: 'skg-seed-fe', name: '前端规范组', description: '前端工程默认评估编组（调试/样式/接口）', skillIds: ['sk-seed-6', 'sk-seed-7', 'sk-seed-8'], analysisType: 'repo_analysis', promptTemplate: '', enabled: 1, createdAt: '2026-08-01T00:00:00Z', updatedAt: '2026-08-01T00:00:00Z' },
 ];
 
 let mockSkillSeq = 100;
@@ -847,7 +847,7 @@ export const api = {
   createSkillGroup: (body: SkillGroupCreateRequest): Promise<SkillGroup> => {
     if (!USE_MOCK) return fetchAPI<SkillGroup>('/skill-groups', { method: 'POST', body: JSON.stringify(body) });
     const now = new Date().toISOString();
-    const group: SkillGroup = { id: mockGroupId(), enabled: 1, createdAt: now, updatedAt: now, description: '', ...body };
+    const group: SkillGroup = { id: mockGroupId(), enabled: 1, createdAt: now, updatedAt: now, description: '', promptTemplate: '', ...body };
     mockSkillGroups.unshift(group);
     return mockDelay(group);
   },

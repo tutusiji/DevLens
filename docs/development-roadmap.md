@@ -4,6 +4,27 @@
 > **每完成一块就在对应条目前打 ✅**，作为唯一进度事实来源。
 > 更新日期：2026-08-11
 
+## 全局架构原则（贯穿始终）：Skill 驱动分析评估
+
+> **评估规则一律资产化，不写死在分析代码里。** 这是 DevLens 的核心设计模式，P0-P6
+> 每个分析模块都必须遵守：
+
+1. **模块 ↔ SkillGroup 绑定**：每个分析模块（`repo_analysis` / `developer_evaluation` /
+   `skills_matrix` / `iceberg` / `swot` / `hiring_advice` / `growth_advice` / `career_path` /
+   `env_scan`）对应一个 `analysis_type` 的 SkillGroup。
+2. **内置默认**：所有模块都有内置默认组（seed 写入数据库），开箱即用。
+3. **Prompt 资产化**：`SkillGroup.prompt_template` 存分析 prompt 骨架（`{变量}` 占位），
+   组内 skills 的 `rule_content` 注入 `{rules}` —— 改规则不用改代码。
+4. **随处可改**：各模块页有"编辑规则组"抽屉（就近改）；「Skill 管理」页统一管理全站编组。
+5. **版本可复现**：`SkillGroupRun` 快照保证历史分析可追溯。
+
+**本轮落地（2026-08-11）**：
+- [x] `SkillGroup.prompt_template` 列 + 迁移 + seed_module_groups（6 个分析模块内置组）
+- [x] `analysis_rules.py`：get_group / render_prompt / 内置模板与规则
+- [x] swot / hiring_advice / growth_advice / career_path 改为 skill 驱动
+- [x] 团队分析弹窗"编辑规则组"抽屉；Skill 管理页编组编辑（含 prompt_template）
+- [ ] analyzer 的 SKILL_GROUPS 常量迁移到 skill 组（进行中）
+
 ## 进度总览
 
 | 阶段 | 主题 | 状态 |

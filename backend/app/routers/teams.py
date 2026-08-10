@@ -372,10 +372,10 @@ def team_hiring_advice(
     db: Session = Depends(get_db),
     ctx: TenantContext = Depends(require_permission("assessment:run")),
 ):
-    """基于团队能力缺口生成招聘建议（LLM）。"""
-    team_name = _resolve_team_name(db, tid, ctx.tenant_id)
-    if not team_name:
-        raise HTTPException(status_code=404, detail="团队不存在")
+    """基于团队能力缺口生成招聘建议（Skill 驱动）。"""
+    from ..analysis_rules import get_group, render_prompt
+
+    team_name = _resolve_team_name(db, tid, ctx.tenant_id) or tid
 
     devs = _team_developers(db, tid)
     gaps = db.query(models.CapabilityGap).filter_by(tenant_id=ctx.tenant_id).all()
@@ -389,17 +389,14 @@ def team_hiring_advice(
         for d in devs[:12]
     ) or "- 团队成员数据不足"
 
-    prompt = (
-        "你是研发团队负责人。请基于以下团队情况给出招聘建议：\n"
-        f"团队：{team_name}\n"
-        f"团队成员：\n{member_lines}\n"
-        f"能力缺口：\n{gap_lines}\n"
-        "请用中文输出，结构：\n"
-        "1. 团队现状一句话判断\n"
-        "2. 最值得补充的 1-3 个岗位，每个给出：岗位、理由、优先级（高/中/低）\n"
-        "3. 若现有成员通过培养即可补齐缺口，说明应优先内部培养的方向\n"
-        "控制在 400 字以内，务实具体。"
-    )
+    group = get_group(db, ctx.tenant_id, "hiring_advice")
+    if group:
+        prompt = render_prompt(group, db, team_name=team_name, member_lines=member_lines, gap_lines=gap_lines)
+    else:
+        from ..analysis_rules import BUILTIN_GROUP_TEMPLATES
+        prompt = BUILTIN_GROUP_TEMPLATES["hiring_advice"].format(
+            team_name=team_name, member_lines=member_lines, gap_lines=gap_lines, rules="- 无额外规则",
+        )
     try:
         advice = chat([{"role": "user", "content": prompt}], max_tokens=1500)
     except Exception as exc:  # noqa: BLE001
@@ -537,12 +534,12 @@ def team_iceberg(
 def team_swot(
     tid: str,
     db: Session = Depends(get_db),
-    ctx: TenantContext = Depends(require_permission("assessment:run")),
+    ctx: TenantContext = Depends(require_permission("assessment:read")),
 ):
-    """SWOT 模型分析（LLM）：基于团队能力、成员结构、项目健康与风险生成四象限。"""
-    team_name = _resolve_team_name(db, tid, ctx.tenant_id)
-    if not team_name:
-        raise HTTPException(status_code=404, detail="团队不存在")
+    """SWOT 模型分析（Skill 驱动）：prompt 由绑定的 skill group 装配，规则资产化。"""
+    from ..analysis_rules import get_group, render_prompt
+
+    team_name = _resolve_team_name(db, tid, ctx.tenant_id) or tid
     devs = _team_developers(db, tid)
 
     # 团队能力均值
@@ -558,7 +555,6 @@ def team_swot(
         f"- {d.name}（{d.role or d.role_type or '角色未知'}，职级 {d.level or '未定'}，综合 {d.overall or 0}）"
         for d in devs[:12]
     ) or "- 成员数据不足"
-    # 团队所在项目健康
     projects = db.query(models.Project).filter_by(tenant_id=ctx.tenant_id).all()
     proj_lines = "\n".join(
         f"- {p.name}: 健康度 {p.score or 0}，commits {p.commits or 0}"
@@ -567,17 +563,22 @@ def team_swot(
     gaps = db.query(models.CapabilityGap).filter_by(tenant_id=ctx.tenant_id).all()
     gap_lines = "\n".join(f"- {g.capability}: 差距 {(g.target or 0) - (g.current or 0)}" for g in gaps[:5]) or "- 无能力缺口记录"
 
-    prompt = (
-        "你是组织发展顾问。请基于以下团队数据生成 SWOT 分析：\n"
-        f"团队：{team_name}\n"
-        f"团队成员：\n{member_lines}\n"
-        f"团队能力均值：\n{cap_lines}\n"
-        f"相关项目健康度：\n{proj_lines}\n"
-        f"能力缺口：\n{gap_lines}\n"
-        "请输出严格 JSON（不要多余文字）：\n"
-        '{"strengths":["..."],"weaknesses":["..."],"opportunities":["..."],"threats":["..."]}\n'
-        "每类 3-4 条，每条一句话，务实具体、基于给定数据，不要编造。"
-    )
+    group = get_group(db, ctx.tenant_id, "swot")
+    if group:
+        prompt = render_prompt(
+            group, db,
+            team_name=team_name,
+            member_lines=member_lines,
+            cap_lines=cap_lines,
+            proj_lines=proj_lines,
+            gap_lines=gap_lines,
+        )
+    else:  # 兜底：库内无组时用内置模板
+        from ..analysis_rules import BUILTIN_GROUP_TEMPLATES
+        prompt = BUILTIN_GROUP_TEMPLATES["swot"].format(
+            team_name=team_name, member_lines=member_lines, cap_lines=cap_lines,
+            proj_lines=proj_lines, gap_lines=gap_lines, rules="- 无额外规则",
+        )
     import json
     try:
         text = chat([{"role": "user", "content": prompt}], max_tokens=2000)
