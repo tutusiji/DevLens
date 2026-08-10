@@ -9,6 +9,12 @@ import { registerAPI } from '@/lib/api';
 
 export default function RegisterPage() {
   const router = useRouter();
+
+  // 页面标题
+  React.useEffect(() => {
+    document.title = '注册 · DevLens 研发棱镜';
+  }, []);
+
   const [username, setUsername] = React.useState('');
   const [name, setName] = React.useState('');
   const [email, setEmail] = React.useState('');

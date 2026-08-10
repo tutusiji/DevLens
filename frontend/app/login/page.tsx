@@ -24,6 +24,11 @@ export default function LoginPage() {
     if (saved) setEmail(saved);
   }, []);
 
+  // 页面标题
+  React.useEffect(() => {
+    document.title = '登录 · DevLens 研发棱镜';
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');

@@ -176,6 +176,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('keydown', onKey);
   }, []);
 
+  /* 页面标题跟随路由（浏览器标签页可读性） */
+  React.useEffect(() => {
+    const title = [...ANALYSIS_NAV, ...SYSTEM_NAV].find((item) =>
+      pathname === item.href || pathname.startsWith(item.href + '/'),
+    )?.label;
+    const base = 'DevLens · 研发棱镜';
+    document.title = title ? `${title} · ${base}` : base;
+  }, [pathname]);
+
   const highRiskCount = riskAlerts.filter((r) => r.level === 'high').length;
 
   // 公开页不渲染应用外壳（无侧边栏/顶栏）：登录/注册页，以及首页（官网Landing）
