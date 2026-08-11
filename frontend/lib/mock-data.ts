@@ -8,6 +8,7 @@ import type {
   TeamSpace,
   DeveloperDetail, ProjectDetail, AIReviewInsight, ModuleRisk, FixPriority,
   RoleConfig, Level, Role, LevelStandard, ActivityTrend,
+  TeamForecast, SkillsMatrix, SkillsMatrixMember, Iceberg, SwotResult, HiringAdvice,
 } from './types';
 
 // ============ 首页统计 ============
@@ -611,3 +612,144 @@ export const layerColors: Record<string, string> = {
   data: 'var(--chart-3)',
   infra: 'var(--chart-4)',
 };
+
+// ============ 团队分析模型 mock（技能矩阵 / 冰山 / SWOT / 招聘建议 / 趋势预测）============
+// 以「业务中台组」为样板，保证 mock 模式下 5 个 tab 均有完整可信展示。
+
+export function mockTeamForecast(teamId: string): TeamForecast {
+  return {
+    teamId,
+    teamName: '业务中台组',
+    onlyObserved: false,
+    dimensions: ['code_quality', 'architecture', 'stability', 'efficiency', 'collaboration', 'security_aware', 'test_coverage'],
+    dimensionScores: { code_quality: 88, architecture: 85, stability: 87, efficiency: 84, collaboration: 88, security_aware: 82, test_coverage: 86 },
+    observations: [
+      { period: '2月', score: 79 },
+      { period: '3月', score: 81 },
+      { period: '4月', score: 82 },
+      { period: '5月', score: 84 },
+      { period: '6月', score: 85 },
+      { period: '7月', score: 86 },
+    ],
+    forecast: [
+      { period: 'T+1', score: 87, trend: 'up' },
+      { period: 'T+2', score: 88, trend: 'up' },
+      { period: 'T+3', score: 88, trend: 'stable' },
+      { period: 'T+4', score: 89, trend: 'up' },
+    ],
+    model: 'linear-regression',
+  };
+}
+
+const TEAM_DIM_LABELS: Record<string, string> = {
+  code_quality: '代码质量', architecture: '架构能力', stability: '稳定性',
+  efficiency: '交付效率', collaboration: '协作能力', security_aware: '安全意识', test_coverage: '测试覆盖',
+};
+
+export function mockTeamSkillsMatrix(teamId: string): SkillsMatrix {
+  const dimensions = ['code_quality', 'architecture', 'stability', 'efficiency', 'collaboration', 'security_aware', 'test_coverage'];
+  const members: SkillsMatrixMember[] = [
+    { id: 'tm-1', name: '林涛', role: '技术专家', level: 'D2', scores: { code_quality: 92, architecture: 90, stability: 88, efficiency: 86, collaboration: 90, security_aware: 85, test_coverage: 88 } },
+    { id: 'tm-2', name: '陈航', role: '高级工程师', level: 'E2', scores: { code_quality: 88, architecture: 84, stability: 85, efficiency: 87, collaboration: 86, security_aware: 80, test_coverage: 84 } },
+    { id: 'tm-3', name: '周明', role: '高级工程师', level: 'E3', scores: { code_quality: 90, architecture: 88, stability: 86, efficiency: 85, collaboration: 88, security_aware: 83, test_coverage: 87 } },
+    { id: 'tm-4', name: '赵婷', role: '高级工程师', level: 'E1', scores: { code_quality: 86, architecture: 82, stability: 88, efficiency: 84, collaboration: 89, security_aware: 84, test_coverage: 85 } },
+    { id: 'tm-5', name: '刘宇', role: '工程师', level: 'F3', scores: { code_quality: 84, architecture: 78, stability: 82, efficiency: 86, collaboration: 85, security_aware: 76, test_coverage: 80 } },
+    { id: 'tm-6', name: '李娜', role: '工程师', level: 'F2', scores: { code_quality: 82, architecture: 76, stability: 84, efficiency: 83, collaboration: 87, security_aware: 78, test_coverage: 82 } },
+    { id: 'tm-7', name: '张敏', role: '工程师', level: 'F2', scores: { code_quality: 80, architecture: 74, stability: 80, efficiency: 82, collaboration: 86, security_aware: 72, test_coverage: 78 } },
+    { id: 'tm-8', name: '孙磊', role: '工程师', level: 'F1', scores: { code_quality: 78, architecture: 72, stability: 76, efficiency: 80, collaboration: 84, security_aware: 70, test_coverage: 74 } },
+  ];
+  const teamAverage: Record<string, number> = {};
+  for (const dim of dimensions) {
+    const vals = members.map((m) => m.scores[dim]).filter((v): v is number => typeof v === 'number');
+    teamAverage[dim] = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+  }
+  return {
+    teamId,
+    teamName: '业务中台组',
+    dimensions,
+    dimensionLabels: { ...TEAM_DIM_LABELS },
+    members,
+    teamAverage,
+    memberCount: members.length,
+  };
+}
+
+export function mockTeamIceberg(teamId: string): Iceberg {
+  return {
+    teamId,
+    teamName: '业务中台组',
+    explicit: [
+      { label: '代码质量', score: 88, description: '8 名成员有效数据' },
+      { label: '协作能力', score: 88, description: '8 名成员有效数据' },
+      { label: '稳定性', score: 87, description: '8 名成员有效数据' },
+      { label: '架构能力', score: 85, description: '8 名成员有效数据' },
+      { label: '交付效率', score: 84, description: '8 名成员有效数据' },
+    ],
+    implicit: [
+      { label: '提交节奏稳定性', score: 78, value: 0.87, unit: '占比', benchmark: 0.8, description: '样本 8 人' },
+      { label: '代码审查参与度', score: 75, value: 4.2, unit: '次/PR', benchmark: 3.5, description: '样本 8 人' },
+      { label: '协作响应时长', score: 72, value: 2.1, unit: '小时', benchmark: 3.0, description: '样本 8 人' },
+      { label: '变更回滚率', score: 68, value: 0.05, unit: '比例', benchmark: 0.08, description: '样本 8 人' },
+    ],
+    memberCount: 8,
+  };
+}
+
+export function mockTeamSwot(teamId: string): SwotResult {
+  return {
+    teamId,
+    teamName: '业务中台组',
+    swot: {
+      strengths: [
+        '订单系统健康度 90 分，交付效率与代码质量双高，交易核心链路稳固',
+        'Bus Factor 4，关键模块知识备份充分，无单点风险',
+        '协作能力维度 88 分，跨职能响应在 6 个团队中领先',
+      ],
+      weaknesses: [
+        '架构能力 85 分略低于头部团队，分布式纵深不足',
+        '安全意识 82 分，支付相关模块防护待加固',
+        '新人（F1-F2 职级）架构维度均分 74，承接核心模块需培养周期',
+      ],
+      opportunities: [
+        '交易量增长可推动容量规划与架构升级，沉淀中台能力',
+        '可复用订单系统的工程实践向搜索中台输出',
+        '引入安全门禁后预期安全维度 3 期内提升至 88+',
+      ],
+      threats: [
+        '支付平台技术债 45 分，若不治理将向交易链路传导',
+        '竞品交易链路升级，架构纵深不足可能影响迭代速度',
+        'F1-F3 工程师占比偏高，骨干流失会拉低整体均分',
+      ],
+    },
+  };
+}
+
+export function mockTeamHiringAdvice(teamId: string): HiringAdvice {
+  return {
+    teamId,
+    teamName: '业务中台组',
+    summary: '业务中台组整体能力均衡（均分 86），订单系统健康度 90 分表现突出；但架构能力（85）与安全意识（82）相对薄弱，随交易链路复杂度上升，需补充架构纵深与安全专项能力。',
+    positions: [
+      {
+        role: '高级后端架构师',
+        priority: 'high',
+        headcount: 1,
+        reason: '订单系统架构能力 85，随交易量增长需加强分布式架构与容量规划纵深，现有 E3 以上骨干仅 3 人。',
+        skills: ['分布式架构', 'Java/Kotlin', '高并发设计', '容量规划', '分布式事务'],
+      },
+      {
+        role: '应用安全工程师',
+        priority: 'medium',
+        headcount: 1,
+        reason: '安全意识维度 82，支付与交易链路需专项安全审查与防护加固，当前无专职安全岗。',
+        skills: ['应用安全', 'OWASP Top10', '代码审计', '密钥管理', 'API 安全'],
+      },
+    ],
+    internalTraining: [
+      {
+        direction: '测试覆盖向 90+ 冲刺',
+        reason: '测试覆盖维度 86 已达标，可由林涛带教张敏/孙磊向 90+ 提升，无需外招测试岗。',
+      },
+    ],
+  };
+}

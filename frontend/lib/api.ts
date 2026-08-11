@@ -6,6 +6,7 @@ import {
   overviewStats, trinityMatrix, healthTrend, riskAlerts, dataSources,
   projects, developers, teams, capabilityGaps, identityMatches,
   getDeveloperDetail, getProjectDetail, teamSpaces,
+  mockTeamForecast, mockTeamSkillsMatrix, mockTeamIceberg, mockTeamSwot, mockTeamHiringAdvice,
   activeProjects, activeDevelopers, activeTeams, repoList,
   modelProviders, taskRoutes, vectorCollections, embeddingModels,
   roleConfigs, roleStandards, DIMENSION_LABELS, ALL_LEVELS,
@@ -27,7 +28,7 @@ import type {
   ProjectCodeGraph, ArchitectureDesign, ArchitectureDesignListResponse,
   GlobalSearchResult, ProviderConfigM, ProviderConfigUpsert, DiscoveredRepo, RepoImportRequest,
   ProjectForecast, TeamForecast, CareerPathResult, RiskCenter, ApiTokenM,
-  SkillsMatrix, Iceberg, SwotResult, CodeSearchResult,
+  SkillsMatrix, Iceberg, SwotResult, HiringAdvice, CodeSearchResult,
 } from './types';
 import { LEVEL_GROUPS } from './types';
 
@@ -636,15 +637,15 @@ export const api = {
     fetchAPI<CodeSearchResult[]>(`/projects/${projectId}/search?q=${encodeURIComponent(q)}`),
 
   getTeamForecast: (teamId: string): Promise<TeamForecast> =>
-    fetchAPI<TeamForecast>(`/teams/${teamId}/forecast`),
-  getTeamHiringAdvice: (teamId: string): Promise<{ teamId: string; teamName: string; advice: string }> =>
-    fetchAPI<{ teamId: string; teamName: string; advice: string }>(`/teams/${teamId}/hiring-advice`, { method: 'POST' }),
+    USE_MOCK ? mockDelay(mockTeamForecast(teamId)) : fetchAPI<TeamForecast>(`/teams/${teamId}/forecast`),
+  getTeamHiringAdvice: (teamId: string): Promise<HiringAdvice> =>
+    USE_MOCK ? mockDelay(mockTeamHiringAdvice(teamId)) : fetchAPI<HiringAdvice>(`/teams/${teamId}/hiring-advice`, { method: 'POST' }),
   getTeamSkillsMatrix: (teamId: string): Promise<SkillsMatrix> =>
-    fetchAPI<SkillsMatrix>(`/teams/${teamId}/skills-matrix`),
+    USE_MOCK ? mockDelay(mockTeamSkillsMatrix(teamId)) : fetchAPI<SkillsMatrix>(`/teams/${teamId}/skills-matrix`),
   getTeamIceberg: (teamId: string): Promise<Iceberg> =>
-    fetchAPI<Iceberg>(`/teams/${teamId}/iceberg`),
+    USE_MOCK ? mockDelay(mockTeamIceberg(teamId)) : fetchAPI<Iceberg>(`/teams/${teamId}/iceberg`),
   getTeamSwot: (teamId: string): Promise<SwotResult> =>
-    fetchAPI<SwotResult>(`/teams/${teamId}/swot`, { method: 'POST' }),
+    USE_MOCK ? mockDelay(mockTeamSwot(teamId)) : fetchAPI<SwotResult>(`/teams/${teamId}/swot`, { method: 'POST' }),
   getDeveloperCareerPath: (developerId: string): Promise<CareerPathResult> =>
     fetchAPI<CareerPathResult>(`/developers/${developerId}/career-path`, { method: 'POST' }),
   getRiskCenter: (): Promise<RiskCenter> =>

@@ -7,7 +7,7 @@
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
-import { Users, AlertTriangle, BusIcon, Network, Eye, EyeOff, UserPlus, Loader2, X, Grid3x3, Mountain, Compass, Settings2, Save, RefreshCw } from 'lucide-react';
+import { Users, AlertTriangle, BusIcon, Network, Eye, EyeOff, UserPlus, Loader2, X, Grid3x3, Mountain, Compass, Settings2, Save, RefreshCw, TrendingUp } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,7 @@ import { ForecastCard } from '@/components/forecast-card';
 import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { scoreColor } from '@/lib/utils';
-import type { Team, CapabilityGap, TeamForecast, SkillsMatrix, Iceberg, SwotResult, SkillGroup, Skill, SkillGroupAnalysisType } from '@/lib/types';
+import type { Team, CapabilityGap, TeamForecast, SkillsMatrix, Iceberg, SwotResult, HiringAdvice, HiringPosition, SkillGroup, Skill, SkillGroupAnalysisType } from '@/lib/types';
 
 const CAPABILITY_LABELS: Record<string, string> = {
   code_quality: '代码质量', architecture: '架构能力', stability: '稳定性',
@@ -113,7 +113,7 @@ function SkillsMatrixView({ data }: { data: SkillsMatrix }) {
 /** 冰山模型：显性（水上）vs 隐性（水下） */
 function IcebergView({ data }: { data: Iceberg }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="rounded-xl border border-primary/25 bg-primary/5 p-4">
         <div className="flex items-center gap-2 text-sm font-semibold text-primary"><Mountain className="h-4 w-4" />显性能力 · 水面以上</div>
         <p className="mt-1 text-xs text-muted-foreground">可直接观察的技能与知识，决定"能不能做"</p>
@@ -130,8 +130,14 @@ function IcebergView({ data }: { data: Iceberg }) {
           {(data.explicit ?? []).length === 0 && <p className="text-xs text-muted-foreground">暂无显性能力数据</p>}
         </div>
       </div>
-      <div className="rounded-xl border border-border/25 bg-background p-4 shadow-inner">
-        <div className="flex items-center gap-2 text-sm font-semibold text-foreground"><Mountain className="h-4 w-4 rotate-180" />隐性特质 · 水面以下</div>
+      {/* 水位线 */}
+      <div className="flex items-center gap-2 px-1 text-[10px] font-medium text-primary/50">
+        <span className="h-px flex-1 bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+        <span>～ 水位线 ～</span>
+        <span className="h-px flex-1 bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+      </div>
+      <div className="rounded-xl border border-primary/15 bg-primary/[0.08] p-4 shadow-inner">
+        <div className="flex items-center gap-2 text-sm font-semibold text-foreground/80"><Mountain className="h-4 w-4 rotate-180 text-primary/60" />隐性特质 · 水面以下</div>
         <p className="mt-1 text-xs text-muted-foreground">行为模式、协作与稳定性，决定"能走多远"</p>
         <div className="mt-3 space-y-2">
           {(data.implicit ?? []).map((item, i) => (
@@ -190,6 +196,66 @@ function SwotView({ data }: { data: SwotResult }) {
   );
 }
 
+/** 招聘建议：结构化卡片（总评 + 岗位列表 + 内部培养方向） */
+function HiringAdviceView({ data }: { data: HiringAdvice }) {
+  const priorityTone: Record<HiringPosition['priority'], { badge: 'danger' | 'warning' | 'secondary'; label: string; dot: string }> = {
+    high: { badge: 'danger', label: '高优先', dot: 'var(--destructive)' },
+    medium: { badge: 'warning', label: '中优先', dot: 'var(--warning)' },
+    low: { badge: 'secondary', label: '低优先', dot: 'var(--muted-foreground)' },
+  };
+  return (
+    <div className="space-y-4">
+      {data.summary && (
+        <div className="rounded-xl border border-primary/25 bg-primary/5 p-3 text-sm leading-relaxed text-foreground/90">
+          {data.summary}
+        </div>
+      )}
+      {data.positions.length > 0 ? (
+        <div className="space-y-2.5">
+          <div className="text-xs font-medium text-muted-foreground">建议补充岗位 · {data.positions.length}</div>
+          {data.positions.map((p, i) => {
+            const tone = priorityTone[p.priority] ?? priorityTone.medium;
+            return (
+              <div key={i} className="rounded-xl border border-border/60 bg-muted/10 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-semibold">{p.role}</span>
+                  <Badge variant={tone.badge} className="gap-1"><span className="h-1.5 w-1.5 rounded-full" style={{ background: tone.dot }} />{tone.label}</Badge>
+                  <span className="ml-auto font-mono text-xs text-muted-foreground">×{p.headcount}</span>
+                </div>
+                {p.reason && <p className="mt-2 text-xs leading-relaxed text-foreground/80">{p.reason}</p>}
+                {p.skills.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {p.skills.map((s, si) => (
+                      <span key={si} className="rounded-md bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">{s}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border/60 bg-muted/10 p-4 text-center text-xs text-muted-foreground">
+          当前缺口可通过内部培养补齐，暂无外部招聘刚需。
+        </div>
+      )}
+      {data.internalTraining.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-xs font-medium text-muted-foreground">优先内部培养方向</div>
+          {data.internalTraining.map((t, i) => (
+            <div key={i} className="rounded-lg border border-accent/30 bg-accent/5 p-2.5">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-accent">
+                <span className="h-1 w-1 rounded-full bg-accent" />{t.direction}
+              </div>
+              {t.reason && <p className="mt-1 pl-2.5 text-xs leading-relaxed text-foreground/70">{t.reason}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function TeamsPage() {
   const [teams, setTeams] = React.useState<Team[]>([]);
   const [gaps, setGaps] = React.useState<CapabilityGap[]>([]);
@@ -197,16 +263,12 @@ export default function TeamsPage() {
   const [sortBy, setSortBy] = React.useState('avgScore');
   // 默认所有团队都亮
   const [hiddenTeams, setHiddenTeams] = React.useState<Set<string>>(new Set());
-  // P5：招聘建议弹窗
-  const [adviceTeam, setAdviceTeam] = React.useState<Team | null>(null);
-  const [advice, setAdvice] = React.useState('');
-  const [adviceLoading, setAdviceLoading] = React.useState(false);
-  const [adviceError, setAdviceError] = React.useState('');
+  // 团队分析弹窗：招聘建议（结构化）
+  const [hiring, setHiring] = React.useState<HiringAdvice | null>(null);
   const [teamForecast, setTeamForecast] = React.useState<TeamForecast | null>(null);
-  const [forecastLoading, setForecastLoading] = React.useState(false);
   // 分析模型弹窗
   const [analysisTeam, setAnalysisTeam] = React.useState<Team | null>(null);
-  const [analysisModel, setAnalysisModel] = React.useState<'skills' | 'iceberg' | 'swot' | 'hiring'>('skills');
+  const [analysisModel, setAnalysisModel] = React.useState<'skills' | 'iceberg' | 'swot' | 'hiring' | 'forecast'>('skills');
   const [skills, setSkills] = React.useState<SkillsMatrix | null>(null);
   const [iceberg, setIceberg] = React.useState<Iceberg | null>(null);
   const [swot, setSwot] = React.useState<SwotResult | null>(null);
@@ -267,12 +329,12 @@ export default function TeamsPage() {
   const openAnalysis = async (team: Team, model: typeof analysisModel) => {
     setAnalysisTeam(team);
     setAnalysisModel(model);
-    setAdviceError('');
     setAnalysisError('');
     setTeamForecast(null);
     setSkills(null);
     setIceberg(null);
     setSwot(null);
+    setHiring(null);
     setAnalysisLoading(true);
 
     const loadForecast = api.getTeamForecast(team.id)
@@ -284,7 +346,9 @@ export default function TeamsPage() {
         ? api.getTeamIceberg(team.id).then((i) => setIceberg(i))
         : model === 'swot'
           ? api.getTeamSwot(team.id).then((sw) => setSwot(sw))
-          : api.getTeamHiringAdvice(team.id).then((res) => setAdvice(res.advice));
+          : model === 'hiring'
+            ? api.getTeamHiringAdvice(team.id).then((res) => setHiring(res))
+            : Promise.resolve(); // forecast：数据已由 loadForecast 预载
 
     Promise.all([loadForecast, loadMain])
       .catch((e) => setAnalysisError(e instanceof Error ? e.message : '加载团队分析失败'))
@@ -342,6 +406,8 @@ export default function TeamsPage() {
   const switchAnalysis = (team: Team, model: typeof analysisModel) => {
     setAnalysisModel(model);
     setAnalysisError('');
+    // forecast 数据在 openAnalysis 时已预载，切换无需重新请求
+    if (model === 'forecast') return;
     setAnalysisLoading(true);
     const loader = model === 'skills'
       ? api.getTeamSkillsMatrix(team.id).then((s) => setSkills(s))
@@ -349,7 +415,7 @@ export default function TeamsPage() {
         ? api.getTeamIceberg(team.id).then((i) => setIceberg(i))
         : model === 'swot'
           ? api.getTeamSwot(team.id).then((sw) => setSwot(sw))
-          : api.getTeamHiringAdvice(team.id).then((res) => setAdvice(res.advice));
+          : api.getTeamHiringAdvice(team.id).then((res) => setHiring(res));
     loader
       .catch((e) => setAnalysisError(e instanceof Error ? e.message : '加载失败'))
       .finally(() => setAnalysisLoading(false));
@@ -608,6 +674,7 @@ export default function TeamsPage() {
                 ['iceberg', '冰山模型', Mountain],
                 ['swot', 'SWOT', Compass],
                 ['hiring', '招聘建议', UserPlus],
+                ['forecast', '趋势预测', TrendingUp],
               ] as const).map(([key, label, Icon]) => (
                 <Button
                   key={key}
@@ -634,19 +701,34 @@ export default function TeamsPage() {
                 {analysisModel === 'skills' && skills && <SkillsMatrixView data={skills} />}
                 {analysisModel === 'iceberg' && iceberg && <IcebergView data={iceberg} />}
                 {analysisModel === 'swot' && swot && <SwotView data={swot} />}
-                {analysisModel === 'hiring' && (
-                  <div className="whitespace-pre-wrap rounded-xl border border-border/60 bg-muted/20 p-4 text-sm leading-relaxed">{advice || '暂无招聘建议，请重试。'}</div>
+                {analysisModel === 'hiring' && hiring && <HiringAdviceView data={hiring} />}
+                {analysisModel === 'forecast' && teamForecast && (
+                  <div className="space-y-4">
+                    <ForecastCard projectId={teamForecast.teamId} observations={teamForecast.observations} forecast={teamForecast.forecast} model={teamForecast.model} />
+                    {teamForecast.dimensionScores && Object.keys(teamForecast.dimensionScores).length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-sm">当前维度均值</CardTitle>
+                          <CardDescription className="mt-1">团队最近一次评估的各能力维度得分</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <CapabilityRadar
+                            series={[{
+                              name: teamForecast.teamName,
+                              data: Object.fromEntries(
+                                Object.entries(teamForecast.dimensionScores).map(([k, v]) => [CAPABILITY_LABELS[k] || k, v])
+                              ),
+                              color: TEAM_COLORS[0],
+                            }]}
+                            height={280}
+                          />
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
                 )}
               </div>
             )}
-
-            {forecastLoading ? (
-              <div className="mt-4 h-40 rounded-xl skeleton" />
-            ) : teamForecast && analysisModel !== 'hiring' ? (
-              <div className="mt-4">
-                <ForecastCard projectId={teamForecast.teamId} observations={teamForecast.observations} forecast={teamForecast.forecast} model={teamForecast.model} />
-              </div>
-            ) : null}
           </div>
         </div>
       )}

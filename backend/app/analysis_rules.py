@@ -37,11 +37,14 @@ BUILTIN_GROUP_TEMPLATES: dict[str, str] = {
         "团队成员：\n{member_lines}\n"
         "能力缺口：\n{gap_lines}\n"
         "评估规则：\n{rules}\n"
-        "请用中文输出，结构：\n"
-        "1. 团队现状一句话判断\n"
-        "2. 最值得补充的 1-3 个岗位，每个给出：岗位、理由、优先级（高/中/低）\n"
-        "3. 若现有成员通过培养即可补齐缺口，说明应优先内部培养的方向\n"
-        "控制在 400 字以内，务实具体。"
+        "请输出严格 JSON（不要多余文字、不要 markdown 代码块），结构如下：\n"
+        '{"summary":"团队现状一句话判断",'
+        '"positions":[{"role":"岗位名","priority":"high|medium|low","headcount":1,'
+        '"reason":"与缺口对应的理由","skills":["技能1","技能2"]}],'
+        '"internal_training":[{"direction":"培养方向","reason":"为何可内部补齐"}]}\n'
+        "要求：positions 1-3 条且与能力缺口直接对应；internal_training 0-2 条，"
+        "先判断能否内部培养再建议外招；priority 仅 high/medium/low；"
+        "headcount 为正整数；务实具体、基于给定数据不编造。"
     ),
     "growth_advice": (
         "你是一名软件研发团队的技术负责人。请为一名开发者生成个性化的成长建议。\n"
@@ -108,6 +111,8 @@ BUILTIN_GROUP_RULES: dict[str, list[dict]] = {
          "rule_content": "招聘岗位建议需与团队能力缺口直接对应，给出优先级（高/中/低）与理由。"},
         {"name": "内外结合", "category": "quality", "severity": "low",
          "rule_content": "先判断能否通过内部培养补齐缺口，再建议外部招聘。"},
+        {"name": "优先级合法", "category": "quality", "severity": "medium",
+         "rule_content": "positions[].priority 必须为 high/medium/low 三者之一；headcount 为正整数。"},
     ],
     "growth_advice": [
         {"name": "可执行", "category": "quality", "severity": "high",

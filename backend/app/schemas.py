@@ -812,6 +812,27 @@ class SwotResultM(CamelModel):
     swot: SwotQuadrantM
 
 
+class HiringPositionM(CamelModel):
+    role: str
+    priority: str = "medium"  # high / medium / low
+    headcount: int = 1
+    reason: str = ""
+    skills: list[str] = []
+
+
+class HiringTrainingM(CamelModel):
+    direction: str
+    reason: str = ""
+
+
+class HiringAdviceM(CamelModel):
+    team_id: str
+    team_name: str
+    summary: str = ""
+    positions: list[HiringPositionM] = []
+    internal_training: list[HiringTrainingM] = []
+
+
 # ============ 平台凭证 / 仓库发现 / Webhook ============
 class ProviderConfigM(CamelModel):
     id: str

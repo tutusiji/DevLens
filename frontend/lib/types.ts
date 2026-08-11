@@ -987,6 +987,27 @@ export interface SwotResult {
   swot: SwotData;
 }
 
+export interface HiringPosition {
+  role: string;
+  priority: 'high' | 'medium' | 'low';
+  headcount: number;
+  reason: string;
+  skills: string[];
+}
+
+export interface HiringTraining {
+  direction: string;
+  reason: string;
+}
+
+export interface HiringAdvice {
+  teamId: string;
+  teamName: string;
+  summary: string;
+  positions: HiringPosition[];
+  internalTraining: HiringTraining[];
+}
+
 export interface RiskAlertItem {
   level: 'P0' | 'P1' | 'P2';
   category: string;

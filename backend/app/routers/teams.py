@@ -9,7 +9,7 @@ from ..db import get_db
 from .. import models, schemas
 from ..access import TenantContext, require_permission
 from ..capability import DIMENSION_LABELS
-from ..llm import chat
+from ..llm import chat, chat_json
 
 router = APIRouter()
 
@@ -228,13 +228,24 @@ def team_forecast(
         return sum(values) / len(values) if values else 0.0
 
     dims = sorted({k for s in latest_scores for k in s.keys()})
-    # 用团队项目 snapshot 补历史序列
-    snapshots = (
-        db.query(models.ProjectAssessmentSnapshot)
-        .filter_by(tenant_id=ctx.tenant_id)
-        .order_by(models.ProjectAssessmentSnapshot.recorded_at.asc())
+    # 用团队所属项目的 snapshot 补历史序列（按团队过滤，避免不同团队趋势雷同）
+    team_project_ids = [
+        r[0] for r in db.query(models.Project.id)
+        .filter(models.Project.team_id == tid, models.Project.tenant_id == ctx.tenant_id)
         .all()
-    )
+    ]
+    if team_project_ids:
+        snapshots = (
+            db.query(models.ProjectAssessmentSnapshot)
+            .filter(
+                models.ProjectAssessmentSnapshot.tenant_id == ctx.tenant_id,
+                models.ProjectAssessmentSnapshot.project_id.in_(team_project_ids),
+            )
+            .order_by(models.ProjectAssessmentSnapshot.recorded_at.asc())
+            .all()
+        )
+    else:
+        snapshots = []
     team_snapshot_avg: dict[str, list[int]] = {}
     for snap in snapshots:
         key = snap.recorded_at[:7]
@@ -366,13 +377,13 @@ def risk_center(
     }
 
 
-@router.post("/teams/{tid}/hiring-advice")
+@router.post("/teams/{tid}/hiring-advice", response_model=schemas.HiringAdviceM)
 def team_hiring_advice(
     tid: str,
     db: Session = Depends(get_db),
     ctx: TenantContext = Depends(require_permission("assessment:run")),
 ):
-    """基于团队能力缺口生成招聘建议（Skill 驱动）。"""
+    """基于团队能力缺口生成招聘建议（Skill 驱动，结构化输出）。"""
     from ..analysis_rules import get_group, render_prompt
 
     team_name = _resolve_team_name(db, tid, ctx.tenant_id) or tid
@@ -398,11 +409,46 @@ def team_hiring_advice(
             team_name=team_name, member_lines=member_lines, gap_lines=gap_lines, rules="- 无额外规则",
         )
     try:
-        advice = chat([{"role": "user", "content": prompt}], max_tokens=1500)
+        data = chat_json([{"role": "user", "content": prompt}], max_tokens=1500)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"生成招聘建议失败: {exc}") from exc
 
-    return {"team_id": tid, "team_name": team_name, "advice": advice}
+    # 规整 LLM 输出为结构化对象，缺字段兜底
+    positions = []
+    for p in (data.get("positions") or [])[:3]:
+        if not isinstance(p, dict):
+            continue
+        priority = str(p.get("priority", "medium")).lower()
+        if priority not in ("high", "medium", "low"):
+            priority = "medium"
+        skills = [str(s) for s in (p.get("skills") or []) if isinstance(s, (str, int, float))][:8]
+        try:
+            headcount = max(1, int(p.get("headcount", 1)))
+        except (TypeError, ValueError):
+            headcount = 1
+        positions.append({
+            "role": str(p.get("role", "未命名岗位"))[:60],
+            "priority": priority,
+            "headcount": headcount,
+            "reason": str(p.get("reason", ""))[:300],
+            "skills": skills,
+        })
+    internal_training = []
+    for t in (data.get("internal_training") or [])[:2]:
+        if not isinstance(t, dict):
+            continue
+        internal_training.append({
+            "direction": str(t.get("direction", ""))[:60],
+            "reason": str(t.get("reason", ""))[:300],
+        })
+
+    return {
+        "team_id": tid,
+        "team_name": team_name,
+        "summary": str(data.get("summary", ""))[:300],
+        "positions": positions,
+        "internal_training": internal_training,
+    }
 
 
 # ============ 团队分析模型：技能矩阵 / 冰山模型 / SWOT ============
@@ -579,15 +625,12 @@ def team_swot(
             team_name=team_name, member_lines=member_lines, cap_lines=cap_lines,
             proj_lines=proj_lines, gap_lines=gap_lines, rules="- 无额外规则",
         )
-    import json
     try:
-        text = chat([{"role": "user", "content": prompt}], max_tokens=2000)
-        m = text[text.find("{"): text.rfind("}") + 1]
-        data = json.loads(m)
-        for key in ("strengths", "weaknesses", "opportunities", "threats"):
-            if not isinstance(data.get(key), list):
-                data[key] = []
+        data = chat_json([{"role": "user", "content": prompt}], max_tokens=2000)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"生成 SWOT 分析失败: {exc}") from exc
+    for key in ("strengths", "weaknesses", "opportunities", "threats"):
+        if not isinstance(data.get(key), list):
+            data[key] = []
 
     return {"team_id": tid, "team_name": team_name, "swot": data}
