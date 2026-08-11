@@ -415,7 +415,7 @@ def risk_center(
 def team_hiring_advice(
     tid: str,
     db: Session = Depends(get_db),
-    ctx: TenantContext = Depends(require_permission("assessment:run")),
+    ctx: TenantContext = Depends(require_permission("assessment:read")),
 ):
     """基于团队能力缺口生成招聘建议（Skill 驱动，结构化输出）。"""
     from ..analysis_rules import get_group, render_prompt
