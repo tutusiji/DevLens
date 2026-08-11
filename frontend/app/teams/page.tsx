@@ -638,6 +638,9 @@ export default function TeamsPage() {
                     <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 px-2 text-[11px]" onClick={() => void openAnalysis(team, 'swot')}>
                       <Compass className="h-3 w-3" />SWOT
                     </Button>
+                    <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 px-2 text-[11px]" onClick={() => void openAnalysis(team, 'forecast')}>
+                      <TrendingUp className="h-3 w-3" />趋势
+                    </Button>
                     <Button type="button" size="sm" variant="outline" className="h-7 gap-1 px-2 text-[11px]" onClick={() => void openAnalysis(team, 'hiring')}>
                       <UserPlus className="h-3 w-3" />招聘建议
                     </Button>
@@ -692,7 +695,7 @@ export default function TeamsPage() {
             {analysisLoading ? (
               <div className="mt-5 flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-primary">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                正在加载 {analysisModel === 'skills' ? '技能矩阵' : analysisModel === 'iceberg' ? '冰山模型' : analysisModel === 'swot' ? 'SWOT 分析' : '招聘建议'}…
+                正在加载 {analysisModel === 'skills' ? '技能矩阵' : analysisModel === 'iceberg' ? '冰山模型' : analysisModel === 'swot' ? 'SWOT 分析' : analysisModel === 'forecast' ? '趋势预测' : '招聘建议'}…
               </div>
             ) : analysisError ? (
               <p className="mt-5 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{analysisError}</p>

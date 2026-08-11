@@ -18,13 +18,43 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _team_developers(db: Session, team_id: str) -> list[models.Developer]:
-    """取组织树团队（team_spaces）下的开发者；同时兼容旧 team_id 字段。"""
+def _team_space_descendants(db: Session, space_id: str) -> list[str]:
+    """递归取 TeamSpace 节点及其所有后代的 id 列表。"""
+    rows = db.query(models.TeamSpace.id).filter_by(parent_id=space_id).all()
+    result = [space_id]
+    for (child_id,) in rows:
+        result.extend(_team_space_descendants(db, child_id))
+    return result
+
+
+def _team_member_space_ids(db: Session, team_id: str, tenant_id: str) -> list[str]:
+    """返回一个团队 id 对应的所有 TeamSpace 子节点 id（用于查成员/项目）。
+
+    优先级：
+    1. 若 team_id 本身就是 TeamSpace（或叶团队挂在 team_space_id 上），返回其整棵子树
+    2. 否则退回 [team_id] 本身（让后续直接匹配 Developer.team_id / group_id）
+    """
+    space = db.query(models.TeamSpace).filter_by(id=team_id, tenant_id=tenant_id).first()
+    if space:
+        return _team_space_descendants(db, team_id)
+    # 非 space 节点：保持原 id 直接匹配（可能是 TeamGroup id 或旧 team_id）
+    return [team_id]
+
+
+def _team_developers(db: Session, team_id: str, tenant_id: str | None = None) -> list[models.Developer]:
+    """取组织树团队下的所有开发者（含子团队）。
+
+    支持三种匹配路径：
+    - TeamSpace 子树（自动递归展开后代）：父团队 → 子团队 → 叶团队成员都能拿到
+    - Developer.team_id（叶团队 / 业务团队直接挂）
+    - Developer.team_space_id / group_id（旧字段兼容）
+    """
+    space_ids = _team_member_space_ids(db, team_id, tenant_id) if tenant_id else [team_id]
     return (
         db.query(models.Developer)
         .filter(
-            (models.Developer.team_space_id == team_id)
-            | (models.Developer.team_id == team_id)
+            models.Developer.team_id.in_(space_ids)
+            | (models.Developer.team_space_id == team_id)
             | (models.Developer.group_id == team_id)
         )
         .all()
@@ -211,7 +241,7 @@ def team_forecast(
     """
     team_name = _resolve_team_name(db, tid, ctx.tenant_id) or tid
 
-    devs = _team_developers(db, tid)
+    devs = _team_developers(db, tid, ctx.tenant_id)
     latest_scores: list[dict] = []
     for dev in devs:
         evaluation = (
@@ -228,10 +258,14 @@ def team_forecast(
         return sum(values) / len(values) if values else 0.0
 
     dims = sorted({k for s in latest_scores for k in s.keys()})
-    # 用团队所属项目的 snapshot 补历史序列（按团队过滤，避免不同团队趋势雷同）
+    # 用团队（含子团队）所属项目的 snapshot 补历史序列（按团队过滤，避免不同团队趋势雷同）
+    team_space_ids = _team_member_space_ids(db, tid, ctx.tenant_id)
     team_project_ids = [
         r[0] for r in db.query(models.Project.id)
-        .filter(models.Project.team_id == tid, models.Project.tenant_id == ctx.tenant_id)
+        .filter(
+            models.Project.team_id.in_(team_space_ids),
+            models.Project.tenant_id == ctx.tenant_id,
+        )
         .all()
     ]
     if team_project_ids:
@@ -343,7 +377,7 @@ def risk_center(
     # 4. 无评估记录的高危团队：长期未做能力评估
     stale_days_threshold = 90
     for team in teams:
-        devs = _team_developers(db, team.id)
+        devs = _team_developers(db, team.id, ctx.tenant_id)
         if not devs:
             continue
         evaluated = False
@@ -388,7 +422,7 @@ def team_hiring_advice(
 
     team_name = _resolve_team_name(db, tid, ctx.tenant_id) or tid
 
-    devs = _team_developers(db, tid)
+    devs = _team_developers(db, tid, ctx.tenant_id)
     gaps = db.query(models.CapabilityGap).filter_by(tenant_id=ctx.tenant_id).all()
 
     gap_lines = "\n".join(
@@ -460,7 +494,7 @@ def team_skills_matrix(
 ):
     """技能矩阵（Skills Matrix）：团队成员 × 能力维度 分数矩阵。"""
     team_name = _resolve_team_name(db, tid, ctx.tenant_id) or tid
-    devs = _team_developers(db, tid)
+    devs = _team_developers(db, tid, ctx.tenant_id)
 
     members = []
     for dev in devs:
@@ -508,7 +542,7 @@ def team_iceberg(
     显性层来自能力分数；隐性层来自行为证据（节奏/稳定性/协作等）与协作类维度。
     """
     team_name = _resolve_team_name(db, tid, ctx.tenant_id) or tid
-    devs = _team_developers(db, tid)
+    devs = _team_developers(db, tid, ctx.tenant_id)
 
     # 显性：团队平均能力分（8 个标准维度）
     explicit: list[dict] = []
@@ -586,7 +620,7 @@ def team_swot(
     from ..analysis_rules import get_group, render_prompt
 
     team_name = _resolve_team_name(db, tid, ctx.tenant_id) or tid
-    devs = _team_developers(db, tid)
+    devs = _team_developers(db, tid, ctx.tenant_id)
 
     # 团队能力均值
     dim_scores: dict[str, list[int]] = {}
